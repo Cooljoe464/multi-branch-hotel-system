@@ -41,7 +41,29 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'branch' => $this->resolveBranchData($request),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+        ];
+    }
+
+    private function resolveBranchData(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return null;
+        }
+
+        $currentBranch = $request->get('_branch') ?? $user->currentBranch;
+
+        if (! $currentBranch) {
+            return null;
+        }
+
+        return [
+            'current' => $currentBranch,
+            'available' => $user->branches()->active()->get(),
+            'can_switch' => $user->hasRole('Global Admin') || $user->branches()->count() > 1,
         ];
     }
 }
