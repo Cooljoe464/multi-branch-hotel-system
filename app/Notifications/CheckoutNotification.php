@@ -16,6 +16,9 @@ class CheckoutNotification extends Notification implements ShouldQueue
         public Reservation $reservation,
     ) {}
 
+    /**
+     * @return list<string>
+     */
     public function via(object $notifiable): array
     {
         return ['mail'];
@@ -26,7 +29,7 @@ class CheckoutNotification extends Notification implements ShouldQueue
         $guest = $this->reservation->guest;
         $branch = $this->reservation->branch;
 
-        $name = $guest?->full_name ?? $this->reservation->guest_name;
+        $name = $guest->full_name ?? $this->reservation->guest_name;
         $nights = $this->reservation->nights;
         $total = number_format($this->reservation->total_amount / 100, 2);
 
@@ -35,7 +38,7 @@ class CheckoutNotification extends Notification implements ShouldQueue
             ->greeting("Thank you, {$name}!")
             ->line("We hope you enjoyed your {$nights}-night stay at {$branch->name}.")
             ->line("**Confirmation:** {$this->reservation->confirmation_number}")
-            ->line('**Total Amount:** '.($this->reservation->currency_code ?? 'USD')." {$total}")
+            ->line("**Total Amount:** {$branch->currency_code} {$total}")
             ->line('Your folio is ready for review.')
             ->action('View Your Folio', route('guest.folio', $this->reservation->confirmation_number))
             ->line('We would love to hear about your experience. Your feedback helps us improve.')

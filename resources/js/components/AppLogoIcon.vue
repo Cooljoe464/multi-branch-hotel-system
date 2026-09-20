@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usePage } from '@inertiajs/vue3';
 import type { HTMLAttributes } from 'vue';
 
 defineOptions({
@@ -10,10 +11,20 @@ type Props = {
 };
 
 defineProps<Props>();
+
+const branding = usePage().props.branding as { app_name: string; logo_url: string | null } | undefined;
 </script>
 
 <template>
+    <img
+        v-if="branding?.logo_url"
+        :src="branding.logo_url"
+        :alt="branding?.app_name ?? 'Logo'"
+        :class="className"
+        v-bind="$attrs"
+    />
     <svg
+        v-else
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 40 42"
         :class="className"

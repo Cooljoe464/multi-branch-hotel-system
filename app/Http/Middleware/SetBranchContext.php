@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Branch;
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +16,12 @@ class SetBranchContext
     public function handle(Request $request, Closure $next): Response
     {
         if (! Auth::check()) {
-            return $next($request);
+            $response = $next($request);
+            if (! $response instanceof Response) {
+                abort(500);
+            }
+
+            return $response;
         }
 
         $user = $request->user();
@@ -26,27 +32,42 @@ class SetBranchContext
             $this->setBranch($request, $branch);
         }
 
-        return $next($request);
+        $response = $next($request);
+        if (! $response instanceof Response) {
+            abort(500);
+        }
+
+        return $response;
     }
 
-    private function resolveBranch(Request $request, $user): ?Branch
+    private function resolveBranch(Request $request, ?User $user): ?Branch
     {
+        if (! $user) {
+            return null;
+        }
+
         $requestedBranchId = $request->input('branch_id') ?? $request->route('branch');
 
-        if ($requestedBranchId && $this->isValidBranchForUser($user, (int) $requestedBranchId)) {
-            return Branch::findOrFail($requestedBranchId);
+        if (is_numeric($requestedBranchId)) {
+            $branchId = (int) $requestedBranchId;
+            if ($this->isValidBranchForUser($user, $branchId)) {
+                return Branch::findOrFail($branchId);
+            }
         }
 
         $sessionBranchId = session(self::SESSION_KEY);
 
-        if ($sessionBranchId && $this->isValidBranchForUser($user, $sessionBranchId)) {
-            return Branch::find($sessionBranchId);
+        if (is_numeric($sessionBranchId)) {
+            $branchId = (int) $sessionBranchId;
+            if ($this->isValidBranchForUser($user, $branchId)) {
+                return Branch::find($branchId);
+            }
         }
 
         return $this->getDefaultBranch($user);
     }
 
-    private function getDefaultBranch($user): ?Branch
+    private function getDefaultBranch(User $user): ?Branch
     {
         $defaultBranch = $user->defaultBranch();
 
@@ -54,10 +75,12 @@ class SetBranchContext
             return $defaultBranch;
         }
 
-        return $user->branches()->active()->first();
+        return Branch::where('is_active', true)
+            ->whereIn('id', $user->branches()->pluck('branches.id'))
+            ->first();
     }
 
-    private function isValidBranchForUser($user, int $branchId): bool
+    private function isValidBranchForUser(User $user, int $branchId): bool
     {
         if ($user->is_global_admin) {
             return Branch::where('id', $branchId)->where('is_active', true)->exists();

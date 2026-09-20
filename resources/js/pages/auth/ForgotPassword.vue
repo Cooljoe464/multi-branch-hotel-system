@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
-import InputError from '@/components/InputError.vue';
-import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import InputError from '@/components/InputError.vue';
+import TextLink from '@/components/TextLink.vue';
 import { login } from '@/routes';
 import { email } from '@/routes/password';
 
@@ -26,7 +26,7 @@ defineProps<{
 
     <div
         v-if="status"
-        class="mb-4 text-center text-sm font-medium text-green-600"
+        class="mb-4 text-center text-sm font-medium text-green-600 dark:text-green-400"
     >
         {{ status }}
     </div>
@@ -48,17 +48,20 @@ defineProps<{
 
             <div class="my-6 flex items-center justify-start">
                 <Button
+                    type="submit"
                     class="w-full"
                     :disabled="processing"
                     data-test="email-password-reset-link-button"
                 >
-                    <Spinner v-if="processing" />
+                    <Spinner v-if="processing" class="mr-2" />
                     Email password reset link
                 </Button>
             </div>
         </Form>
 
-        <div class="text-muted-foreground space-x-1 text-center text-sm">
+        <div
+            class="text-muted-foreground space-x-1 text-center text-sm"
+        >
             <span>Or, return to</span>
             <TextLink :href="login()">log in</TextLink>
         </div>

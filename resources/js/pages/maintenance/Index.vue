@@ -1,8 +1,19 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { Head, router, Link } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { type BreadcrumbItem } from '@/types';
+import { Head, router, Link, usePage } from '@inertiajs/vue3';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Pagination from '@/components/ui/pagination/Pagination.vue';
+import { getCurrencySymbol } from '@/lib/format';
+
+const page = usePage();
+const branchSymbol = computed(() => (page.props.branch?.current as any)?.currency_symbol || '$');
+const resolveSymbol = (code?: string) => getCurrencySymbol(code || 'NGN') || branchSymbol.value;
+const currencySymbol = computed(() => branchSymbol.value);
 
 interface User {
     id: number;
@@ -36,7 +47,13 @@ interface MaintenanceTicket {
 }
 
 const props = defineProps<{
-    tickets: MaintenanceTicket[];
+    tickets: {
+        data: MaintenanceTicket[];
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+    };
     lockedRooms: MaintenanceTicket[];
     users: User[];
     stats: {
@@ -51,10 +68,7 @@ const props = defineProps<{
     };
 }>();
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Maintenance', href: '/maintenance' },
-];
+defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Maintenance', href: '/maintenance' }] } });
 
 const selectedTicket = ref<MaintenanceTicket | null>(null);
 const showAssignModal = ref(false);
@@ -75,37 +89,48 @@ const filterForm = ref({
     priority: props.filters.priority || '',
 });
 
-const filteredTickets = computed(() => {
-    let result = [...props.tickets];
-    if (filterForm.value.status) {
-        result = result.filter(t => t.status === filterForm.value.status);
-    }
-    if (filterForm.value.category) {
-        result = result.filter(t => t.category === filterForm.value.category);
-    }
-    if (filterForm.value.priority) {
-        result = result.filter(t => t.priority === filterForm.value.priority);
-    }
-    return result;
-});
+const statusOptions = [
+    { label: 'Open', value: 'open' },
+    { label: 'In Progress', value: 'in_progress' },
+    { label: 'Completed', value: 'completed' },
+];
+
+const categoryOptions = [
+    { label: 'Plumbing', value: 'plumbing' },
+    { label: 'Electrical', value: 'electrical' },
+    { label: 'HVAC', value: 'hvac' },
+    { label: 'Furniture', value: 'furniture' },
+    { label: 'Appliance', value: 'appliance' },
+    { label: 'Structural', value: 'structural' },
+    { label: 'Other', value: 'other' },
+];
+
+const priorityOptions = [
+    { label: 'Low', value: 'low' },
+    { label: 'Normal', value: 'normal' },
+    { label: 'High', value: 'high' },
+    { label: 'Urgent', value: 'urgent' },
+];
+
+const userOptions = computed(() => props.users.map((u) => ({ label: u.name, value: String(u.id) })));
 
 const getPriorityBadgeClass = (priority: string) => {
     const classes: Record<string, string> = {
-        low: 'bg-gray-100 text-gray-800',
-        normal: 'bg-blue-100 text-blue-800',
-        high: 'bg-orange-100 text-orange-800',
-        urgent: 'bg-red-100 text-red-800',
+        low: 'bg-muted text-muted-foreground',
+        normal: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+        high: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+        urgent: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
     };
-    return classes[priority] || 'bg-gray-100 text-gray-800';
+    return classes[priority] || 'bg-muted text-muted-foreground';
 };
 
 const getStatusBadgeClass = (status: string) => {
     const classes: Record<string, string> = {
-        open: 'bg-yellow-100 text-yellow-800',
-        in_progress: 'bg-blue-100 text-blue-800',
-        completed: 'bg-green-100 text-green-800',
+        open: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+        in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+        completed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
     };
-    return classes[status] || 'bg-gray-100 text-gray-800';
+    return classes[status] || 'bg-muted text-muted-foreground';
 };
 
 const getCategoryLabel = (category: string) => {
@@ -176,190 +201,232 @@ const applyFilters = () => {
         replace: true,
     });
 };
+
+const goToPage = (page: number) => {
+    router.get('/maintenance', { ...filterForm.value, page }, {
+        preserveState: true,
+        replace: true,
+    });
+};
 </script>
 
 <template>
-    <AppLayout title="Maintenance" :breadcrumbs="breadcrumbs">
-        <div class="p-6">
-            <div class="mb-6 flex items-center justify-between">
-                <h1 class="text-2xl font-bold text-gray-900">Maintenance</h1>
-                <Link
-                    href="/maintenance/create"
-                    class="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800"
-                >
-                    New Ticket
-                </Link>
+    <Head title="Maintenance" />
+    <div class="p-4 md:p-6">
+        <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h1 class="text-2xl font-bold text-foreground">Maintenance</h1>
+                <Button as-child>
+                    <Link href="/maintenance/create">New Ticket</Link>
+                </Button>
             </div>
 
             <!-- Stats -->
             <div class="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="bg-white rounded-lg shadow p-4">
-                    <div class="text-sm text-gray-500">Open Tickets</div>
-                    <div class="text-2xl font-bold text-yellow-600">{{ stats.open }}</div>
+                <div class="bg-card rounded-lg shadow p-4">
+                    <div class="text-sm text-muted-foreground">Open Tickets</div>
+                    <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ stats.open }}</div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-4">
-                    <div class="text-sm text-gray-500">In Progress</div>
-                    <div class="text-2xl font-bold text-blue-600">{{ stats.in_progress }}</div>
+                <div class="bg-card rounded-lg shadow p-4">
+                    <div class="text-sm text-muted-foreground">In Progress</div>
+                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ stats.in_progress }}</div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-4">
-                    <div class="text-sm text-gray-500">Locked Rooms</div>
-                    <div class="text-2xl font-bold text-red-600">{{ stats.locked_rooms }}</div>
+                <div class="bg-card rounded-lg shadow p-4">
+                    <div class="text-sm text-muted-foreground">Locked Rooms</div>
+                    <div class="text-2xl font-bold text-red-600 dark:text-red-400">{{ stats.locked_rooms }}</div>
                 </div>
             </div>
 
             <!-- Locked Rooms -->
-            <div v-if="lockedRooms.length > 0" class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-                <h3 class="text-sm font-medium text-red-800 mb-2">Locked Rooms</h3>
+            <div v-if="lockedRooms.length > 0" class="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <h3 class="text-sm font-medium text-red-800 dark:text-red-300 mb-2">Locked Rooms</h3>
                 <div class="flex flex-wrap gap-2">
-                    <span
+                    <Badge
                         v-for="ticket in lockedRooms"
                         :key="ticket.id"
-                        class="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-sm"
+                        class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                        variant="outline"
                     >
                         Room {{ ticket.room?.number }}
                         <button
-                            class="text-red-500 hover:text-red-700"
+                            class="ml-1 text-muted-foreground hover:text-foreground"
+                            aria-label="Unlock room"
                             @click="unlockRoom(ticket)"
                         >
-                            ×
+                            &times;
                         </button>
-                    </span>
+                    </Badge>
                 </div>
             </div>
 
             <!-- Filters -->
-            <div class="mb-4 flex gap-4">
-                <select
-                    v-model="filterForm.status"
-                    class="rounded-md border-gray-300 text-sm"
-                    @change="applyFilters"
-                >
-                    <option value="">All Statuses</option>
-                    <option value="open">Open</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                </select>
-                <select
-                    v-model="filterForm.category"
-                    class="rounded-md border-gray-300 text-sm"
-                    @change="applyFilters"
-                >
-                    <option value="">All Categories</option>
-                    <option value="plumbing">Plumbing</option>
-                    <option value="electrical">Electrical</option>
-                    <option value="hvac">HVAC</option>
-                    <option value="furniture">Furniture</option>
-                    <option value="appliance">Appliance</option>
-                    <option value="structural">Structural</option>
-                    <option value="other">Other</option>
-                </select>
-                <select
-                    v-model="filterForm.priority"
-                    class="rounded-md border-gray-300 text-sm"
-                    @change="applyFilters"
-                >
-                    <option value="">All Priorities</option>
-                    <option value="low">Low</option>
-                    <option value="normal">Normal</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                </select>
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row">
+                <Select v-model="filterForm.status" @update:model-value="applyFilters" aria-label="Filter by status">
+                    <SelectTrigger class="w-full sm:w-[180px]">
+                        <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="option in statusOptions" :key="option.value" :value="option.value">
+                            {{ option.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select v-model="filterForm.category" @update:model-value="applyFilters" aria-label="Filter by category">
+                    <SelectTrigger class="w-full sm:w-[180px]">
+                        <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="option in categoryOptions" :key="option.value" :value="option.value">
+                            {{ option.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select v-model="filterForm.priority" @update:model-value="applyFilters" aria-label="Filter by priority">
+                    <SelectTrigger class="w-full sm:w-[180px]">
+                        <SelectValue placeholder="All Priorities" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="option in priorityOptions" :key="option.value" :value="option.value">
+                            {{ option.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
 
-            <!-- Tickets Table -->
-            <div class="bg-white rounded-lg shadow overflow-hidden">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+            <!-- Mobile: Card View -->
+            <div class="md:hidden space-y-3">
+                <div v-for="ticket in tickets.data" :key="ticket.id" class="rounded-lg border bg-card p-4">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                            <Link :href="`/maintenance/${ticket.id}`" class="text-sm font-medium text-foreground hover:underline">
+                                {{ ticket.ticket_number }}
+                            </Link>
+                            <div class="text-xs text-muted-foreground">{{ ticket.title }}</div>
+                        </div>
+                        <Badge :class="getPriorityBadgeClass(ticket.priority)" variant="outline">
+                            {{ ticket.priority }}
+                        </Badge>
+                    </div>
+                    <div class="text-sm text-muted-foreground mb-1">
+                        {{ getCategoryLabel(ticket.category) }}
+                        <span v-if="ticket.room"> • Room {{ ticket.room.number }}</span>
+                    </div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs text-muted-foreground">Status:</span>
+                        <Badge :class="getStatusBadgeClass(ticket.status)" variant="outline">
+                            {{ ticket.status.replace('_', ' ') }}
+                        </Badge>
+                    </div>
+                    <div class="text-sm text-muted-foreground mb-3">{{ ticket.assignee?.name || 'Unassigned' }}</div>
+                    <div class="flex flex-wrap gap-1">
+                        <Button v-if="ticket.status === 'open'" size="sm" @click="startTicket(ticket)">Start</Button>
+                        <Button v-if="ticket.status === 'in_progress'" size="sm" variant="default" class="bg-green-600 hover:bg-green-700 text-white dark:bg-green-700 dark:hover:bg-green-800" @click="openComplete(ticket)">Complete</Button>
+                        <Button v-if="!ticket.is_room_locked && ticket.room" size="sm" variant="destructive" @click="lockRoom(ticket)">Lock</Button>
+                        <Button v-if="ticket.is_room_locked" size="sm" variant="default" class="bg-green-600 hover:bg-green-700 text-white dark:bg-green-700 dark:hover:bg-green-800" @click="unlockRoom(ticket)">Unlock</Button>
+                        <Button size="sm" variant="outline" @click="openAssign(ticket)">Assign</Button>
+                        <Button size="sm" variant="destructive" aria-label="Delete ticket" @click="deleteTicket(ticket)">×</Button>
+                    </div>
+                </div>
+                <div v-if="tickets.data.length === 0" class="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+                    No tickets found.
+                </div>
+            </div>
+
+            <!-- Desktop: Table View -->
+            <div class="hidden md:block overflow-x-auto rounded-md border">
+                <table class="w-full caption-bottom text-sm">
+                    <thead class="border-b bg-muted/50 [&_tr]:border-b">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticket</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Room</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Ticket</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Room</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Category</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Priority</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Status</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Assigned To</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground"><span class="sr-only">Actions</span></th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        <tr v-for="ticket in filteredTickets" :key="ticket.id" class="hover:bg-gray-50">
-                            <td class="px-4 py-3">
-                                <a :href="`/maintenance/${ticket.id}`" class="text-sm font-medium text-gray-900 hover:underline">
+                    <tbody class="[&_tr:last-child]:border-0">
+                        <tr v-for="ticket in tickets.data" :key="ticket.id" class="border-b transition-colors hover:bg-muted/50">
+                            <td class="p-2 align-middle">
+                                <Link :href="`/maintenance/${ticket.id}`" class="text-sm font-medium text-foreground hover:underline">
                                     {{ ticket.ticket_number }}
-                                </a>
-                                <div class="text-xs text-gray-500">{{ ticket.title }}</div>
+                                </Link>
+                                <div class="text-xs text-muted-foreground">{{ ticket.title }}</div>
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">
+                            <td class="p-2 align-middle">
                                 {{ ticket.room?.number || 'N/A' }}
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">
+                            <td class="p-2 align-middle">
                                 {{ getCategoryLabel(ticket.category) }}
                             </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="px-2 py-1 text-xs font-medium rounded-full"
-                                    :class="getPriorityBadgeClass(ticket.priority)"
-                                >
+                            <td class="p-2 align-middle">
+                                <Badge :class="getPriorityBadgeClass(ticket.priority)" variant="outline">
                                     {{ ticket.priority }}
-                                </span>
+                                </Badge>
                             </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="px-2 py-1 text-xs font-medium rounded-full"
-                                    :class="getStatusBadgeClass(ticket.status)"
-                                >
+                            <td class="p-2 align-middle">
+                                <Badge :class="getStatusBadgeClass(ticket.status)" variant="outline">
                                     {{ ticket.status.replace('_', ' ') }}
-                                </span>
+                                </Badge>
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">
+                            <td class="p-2 align-middle">
                                 {{ ticket.assignee?.name || 'Unassigned' }}
                             </td>
-                            <td class="px-4 py-3 text-right">
+                            <td class="p-2 align-middle">
                                 <div class="flex justify-end gap-1">
-                                    <button
+                                    <Button
                                         v-if="ticket.status === 'open'"
-                                        class="px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded hover:bg-blue-100"
+                                        size="sm"
                                         @click="startTicket(ticket)"
                                     >
                                         Start
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         v-if="ticket.status === 'in_progress'"
-                                        class="px-2 py-1 text-xs text-green-700 bg-green-50 rounded hover:bg-green-100"
+                                        size="sm"
+                                        variant="default"
+                                        class="bg-green-600 hover:bg-green-700 text-white dark:bg-green-700 dark:hover:bg-green-800"
                                         @click="openComplete(ticket)"
                                     >
                                         Complete
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         v-if="!ticket.is_room_locked && ticket.room"
-                                        class="px-2 py-1 text-xs text-red-700 bg-red-50 rounded hover:bg-red-100"
+                                        size="sm"
+                                        variant="destructive"
                                         @click="lockRoom(ticket)"
                                     >
                                         Lock
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         v-if="ticket.is_room_locked"
-                                        class="px-2 py-1 text-xs text-green-700 bg-green-50 rounded hover:bg-green-100"
+                                        size="sm"
+                                        variant="default"
+                                        class="bg-green-600 hover:bg-green-700 text-white dark:bg-green-700 dark:hover:bg-green-800"
                                         @click="unlockRoom(ticket)"
                                     >
                                         Unlock
-                                    </button>
-                                    <button
-                                        class="px-2 py-1 text-xs text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
                                         @click="openAssign(ticket)"
                                     >
                                         Assign
-                                    </button>
-                                    <button
-                                        class="px-2 py-1 text-xs text-red-700 bg-red-50 rounded hover:bg-red-100"
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        aria-label="Delete ticket"
                                         @click="deleteTicket(ticket)"
                                     >
                                         ×
-                                    </button>
+                                    </Button>
                                 </div>
                             </td>
                         </tr>
-                        <tr v-if="filteredTickets.length === 0">
-                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                        <tr v-if="tickets.data.length === 0">
+                            <td colspan="7" class="p-2 align-middle text-center text-muted-foreground">
                                 No tickets found.
                             </td>
                         </tr>
@@ -367,94 +434,77 @@ const applyFilters = () => {
                 </table>
             </div>
 
-            <!-- Assign Modal -->
-            <div
-                v-if="showAssignModal && selectedTicket"
-                class="fixed inset-0 z-50 overflow-y-auto"
-                @click.self="showAssignModal = false"
-            >
-                <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                    <div class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl sm:my-8 sm:w-full sm:max-w-sm sm:p-6">
-                        <h3 class="text-lg font-semibold mb-4">Assign Ticket</h3>
-                        <form @submit.prevent="submitAssign">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Assign To</label>
-                                <select v-model="assignForm.assigned_to" class="mt-1 block w-full rounded-md border-gray-300">
-                                    <option value="">Unassigned</option>
-                                    <option v-for="user in users" :key="user.id" :value="user.id">
-                                        {{ user.name }}
-                                    </option>
-                                </select>
-                            </div>
-                            <div class="mt-6 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                                    @click="showAssignModal = false"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    class="px-4 py-2 text-sm text-white bg-gray-900 rounded-md hover:bg-gray-800"
-                                >
-                                    Assign
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+            <div class="mt-4">
+                <Pagination :data="tickets" label="tickets" @page-change="goToPage" />
             </div>
 
-            <!-- Complete Modal -->
-            <div
-                v-if="showCompleteModal && selectedTicket"
-                class="fixed inset-0 z-50 overflow-y-auto"
-                @click.self="showCompleteModal = false"
-            >
-                <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                    <div class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                        <h3 class="text-lg font-semibold mb-4">Complete Ticket {{ selectedTicket.ticket_number }}</h3>
-                        <form @submit.prevent="submitComplete">
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Resolution Notes</label>
-                                    <textarea
-                                        v-model="completeForm.resolution_notes"
-                                        rows="3"
-                                        class="mt-1 block w-full rounded-md border-gray-300"
-                                        placeholder="Describe the work performed..."
-                                    ></textarea>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Actual Cost ($)</label>
-                                    <input
-                                        v-model="completeForm.actual_cost"
-                                        type="number"
-                                        min="0"
-                                        class="mt-1 block w-full rounded-md border-gray-300"
-                                    >
-                                </div>
-                            </div>
-                            <div class="mt-6 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                                    @click="showCompleteModal = false"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    class="px-4 py-2 text-sm text-white bg-green-600 rounded-md hover:bg-green-700"
-                                >
-                                    Complete Ticket
-                                </button>
-                            </div>
-                        </form>
+            <!-- Assign Modal -->
+            <Dialog :open="showAssignModal" @update:open="showAssignModal = false">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Assign Ticket</DialogTitle>
+                    </DialogHeader>
+                    <div class="grid gap-4 py-4">
+                        <div class="grid gap-2">
+                            <Label>Assign To</Label>
+                            <Select v-model="assignForm.assigned_to" aria-label="Assign to user">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Unassigned" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="option in userOptions" :key="option.value" :value="option.value">
+                                        {{ option.label }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </AppLayout>
+                    <DialogFooter>
+                        <Button variant="outline" @click="showAssignModal = false">
+                            Cancel
+                        </Button>
+                        <Button @click="submitAssign">
+                            Assign
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <!-- Complete Modal -->
+            <Dialog :open="showCompleteModal" @update:open="showCompleteModal = false">
+                <DialogContent class="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Complete Ticket {{ selectedTicket?.ticket_number }}</DialogTitle>
+                    </DialogHeader>
+                    <div class="grid gap-4 py-4">
+                        <div class="grid gap-2">
+                            <Label for="resolution-notes">Resolution Notes</Label>
+                            <textarea
+                                id="resolution-notes"
+                                v-model="completeForm.resolution_notes"
+                                rows="3"
+                                placeholder="Describe the work performed..."
+                                class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="actual-cost">Actual Cost ({{ currencySymbol }})</Label>
+                            <Input
+                                id="actual-cost"
+                                v-model="completeForm.actual_cost"
+                                type="number"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" @click="showCompleteModal = false">
+                            Cancel
+                        </Button>
+                        <Button class="bg-green-600 hover:bg-green-700 text-white dark:bg-green-700 dark:hover:bg-green-800" @click="submitComplete">
+                            Complete Ticket
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+    </div>
 </template>

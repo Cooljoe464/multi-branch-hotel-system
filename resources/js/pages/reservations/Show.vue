@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { Head, router, Link } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { type BreadcrumbItem } from '@/types';
+import { Head, router, Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from '@lucide/vue';
+import { formatDate, formatDateTime } from '@/lib/dates';
+import { formatCurrency as formatCurrencyRaw } from '@/lib/format';
 
 interface Room {
     id: number;
@@ -49,43 +53,30 @@ const props = defineProps<{
     reservation: Reservation;
 }>();
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Reservations', href: '/reservations' },
-    { title: props.reservation.confirmation_number, href: `/reservations/${props.reservation.id}` },
-];
+defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Reservations', href: '/reservations' }, { title: 'Details', href: '/reservations' }] } });
 
-const getStatusBadgeClass = (status: string) => {
-    const classes: Record<string, string> = {
-        pending: 'bg-yellow-100 text-yellow-800',
-        confirmed: 'bg-blue-100 text-blue-800',
-        reserved: 'bg-indigo-100 text-indigo-800',
-        checked_in: 'bg-green-100 text-green-800',
-        checked_out: 'bg-gray-100 text-gray-800',
-        cancelled: 'bg-red-100 text-red-800',
-    };
-    return classes[status] || 'bg-gray-100 text-gray-800';
-};
+const page = usePage();
+const branchSymbol = computed(() => (page.props.branch?.current as any)?.currency_symbol || '$');
+const recordCurrencyCode = computed(() => props.reservation.currency_code || 'NGN');
+const currencySymbol = computed(() => {
+    const code = recordCurrencyCode.value;
+    const symbols: Record<string, string> = { NGN: '₦', USD: '$', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$', SGD: 'S$', INR: '₹', AED: 'د.إ' };
+    return symbols[code] || branchSymbol.value;
+});
+const formatCurrency = (amount: number, decimals = 2) => formatCurrencyRaw(amount, currencySymbol.value, decimals);
 
-const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-    });
-};
-
-const formatDateTime = (dateStr: string | null) => {
-    if (! dateStr) return '-';
-    return new Date(dateStr).toLocaleString();
+const statusBadgeVariant: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+    confirmed: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300',
+    reserved: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+    checked_in: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+    checked_out: 'bg-muted text-muted-foreground',
+    cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
 };
 
 const checkIn = () => {
-    const roomId = prompt('Enter Room ID to check in:');
-    if (roomId) {
-        router.post(`/reservations/${props.reservation.id}/check-in`, {
-            room_id: Number(roomId),
-        });
+    if (confirm('Check in this reservation?')) {
+        router.post(`/reservations/${props.reservation.id}/check-in`);
     }
 };
 
@@ -100,147 +91,156 @@ const cancel = () => {
         router.post(`/reservations/${props.reservation.id}/cancel`);
     }
 };
+
+const goBack = () => {
+    window.history.back();
+};
 </script>
 
 <template>
-    <AppLayout :title="reservation.confirmation_number" :breadcrumbs="breadcrumbs">
-        <div class="p-6 max-w-4xl mx-auto">
-            <div class="mb-6 flex items-center justify-between">
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-900">{{ reservation.confirmation_number }}</h1>
-                    <p class="text-gray-500">Guest: {{ reservation.guest_name }}</p>
+        <div class="p-4 md:p-6 max-w-4xl mx-auto">
+            <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-3">
+                    <Button variant="ghost" size="sm" @click="goBack()" class="gap-1 text-muted-foreground hover:text-foreground">
+                        <ArrowLeft class="size-4" /> Back
+                    </Button>
+                    <div>
+                    <h1 class="text-2xl font-bold text-foreground">{{ reservation.confirmation_number }}</h1>
+                    <p class="text-muted-foreground">Guest: {{ reservation.guest_name }}</p>
                 </div>
-                <div class="flex gap-2">
-                    <button
+                <div class="flex flex-wrap gap-2">
+                    <Button
                         v-if="reservation.status === 'confirmed' || reservation.status === 'reserved'"
-                        class="px-4 py-2 text-sm text-white bg-green-600 rounded-md hover:bg-green-700"
+                        variant="default"
+                        class="bg-green-600 hover:bg-green-700 text-white dark:bg-green-700 dark:hover:bg-green-800"
                         @click="checkIn"
                     >
                         Check In
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         v-if="reservation.status === 'checked_in'"
-                        class="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700"
                         @click="checkOut"
                     >
                         Check Out
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         v-if="reservation.status !== 'checked_out' && reservation.status !== 'cancelled'"
-                        class="px-4 py-2 text-sm text-red-600 bg-red-50 rounded-md hover:bg-red-100"
+                        variant="destructive"
                         @click="cancel"
                     >
                         Cancel
-                    </button>
-                    <Link
-                        :href="`/reservations/${reservation.id}/edit`"
-                        class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                    >
-                        Edit
+                    </Button>
+                    <Link :href="`/reservations/${reservation.id}/edit`">
+                        <Button variant="outline">
+                            Edit
+                        </Button>
+                    </Link>
+                    <Link v-if="reservation.status === 'checked_in'" :href="`/registration-cards/${reservation.id}`">
+                        <Button variant="outline">
+                            Registration Card
+                        </Button>
                     </Link>
                 </div>
             </div>
+        </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Guest Info -->
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-4">Guest Information</h2>
+                <div class="rounded-lg border border-border bg-card p-6">
+                    <h2 class="text-lg font-semibold mb-4 text-foreground">Guest Information</h2>
                     <dl class="space-y-2">
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Name:</dt>
-                            <dd class="font-medium">{{ reservation.guest_name }}</dd>
+                            <dt class="text-muted-foreground">Name:</dt>
+                            <dd class="font-medium text-foreground">{{ reservation.guest_name }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Email:</dt>
-                            <dd>{{ reservation.guest_email || '-' }}</dd>
+                            <dt class="text-muted-foreground">Email:</dt>
+                            <dd class="text-foreground">{{ reservation.guest_email || '-' }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Phone:</dt>
-                            <dd>{{ reservation.guest_phone || '-' }}</dd>
+                            <dt class="text-muted-foreground">Phone:</dt>
+                            <dd class="text-foreground">{{ reservation.guest_phone || '-' }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Adults:</dt>
-                            <dd>{{ reservation.adults }}</dd>
+                            <dt class="text-muted-foreground">Adults:</dt>
+                            <dd class="text-foreground">{{ reservation.adults }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Children:</dt>
-                            <dd>{{ reservation.children }}</dd>
+                            <dt class="text-muted-foreground">Children:</dt>
+                            <dd class="text-foreground">{{ reservation.children }}</dd>
                         </div>
                     </dl>
                 </div>
 
                 <!-- Stay Info -->
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-4">Stay Details</h2>
+                <div class="rounded-lg border border-border bg-card p-6">
+                    <h2 class="text-lg font-semibold mb-4 text-foreground">Stay Details</h2>
                     <dl class="space-y-2">
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Status:</dt>
+                            <dt class="text-muted-foreground">Status:</dt>
                             <dd>
-                                <span
-                                    class="px-2 py-1 text-xs font-medium rounded-full"
-                                    :class="getStatusBadgeClass(reservation.status)"
-                                >
+                                <Badge :class="statusBadgeVariant[reservation.status] ?? ''" variant="outline">
                                     {{ reservation.status.replace('_', ' ') }}
-                                </span>
+                                </Badge>
                             </dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Room:</dt>
-                            <dd>{{ reservation.room?.number || 'Unassigned' }}</dd>
+                            <dt class="text-muted-foreground">Room:</dt>
+                            <dd class="text-foreground">{{ reservation.room?.number || 'Unassigned' }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Room Type:</dt>
-                            <dd>{{ reservation.room_type.name }}</dd>
+                            <dt class="text-muted-foreground">Room Type:</dt>
+                            <dd class="text-foreground">{{ reservation.room_type.name }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Check-in:</dt>
-                            <dd>{{ formatDate(reservation.check_in_date) }}</dd>
+                            <dt class="text-muted-foreground">Check-in:</dt>
+                            <dd class="text-foreground">{{ formatDate(reservation.check_in_date) }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Check-out:</dt>
-                            <dd>{{ formatDate(reservation.check_out_date) }}</dd>
+                            <dt class="text-muted-foreground">Check-out:</dt>
+                            <dd class="text-foreground">{{ formatDate(reservation.check_out_date) }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Actual Check-in:</dt>
-                            <dd>{{ formatDateTime(reservation.actual_check_in_at) }}</dd>
+                            <dt class="text-muted-foreground">Actual Check-in:</dt>
+                            <dd class="text-foreground">{{ formatDateTime(reservation.actual_check_in_at) }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Actual Check-out:</dt>
-                            <dd>{{ formatDateTime(reservation.actual_check_out_at) }}</dd>
+                            <dt class="text-muted-foreground">Actual Check-out:</dt>
+                            <dd class="text-foreground">{{ formatDateTime(reservation.actual_check_out_at) }}</dd>
                         </div>
                     </dl>
                 </div>
 
                 <!-- Payment Info -->
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-4">Payment</h2>
+                <div class="rounded-lg border border-border bg-card p-6">
+                    <h2 class="text-lg font-semibold mb-4 text-foreground">Payment</h2>
                     <dl class="space-y-2">
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Room Rate:</dt>
-                            <dd>${{ reservation.room_rate }}/night</dd>
+                            <dt class="text-muted-foreground">Room Rate:</dt>
+                            <dd class="text-foreground">{{ formatCurrency(reservation.room_rate) }}/night</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Total Amount:</dt>
-                            <dd class="font-bold">${{ reservation.total_amount }}</dd>
+                            <dt class="text-muted-foreground">Total Amount:</dt>
+                            <dd class="font-bold text-foreground">{{ formatCurrency(reservation.total_amount) }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Amount Paid:</dt>
-                            <dd>${{ reservation.amount_paid }}</dd>
+                            <dt class="text-muted-foreground">Amount Paid:</dt>
+                            <dd class="text-foreground">{{ formatCurrency(reservation.amount_paid) }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Payment Status:</dt>
-                            <dd>{{ reservation.payment_status }}</dd>
+                            <dt class="text-muted-foreground">Payment Status:</dt>
+                            <dd class="text-foreground">{{ reservation.payment_status }}</dd>
                         </div>
                     </dl>
                 </div>
 
                 <!-- Notes -->
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-4">Notes</h2>
-                    <p class="text-gray-600">{{ reservation.guest_notes || 'No notes' }}</p>
+                <div class="rounded-lg border border-border bg-card p-6">
+                    <h2 class="text-lg font-semibold mb-4 text-foreground">Notes</h2>
+                    <p class="text-muted-foreground">{{ reservation.guest_notes || 'No notes' }}</p>
                     <div v-if="reservation.special_requests?.length" class="mt-4">
-                        <h3 class="text-sm font-medium text-gray-500 mb-2">Special Requests</h3>
-                        <ul class="list-disc list-inside text-gray-600">
+                        <h3 class="text-sm font-medium text-muted-foreground mb-2">Special Requests</h3>
+                        <ul class="list-disc list-inside text-muted-foreground">
                             <li v-for="(request, idx) in reservation.special_requests" :key="idx">
                                 {{ request }}
                             </li>
@@ -249,5 +249,4 @@ const cancel = () => {
                 </div>
             </div>
         </div>
-    </AppLayout>
 </template>

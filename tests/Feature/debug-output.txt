@@ -1,0 +1,10 @@
+Branding::instance() OK
+TX OK after Branding
+getRoleNames() OK
+TX OK after getRoleNames
+getAllPermissions() OK
+TX OK after getAllPermissions
+branches() OK
+TX OK after branches
+POST OK: status=302
+TX DEAD after POST: SQLSTATE[25P02]: In failed sql transaction: 7 ERROR:  current transaction is aborted, commands ignored until end of transaction block (Connection: pgsql, Host: 127.0.0.1, Port: 5432, Database: hotel_system_test, SQL: SELECT 1)

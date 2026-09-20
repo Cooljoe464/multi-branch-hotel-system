@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Database\Factories\GuestPreferenceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -27,8 +29,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class GuestPreference extends Model
 {
+    /** @use HasFactory<GuestPreferenceFactory> */
     use HasFactory;
 
+    /** @return BelongsTo<Guest, $this> */
     public function guest(): BelongsTo
     {
         return $this->belongsTo(Guest::class);

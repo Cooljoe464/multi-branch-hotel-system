@@ -36,7 +36,7 @@ class NotificationTest extends TestCase
         Notification::fake();
 
         $this->branch = Branch::factory()->create();
-        $this->user = User::factory()->create(['branch_id' => $this->branch->id]);
+        $this->user = $this->makeAdminUser($this->branch);
         $this->roomType = RoomType::factory()->create(['branch_id' => $this->branch->id]);
         $this->room = Room::factory()->create([
             'branch_id' => $this->branch->id,

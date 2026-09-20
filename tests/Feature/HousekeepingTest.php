@@ -25,7 +25,7 @@ class HousekeepingTest extends TestCase
         parent::setUp();
 
         $this->branch = Branch::factory()->create();
-        $this->user = User::factory()->create(['branch_id' => $this->branch->id]);
+        $this->user = $this->makeAdminUser($this->branch);
         $roomType = RoomType::factory()->create(['branch_id' => $this->branch->id]);
         $this->room = Room::factory()->create([
             'branch_id' => $this->branch->id,

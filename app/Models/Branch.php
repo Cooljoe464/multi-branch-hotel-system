@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\BranchFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -33,12 +34,21 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string $tax_label
  * @property bool $is_active
  * @property bool $is_primary
- * @property array|null $settings
- * @property array|null $metadata
+ * @property array<string, mixed>|null $settings
+ * @property array<string, mixed>|null $metadata
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
- * @property-read Collection<User> $users
+ * @property-read Collection<int, User> $users
+ * @property-read Collection<int, RoomType> $roomTypes
+ * @property-read Collection<int, Room> $rooms
+ * @property-read Collection<int, Reservation> $reservations
+ * @property-read Collection<int, Task> $tasks
+ * @property-read Collection<int, MaintenanceTicket> $maintenanceTickets
+ * @property-read Collection<int, Folio> $folios
+ * @property-read Collection<int, DailyLedger> $dailyLedgers
+ * @property-read Collection<int, PosCharge> $posCharges
+ * @property-read Collection<int, PaymentTransaction> $paymentTransactions
  */
 #[Fillable([
     'name',
@@ -54,6 +64,7 @@ use Spatie\Activitylog\Support\LogOptions;
     'timezone',
     'currency_code',
     'currency_symbol',
+    'current_business_date',
     'tax_rate',
     'tax_label',
     'is_active',
@@ -63,7 +74,9 @@ use Spatie\Activitylog\Support\LogOptions;
 ])]
 class Branch extends Model
 {
+    /** @use HasFactory<BranchFactory> */
     use HasFactory;
+
     use LogsActivity;
     use SoftDeletes;
 
@@ -75,6 +88,7 @@ class Branch extends Model
             'is_active' => 'boolean',
             'is_primary' => 'boolean',
             'tax_rate' => 'decimal:2',
+            'current_business_date' => 'date',
         ];
     }
 
@@ -86,6 +100,7 @@ class Branch extends Model
             ->dontLogEmptyChanges();
     }
 
+    /** @return BelongsToMany<User, $this> */
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_branch')
@@ -93,41 +108,88 @@ class Branch extends Model
             ->withTimestamps();
     }
 
+    /** @return HasMany<RoomType, $this> */
     public function roomTypes(): HasMany
     {
         return $this->hasMany(RoomType::class);
     }
 
+    /** @return HasMany<Room, $this> */
     public function rooms(): HasMany
     {
         return $this->hasMany(Room::class);
     }
 
+    /** @return HasMany<Reservation, $this> */
     public function reservations(): HasMany
     {
         return $this->hasMany(Reservation::class);
     }
 
+    /** @return HasMany<Task, $this> */
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
     }
 
+    /** @return HasMany<MaintenanceTicket, $this> */
     public function maintenanceTickets(): HasMany
     {
         return $this->hasMany(MaintenanceTicket::class);
     }
 
+    /** @return HasMany<Folio, $this> */
+    public function folios(): HasMany
+    {
+        return $this->hasMany(Folio::class);
+    }
+
+    /** @return HasMany<DailyLedger, $this> */
+    public function dailyLedgers(): HasMany
+    {
+        return $this->hasMany(DailyLedger::class);
+    }
+
+    /** @return HasMany<BusinessDate, $this> */
+    public function businessDates(): HasMany
+    {
+        return $this->hasMany(BusinessDate::class);
+    }
+
+    /** @return HasMany<PosCharge, $this> */
+    public function posCharges(): HasMany
+    {
+        return $this->hasMany(PosCharge::class);
+    }
+
+    /** @return HasMany<PaymentTransaction, $this> */
+    public function paymentTransactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class);
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopePrimary(Builder $query): Builder
     {
         return $query->where('is_primary', true);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeForCountry(Builder $query, string $country): Builder
     {
         return $query->where('country', $country);

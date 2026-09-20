@@ -3,19 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\Branch;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class BranchController extends Controller
 {
-    public function switch(Request $request)
+    public function switch(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
+        $request->validate([
             'branch_id' => ['required', 'integer', 'exists:branches,id'],
         ]);
 
         $user = Auth::user();
-        $branch = Branch::findOrFail($validated['branch_id']);
+        abort_unless($user !== null, 401);
+
+        $branch = Branch::findOrFail($request->integer('branch_id'));
 
         if (! $branch->is_active) {
             return back()->withErrors([
@@ -31,6 +34,6 @@ class BranchController extends Controller
 
         session(['branch_id' => $branch->id]);
 
-        return back()->with('success', 'Switched to '.$branch->name);
+        return $this->flashSuccess('Switched to '.$branch->name);
     }
 }

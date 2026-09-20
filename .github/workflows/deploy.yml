@@ -1,0 +1,131 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Job 1: Run tests before deploying
+  # ──────────────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: hotel_system_test
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: ''
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U root -d hotel_system_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: hotel_system_test
+      DB_USERNAME: root
+      DB_PASSWORD: ''
+      CACHE_DRIVER: array
+      QUEUE_CONNECTION: sync
+      SESSION_DRIVER: array
+      BROADCAST_CONNECTION: null
+      MAIL_MAILER: array
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          extensions: pdo_pgsql, pgsql
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: |
+          composer install --no-interaction --prefer-dist --no-progress
+          npm ci --no-audit --no-fund
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Run tests
+        run: php artisan test --compact
+
+  # ──────────────────────────────────────────────
+  # Job 2: Deploy to DigitalOcean Droplet
+  # ──────────────────────────────────────────────
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@ca9a8e790a8f985b37c1531c506c9d3e165e5e34 # v1.1.1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+
+            echo "── Pulling latest code ──"
+            cd /opt/hms
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "── Building Docker images ──"
+            docker-compose build --no-cache
+
+            echo "── Starting services ──"
+            docker-compose up -d --force-recreate --remove-orphans
+
+            echo "── Waiting for database to be ready ──"
+            sleep 10
+
+            echo "── Running migrations ──"
+            docker-compose exec -T php php artisan migrate --force
+
+            echo "── Caching configuration ──"
+            docker-compose exec -T php php artisan config:cache
+            docker-compose exec -T php php artisan route:cache
+            docker-compose exec -T php php artisan event:cache
+            docker-compose exec -T php php artisan icons:cache 2>/dev/null || true
+
+            echo "── Clearing old caches ──"
+            docker-compose exec -T php php artisan cache:prune-stale-tags 2>/dev/null || true
+
+            echo "── Deployment complete ──"
+            docker-compose ps
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@ca9a8e790a8f985b37c1531c506c9d3e165e5e34 # v1.1.1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/hms
+            docker-compose exec -T php php artisan about --only=Environment 2>/dev/null && echo "✓ Application healthy" || echo "✗ Application check failed"

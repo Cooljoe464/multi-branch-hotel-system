@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Head, usePage } from '@inertiajs/vue3';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft } from '@lucide/vue';
+import { formatDate } from '@/lib/dates';
 
 interface Guest {
     id: number;
@@ -39,25 +44,19 @@ const props = defineProps<{
     reservations: Reservation[];
 }>();
 
-const formatCurrency = (amount: number) => {
-    return `$${(amount / 100).toFixed(2)}`;
-};
-
-const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-    });
-};
+import { formatCurrency as formatCurrencyRaw, getCurrencySymbol } from '@/lib/format';
+const page = usePage();
+const branchSymbol = computed(() => (page.props.branch?.current as any)?.currency_symbol || '$');
+const resolveSymbol = (code?: string) => getCurrencySymbol(code || 'NGN') || branchSymbol.value;
+const formatCurrency = (amount: number, currencyCode?: string) => formatCurrencyRaw(amount, resolveSymbol(currencyCode));
 
 const getVipBadgeClass = (status: string) => {
     const classes: Record<string, string> = {
         none: '',
-        silver: 'bg-gray-100 text-gray-800',
-        gold: 'bg-yellow-100 text-yellow-800',
-        platinum: 'bg-purple-100 text-purple-800',
-        diamond: 'bg-blue-100 text-blue-800',
+        silver: 'bg-muted text-muted-foreground',
+        gold: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+        platinum: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+        diamond: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
     };
     return classes[status] || '';
 };
@@ -69,26 +68,35 @@ const groupedPreferences = props.preferences.reduce((acc, pref) => {
     acc[pref.category].push(pref);
     return acc;
 }, {} as Record<string, GuestPreference[]>);
+
+const goBack = () => {
+    window.history.back();
+};
 </script>
 
 <template>
     <Head :title="`${guest.full_name ?? guest.first_name + ' ' + guest.last_name} - Guest Profile`" />
 
-    <div class="min-h-screen bg-gray-50">
-        <header class="bg-white shadow">
+    <div class="min-h-screen bg-background">
+        <header class="bg-card shadow">
             <div class="max-w-4xl mx-auto px-4 py-6">
                 <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">{{ guest.first_name }} {{ guest.last_name }}</h1>
-                        <p class="text-gray-600">{{ guest.email }}</p>
+                    <div class="flex items-center gap-3">
+                        <Button variant="ghost" size="sm" @click="goBack()" class="gap-1 text-muted-foreground hover:text-foreground">
+                            <ArrowLeft class="size-4" /> Back
+                        </Button>
+                        <div>
+                            <h1 class="text-2xl font-bold text-foreground">{{ guest.first_name }} {{ guest.last_name }}</h1>
+                            <p class="text-muted-foreground">{{ guest.email }}</p>
+                        </div>
                     </div>
-                    <span
+                    <Badge
                         v-if="guest.vip_status !== 'none'"
-                        class="px-4 py-2 text-sm font-medium rounded-full"
+                        class="text-sm px-4 py-2"
                         :class="getVipBadgeClass(guest.vip_status)"
                     >
                         {{ guest.vip_status.toUpperCase() }} VIP
-                    </span>
+                    </Badge>
                 </div>
             </div>
         </header>
@@ -96,33 +104,33 @@ const groupedPreferences = props.preferences.reduce((acc, pref) => {
         <main class="max-w-4xl mx-auto px-4 py-8">
             <!-- Stats -->
             <div class="grid grid-cols-3 gap-4 mb-6">
-                <div class="bg-white rounded-lg shadow p-6 text-center">
-                    <p class="text-3xl font-bold text-gray-900">{{ guest.total_stays }}</p>
-                    <p class="text-gray-500">Total Stays</p>
+                <div class="bg-card rounded-lg shadow p-6 text-center">
+                    <p class="text-3xl font-bold text-foreground">{{ guest.total_stays }}</p>
+                    <p class="text-muted-foreground">Total Stays</p>
                 </div>
-                <div class="bg-white rounded-lg shadow p-6 text-center">
-                    <p class="text-3xl font-bold text-gray-900">{{ guest.total_nights }}</p>
-                    <p class="text-gray-500">Total Nights</p>
+                <div class="bg-card rounded-lg shadow p-6 text-center">
+                    <p class="text-3xl font-bold text-foreground">{{ guest.total_nights }}</p>
+                    <p class="text-muted-foreground">Total Nights</p>
                 </div>
-                <div class="bg-white rounded-lg shadow p-6 text-center">
-                    <p class="text-3xl font-bold text-gray-900">{{ formatCurrency(guest.total_spent) }}</p>
-                    <p class="text-gray-500">Total Spent</p>
+                <div class="bg-card rounded-lg shadow p-6 text-center">
+                    <p class="text-3xl font-bold text-foreground">{{ formatCurrency(guest.total_spent) }}</p>
+                    <p class="text-muted-foreground">Total Spent</p>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Preferences -->
-                <div class="bg-white rounded-lg shadow p-6">
+                <div class="bg-card rounded-lg shadow p-6">
                     <h2 class="text-lg font-semibold mb-4">Preferences</h2>
-                    <div v-if="Object.keys(groupedPreferences).length === 0" class="text-gray-500">
+                    <div v-if="Object.keys(groupedPreferences).length === 0" class="text-muted-foreground">
                         No preferences recorded yet.
                     </div>
                     <div v-else class="space-y-4">
                         <div v-for="(prefs, category) in groupedPreferences" :key="category">
-                            <h3 class="text-sm font-medium text-gray-500 uppercase mb-2">{{ category }}</h3>
+                            <h3 class="text-sm font-medium text-muted-foreground uppercase mb-2">{{ category }}</h3>
                             <div class="space-y-1">
                                 <div v-for="pref in prefs" :key="pref.id" class="flex justify-between text-sm">
-                                    <span class="text-gray-600">{{ pref.key.replace('_', ' ') }}</span>
+                                    <span class="text-muted-foreground">{{ pref.key.replace('_', ' ') }}</span>
                                     <span class="font-medium">{{ pref.value }}</span>
                                 </div>
                             </div>
@@ -131,9 +139,9 @@ const groupedPreferences = props.preferences.reduce((acc, pref) => {
                 </div>
 
                 <!-- Stay History -->
-                <div class="bg-white rounded-lg shadow p-6">
+                <div class="bg-card rounded-lg shadow p-6">
                     <h2 class="text-lg font-semibold mb-4">Stay History</h2>
-                    <div v-if="reservations.length === 0" class="text-gray-500">
+                    <div v-if="reservations.length === 0" class="text-muted-foreground">
                         No stays recorded yet.
                     </div>
                     <div v-else class="space-y-3">
@@ -144,22 +152,21 @@ const groupedPreferences = props.preferences.reduce((acc, pref) => {
                         >
                             <div>
                                 <p class="font-medium">{{ res.branch.name }}</p>
-                                <p class="text-sm text-gray-500">
+                                <p class="text-sm text-muted-foreground">
                                     {{ formatDate(res.check_in_date) }} - {{ formatDate(res.check_out_date) }}
                                 </p>
                             </div>
                             <div class="text-right">
-                                <span
-                                    class="px-2 py-1 text-xs rounded-full"
+                                <Badge
                                     :class="{
-                                        'bg-green-100 text-green-800': res.status === 'checked_in',
-                                        'bg-blue-100 text-blue-800': res.status === 'confirmed',
-                                        'bg-gray-100 text-gray-800': res.status === 'checked_out',
+                                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': res.status === 'checked_in',
+                                        'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': res.status === 'confirmed',
+                                        'bg-muted text-muted-foreground': res.status === 'checked_out',
                                     }"
                                 >
                                     {{ res.status.replace('_', ' ') }}
-                                </span>
-                                <p class="text-sm text-gray-500 mt-1">{{ formatCurrency(res.total_amount) }}</p>
+                                </Badge>
+                                <p class="text-sm text-muted-foreground mt-1">{{ formatCurrency(res.total_amount) }}</p>
                             </div>
                         </div>
                     </div>

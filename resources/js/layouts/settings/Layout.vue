@@ -1,29 +1,67 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import Heading from '@/components/Heading.vue';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
+import { edit as editBranding } from '@/routes/branding';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
 import type { NavItem } from '@/types';
+import { computed } from 'vue';
 
-const sidebarNavItems: NavItem[] = [
-    {
-        title: 'Profile',
-        href: editProfile(),
-    },
-    {
-        title: 'Security',
-        href: editSecurity(),
-    },
-    {
-        title: 'Appearance',
-        href: editAppearance(),
-    },
-];
+const page = usePage();
+const permissions = computed(() => page.props.auth.permissions as string[]);
+const isGlobalAdmin = computed(() => permissions.value.includes('branches.manage'));
+const canManageOutlets = computed(() => permissions.value.includes('outlets.manage'));
+
+const sidebarNavItems = computed<NavItem[]>(() => {
+    const items: NavItem[] = [
+        {
+            title: 'Profile',
+            href: editProfile(),
+        },
+        {
+            title: 'Security',
+            href: editSecurity(),
+        },
+        {
+            title: 'Appearance',
+            href: editAppearance(),
+        },
+    ];
+
+    if (isGlobalAdmin.value) {
+        items.push({
+            title: 'Branding',
+            href: editBranding(),
+        });
+        items.push({
+            title: 'Currency',
+            href: '/settings/currency',
+        });
+    }
+
+    if (canManageOutlets.value) {
+        items.push({
+            title: 'Cashier POS Access',
+            href: '/settings/cashier-outlets',
+        });
+    }
+
+    items.push(
+        {
+            title: 'Yield Rules',
+            href: '/yield-rules',
+        },
+        {
+            title: 'Rate Overrides',
+            href: '/rate-overrides',
+        },
+    );
+
+    return items;
+});
 
 const { isCurrentOrParentUrl } = useCurrentUrl();
 </script>
@@ -41,28 +79,26 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                     class="flex flex-col space-y-1 space-x-0"
                     aria-label="Settings"
                 >
-                    <Button
+                    <Link
                         v-for="item in sidebarNavItems"
                         :key="toUrl(item.href)"
-                        variant="ghost"
-                        :class="[
-                            'w-full justify-start',
-                            { 'bg-muted': isCurrentOrParentUrl(item.href) },
-                        ]"
-                        as-child
+                        :href="item.href"
+                        class="inline-flex w-full items-center justify-start gap-2 rounded-lg border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus:z-10 focus:ring-4 focus:ring-ring"
+                        :class="{
+                            'ring-2 ring-blue-500 dark:ring-blue-500':
+                                isCurrentOrParentUrl(item.href),
+                        }"
                     >
-                        <Link :href="item.href">
-                            <component :is="item.icon" class="h-4 w-4" />
-                            {{ item.title }}
-                        </Link>
-                    </Button>
+                        <component :is="item.icon" class="h-4 w-4" />
+                        {{ item.title }}
+                    </Link>
                 </nav>
             </aside>
 
-            <Separator class="my-6 lg:hidden" />
+            <hr class="my-6 border-border lg:hidden" />
 
-            <div class="flex-1 md:max-w-2xl">
-                <section class="max-w-xl space-y-12">
+            <div class="flex-1">
+                <section class="space-y-12">
                     <slot />
                 </section>
             </div>

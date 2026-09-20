@@ -1,4 +1,5 @@
 import { createInertiaApp } from '@inertiajs/vue3';
+import '@vuepic/vue-datepicker/dist/main.css';
 import { initializeTheme } from '@/composables/useAppearance';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
@@ -12,10 +13,13 @@ void createInertiaApp({
     layout: (name) => {
         switch (true) {
             case name === 'Welcome':
+            case name === 'booking/Index':
+            case name.startsWith('guest/'):
+            case name?.startsWith('errors/'):
                 return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
-            case name.startsWith('settings/'):
+            case name.startsWith('settings/') || name === 'settings/YieldRules' || name === 'settings/RateOverrides':
                 return [AppLayout, SettingsLayout];
             default:
                 return AppLayout;
@@ -31,3 +35,10 @@ initializeTheme();
 
 // This will listen for flash toast data from the server...
 initializeFlashToast();
+
+// Initialize WebSocket listener...
+import { initEcho } from '@/bootstrap';
+
+if (typeof window !== 'undefined') {
+    window.initEcho = initEcho;
+}

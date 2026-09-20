@@ -5,24 +5,31 @@ namespace App\Http\Controllers;
 use App\Models\MaintenanceTicket;
 use App\Models\Room;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class MaintenanceController extends Controller
 {
+    use Concerns\EnsuresBranchAccess;
+
     public function index(Request $request): Response
     {
-        $branchId = $request->user()->branch_id;
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $branchId = (int) $user->branch_id;
 
         $tickets = MaintenanceTicket::forBranch($branchId)
             ->with(['room', 'reporter', 'assignee'])
-            ->when($request->status, fn ($q, $status) => $q->forStatus($status))
-            ->when($request->category, fn ($q, $category) => $q->forCategory($category))
-            ->when($request->priority, fn ($q, $priority) => $q->forPriority($priority))
+            ->when($request->filled('status'), fn ($q) => $q->forStatus($request->string('status')->value()))
+            ->when($request->filled('category'), fn ($q) => $q->forCategory($request->string('category')->value()))
+            ->when($request->filled('priority'), fn ($q) => $q->forPriority($request->string('priority')->value()))
             ->orderBy('priority', 'desc')
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->paginate(25)
+            ->withQueryString();
 
         $lockedRooms = MaintenanceTicket::forBranch($branchId)
             ->lockedRooms()
@@ -48,7 +55,10 @@ class MaintenanceController extends Controller
 
     public function create(Request $request): Response
     {
-        $branchId = $request->user()->branch_id;
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $branchId = (int) $user->branch_id;
 
         $rooms = Room::forBranch($branchId)
             ->where('is_active', true)
@@ -60,9 +70,22 @@ class MaintenanceController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
+        $roomId = $request->string('room_id')->value();
+        $request->merge(['room_id' => ($roomId === '' || $roomId === 'none') ? null : $roomId]);
+
+        if ($request->filled('room_id')) {
+            $room = Room::find($request->integer('room_id') ?: null);
+
+            if (! $room) {
+                abort(404);
+            }
+
+            $this->ensureBranchAccess($room->branch);
+        }
+
+        $request->validate([
             'room_id' => 'nullable|exists:rooms,id',
             'category' => 'required|string|in:plumbing,electrical,hvac,furniture,appliance,structural,other',
             'priority' => 'required|string|in:low,normal,high,urgent',
@@ -72,22 +95,35 @@ class MaintenanceController extends Controller
             'estimated_cost' => 'nullable|integer|min:0',
         ]);
 
-        $validated['branch_id'] = $request->user()->branch_id;
-        $validated['reported_by'] = $request->user()->id;
-        $validated['status'] = 'open';
+        $user = $request->user();
+        abort_unless($user !== null, 401);
 
-        $ticket = MaintenanceTicket::create($validated);
+        $ticket = MaintenanceTicket::create([
+            'branch_id' => $user->branch_id,
+            'currency_code' => $user->currentBranch->currency_code,
+            'room_id' => $request->filled('room_id') ? $request->integer('room_id') : null,
+            'reported_by' => $user->id,
+            'category' => $request->string('category')->value(),
+            'priority' => $request->string('priority')->value(),
+            'title' => $request->string('title')->value(),
+            'description' => $request->string('description')->value(),
+            'estimated_cost' => $request->filled('estimated_cost') ? $request->integer('estimated_cost') : null,
+            'status' => 'open',
+        ]);
 
-        if (! empty($validated['is_room_locked']) && $validated['is_room_locked'] && $ticket->room) {
+        if ($request->boolean('is_room_locked') && $ticket->room) {
             $ticket->lockRoom();
         }
 
-        return redirect()->route('maintenance.show', $ticket)
-            ->with('success', 'Ticket '.$ticket->ticket_number.' created.');
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Ticket '.$ticket->ticket_number.' created.']);
+
+        return redirect()->route('maintenance.show', $ticket);
     }
 
     public function show(MaintenanceTicket $ticket): Response
     {
+        $this->ensureBranchAccess($ticket->branch);
+
         $ticket->load(['room', 'reporter', 'assignee']);
 
         return Inertia::render('maintenance/Show', [
@@ -95,9 +131,11 @@ class MaintenanceController extends Controller
         ]);
     }
 
-    public function update(Request $request, MaintenanceTicket $ticket)
+    public function update(Request $request, MaintenanceTicket $ticket): RedirectResponse
     {
-        $validated = $request->validate([
+        $this->ensureBranchAccess($ticket->branch);
+
+        $request->validate([
             'category' => 'sometimes|string|in:plumbing,electrical,hvac,furniture,appliance,structural,other',
             'priority' => 'sometimes|string|in:low,normal,high,urgent',
             'title' => 'sometimes|string|max:255',
@@ -106,57 +144,103 @@ class MaintenanceController extends Controller
             'estimated_cost' => 'nullable|integer|min:0',
         ]);
 
-        $ticket->update($validated);
+        $data = [];
+        if ($request->has('category')) {
+            $data['category'] = $request->string('category')->value();
+        }
+        if ($request->has('priority')) {
+            $data['priority'] = $request->string('priority')->value();
+        }
+        if ($request->has('title')) {
+            $data['title'] = $request->string('title')->value();
+        }
+        if ($request->has('description')) {
+            $data['description'] = $request->string('description')->value();
+        }
+        if ($request->has('assigned_to')) {
+            $data['assigned_to'] = $request->integer('assigned_to') ?: null;
+        }
+        if ($request->has('estimated_cost')) {
+            $data['estimated_cost'] = $request->integer('estimated_cost') ?: null;
+        }
 
-        return back()->with('success', 'Ticket updated.');
+        $ticket->update($data);
+
+        return $this->flashSuccess('Ticket updated.');
     }
 
-    public function start(MaintenanceTicket $ticket)
+    public function start(MaintenanceTicket $ticket): RedirectResponse
     {
+        $this->ensureBranchAccess($ticket->branch);
+
         if ($ticket->status !== 'open') {
             return back()->withErrors(['status' => 'Ticket cannot be started.']);
         }
 
         $ticket->start();
 
-        return back()->with('success', 'Ticket started.');
+        return $this->flashSuccess('Ticket started.');
     }
 
-    public function complete(Request $request, MaintenanceTicket $ticket)
+    public function complete(Request $request, MaintenanceTicket $ticket): RedirectResponse
     {
+        $this->ensureBranchAccess($ticket->branch);
+
         if ($ticket->status !== 'in_progress') {
             return back()->withErrors(['status' => 'Ticket is not in progress.']);
         }
 
-        $validated = $request->validate([
+        $request->validate([
             'resolution_notes' => 'nullable|string',
             'actual_cost' => 'nullable|integer|min:0',
         ]);
 
+        $notes = $request->string('resolution_notes')->value();
+
         $ticket->complete(
-            $validated['resolution_notes'] ?? null,
-            $validated['actual_cost'] ?? null
+            $notes !== '' ? $notes : null,
+            $request->filled('actual_cost') ? $request->integer('actual_cost') : null
         );
 
-        return back()->with('success', 'Ticket completed.');
+        return $this->flashSuccess('Ticket completed.');
     }
 
-    public function lockRoom(Request $request, MaintenanceTicket $ticket)
+    public function lockRoom(Request $request, MaintenanceTicket $ticket): RedirectResponse
     {
+        $this->ensureBranchAccess($ticket->branch);
+
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        if (! $user->can('door_lock.manage')) {
+            abort(403, 'You do not have permission to lock rooms.');
+        }
+
         $ticket->lockRoom();
 
-        return back()->with('success', 'Room locked for maintenance.');
+        return $this->flashSuccess('Room locked for maintenance.');
     }
 
-    public function unlockRoom(MaintenanceTicket $ticket)
+    public function unlockRoom(MaintenanceTicket $ticket): RedirectResponse
     {
+        $this->ensureBranchAccess($ticket->branch);
+
+        $user = request()->user();
+        abort_unless($user !== null, 401);
+
+        if (! $user->can('door_lock.manage')) {
+            abort(403, 'You do not have permission to unlock rooms.');
+        }
+
         $ticket->unlockRoom();
 
-        return back()->with('success', 'Room unlocked.');
+        return $this->flashSuccess('Room unlocked.');
     }
 
-    public function destroy(MaintenanceTicket $ticket)
+    public function destroy(MaintenanceTicket $ticket): RedirectResponse
     {
+        $this->ensureBranchAccess($ticket->branch);
+
         if ($ticket->status === 'in_progress') {
             return back()->withErrors(['status' => 'Cannot delete an in-progress ticket.']);
         }
@@ -167,7 +251,8 @@ class MaintenanceController extends Controller
 
         $ticket->delete();
 
-        return redirect()->route('maintenance.index')
-            ->with('success', 'Ticket deleted.');
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Ticket deleted.']);
+
+        return redirect()->route('maintenance.index');
     }
 }

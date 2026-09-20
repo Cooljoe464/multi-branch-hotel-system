@@ -25,7 +25,8 @@ class CrossBranchTest extends TestCase
 
         $this->branch1 = Branch::factory()->create();
         $this->branch2 = Branch::factory()->create();
-        $this->user = User::factory()->create(['branch_id' => $this->branch1->id]);
+        $this->user = $this->makeAdminUser($this->branch1);
+        $this->user->branches()->attach($this->branch2->id);
     }
 
     public function test_cross_branch_search_page_loads(): void

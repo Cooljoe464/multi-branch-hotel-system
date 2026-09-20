@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Events\RoomStatusUpdated;
+use Database\Factories\RoomFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -28,13 +29,13 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property bool $is_smoking
  * @property bool $is_active
  * @property string|null $notes
- * @property array|null $metadata
+ * @property array<string, mixed>|null $metadata
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read Branch $branch
  * @property-read RoomType $roomType
- * @property-read Collection<Reservation> $reservations
+ * @property-read Collection<int, Reservation> $reservations
  * @property-read Reservation|null $currentReservation
  */
 #[Fillable([
@@ -52,7 +53,9 @@ use Spatie\Activitylog\Support\LogOptions;
 ])]
 class Room extends Model
 {
+    /** @use HasFactory<RoomFactory> */
     use HasFactory;
+
     use LogsActivity;
     use SoftDeletes;
 
@@ -83,21 +86,25 @@ class Room extends Model
         });
     }
 
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
+    /** @return BelongsTo<RoomType, $this> */
     public function roomType(): BelongsTo
     {
         return $this->belongsTo(RoomType::class);
     }
 
+    /** @return HasMany<Reservation, $this> */
     public function reservations(): HasMany
     {
         return $this->hasMany(Reservation::class);
     }
 
+    /** @return HasOne<Reservation, $this> */
     public function currentReservation(): HasOne
     {
         return $this->hasOne(Reservation::class)
@@ -106,52 +113,86 @@ class Room extends Model
             ->where('check_out_date', '>', now());
     }
 
+    /** @return HasMany<Task, $this> */
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
     }
 
+    /** @return HasMany<MaintenanceTicket, $this> */
     public function maintenanceTickets(): HasMany
     {
         return $this->hasMany(MaintenanceTicket::class);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeAvailable(Builder $query): Builder
     {
         return $query->where('status', 'available')
             ->where('is_active', true);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeForBranch(Builder $query, int $branchId): Builder
     {
         return $query->where('branch_id', $branchId);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeForStatus(Builder $query, string $status): Builder
     {
         return $query->where('status', $status);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeForFloor(Builder $query, string $floor): Builder
     {
         return $query->where('floor', $floor);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeOccupied(Builder $query): Builder
     {
         return $query->where('status', 'occupied');
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeNeedsCleaning(Builder $query): Builder
     {
         return $query->where('status', 'dirty');
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeOutOfService(Builder $query): Builder
     {
         return $query->where('status', 'out_of_order');

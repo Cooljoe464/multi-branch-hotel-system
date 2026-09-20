@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { usePasskeyRegister } from '@laravel/passkeys/vue';
 import { ref } from 'vue';
-import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import InputError from '@/components/InputError.vue';
 
 const emit = defineEmits<{
     success: [];
@@ -60,7 +60,7 @@ const handleCancel = () => {
 </script>
 
 <template>
-    <div v-if="!isSupported" class="text-muted-foreground text-sm">
+    <div v-if="!isSupported" class="text-sm text-muted-foreground">
         Passkeys are not supported in this browser.
     </div>
 
@@ -71,19 +71,17 @@ const handleCancel = () => {
     <form
         v-else
         @submit="handleSubmit"
-        class="border-border bg-muted/50 space-y-4 rounded-lg border p-4"
+        class="space-y-4 rounded-lg border border-border bg-muted/40 p-4"
     >
         <div class="grid gap-2">
             <Label for="passkey-name">Passkey name</Label>
             <Input
                 id="passkey-name"
-                type="text"
                 v-model="name"
                 placeholder="e.g., MacBook Pro, iPhone"
-                class="border-foreground/20 mt-1 block w-full"
-                autofocus
+                required
             />
-            <p class="text-muted-foreground text-xs">
+            <p class="text-xs text-muted-foreground">
                 A name helps you identify this passkey later.
             </p>
         </div>
@@ -94,7 +92,7 @@ const handleCancel = () => {
             <Button type="submit" :disabled="isLoading || !name.trim()">
                 {{ isLoading ? 'Registering...' : 'Register passkey' }}
             </Button>
-            <Button type="button" variant="ghost" @click="handleCancel">
+            <Button type="button" variant="outline" @click="handleCancel">
                 Cancel
             </Button>
         </div>

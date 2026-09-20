@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, router, Link } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { type BreadcrumbItem } from '@/types';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Pagination from '@/components/ui/pagination/Pagination.vue';
 
 interface Task {
     id: number;
@@ -33,7 +39,13 @@ interface Housekeeper {
 }
 
 const props = defineProps<{
-    tasks: Task[];
+    tasks: {
+        data: Task[];
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+    };
     housekeepers: Housekeeper[];
     stats: {
         pending: number;
@@ -47,10 +59,7 @@ const props = defineProps<{
     };
 }>();
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Housekeeping', href: '/housekeeping' },
-];
+defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Housekeeping', href: '/housekeeping' }] } });
 
 const showCreateModal = ref(false);
 const selectedTask = ref<Task | null>(null);
@@ -72,40 +81,58 @@ const assignForm = ref({
 const filterForm = ref({
     status: props.filters.status || '',
     type: props.filters.type || '',
-    assigned_to: props.filters.assigned_to || '',
+    assigned_to: props.filters.assigned_to ? String(props.filters.assigned_to) : '',
 });
 
-const filteredTasks = computed(() => {
-    let result = [...props.tasks];
-    if (filterForm.value.status) {
-        result = result.filter(t => t.status === filterForm.value.status);
-    }
-    if (filterForm.value.type) {
-        result = result.filter(t => t.type === filterForm.value.type);
-    }
-    if (filterForm.value.assigned_to) {
-        result = result.filter(t => t.assignee?.id === Number(filterForm.value.assigned_to));
-    }
-    return result;
-});
+const statusOptions = [
+    { label: 'Pending', value: 'pending' },
+    { label: 'In Progress', value: 'in_progress' },
+    { label: 'Completed', value: 'completed' },
+];
+
+const typeOptions = [
+    { label: 'Cleaning', value: 'cleaning' },
+    { label: 'Deep Clean', value: 'deep_clean' },
+    { label: 'Turnover', value: 'turnover' },
+    { label: 'Inspection', value: 'inspection' },
+    { label: 'Laundry', value: 'laundry' },
+    { label: 'Maintenance Request', value: 'maintenance_request' },
+];
+
+const createTypeOptions = [
+    { label: 'Cleaning', value: 'cleaning' },
+    { label: 'Deep Clean', value: 'deep_clean' },
+    { label: 'Turnover', value: 'turnover' },
+    { label: 'Inspection', value: 'inspection' },
+    { label: 'Laundry', value: 'laundry' },
+];
+
+const priorityOptions = [
+    { label: 'Low', value: 'low' },
+    { label: 'Normal', value: 'normal' },
+    { label: 'High', value: 'high' },
+    { label: 'Urgent', value: 'urgent' },
+];
+
+const housekeeperOptions = computed(() => props.housekeepers.map((hk) => ({ label: hk.name, value: String(hk.id) })));
 
 const getPriorityBadgeClass = (priority: string) => {
     const classes: Record<string, string> = {
-        low: 'bg-gray-100 text-gray-800',
-        normal: 'bg-blue-100 text-blue-800',
-        high: 'bg-orange-100 text-orange-800',
-        urgent: 'bg-red-100 text-red-800',
+        low: 'bg-muted text-muted-foreground',
+        normal: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+        high: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+        urgent: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
     };
-    return classes[priority] || 'bg-gray-100 text-gray-800';
+    return classes[priority] || 'bg-muted text-muted-foreground';
 };
 
 const getStatusBadgeClass = (status: string) => {
     const classes: Record<string, string> = {
-        pending: 'bg-yellow-100 text-yellow-800',
-        in_progress: 'bg-blue-100 text-blue-800',
-        completed: 'bg-green-100 text-green-800',
+        pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+        in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+        completed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
     };
-    return classes[status] || 'bg-gray-100 text-gray-800';
+    return classes[status] || 'bg-muted text-muted-foreground';
 };
 
 const getTypeLabel = (type: string) => {
@@ -169,152 +196,186 @@ const applyFilters = () => {
         replace: true,
     });
 };
+
+const goToPage = (page: number) => {
+    router.get('/housekeeping', { ...filterForm.value, page }, {
+        preserveState: true,
+        replace: true,
+    });
+};
 </script>
 
 <template>
-    <AppLayout title="Housekeeping" :breadcrumbs="breadcrumbs">
-        <div class="p-6">
-            <div class="mb-6 flex items-center justify-between">
-                <h1 class="text-2xl font-bold text-gray-900">Housekeeping</h1>
-                <button
-                    class="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800"
-                    @click="showCreateModal = true"
-                >
+    <Head title="Housekeeping" />
+    <div class="p-4 md:p-6">
+            <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h1 class="text-2xl font-bold text-foreground">Housekeeping</h1>
+                <Button variant="secondary" @click="showCreateModal = true">
                     Add Task
-                </button>
+                </Button>
             </div>
 
             <!-- Stats -->
             <div class="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="bg-white rounded-lg shadow p-4">
-                    <div class="text-sm text-gray-500">Pending</div>
-                    <div class="text-2xl font-bold text-yellow-600">{{ stats.pending }}</div>
+                <div class="bg-card rounded-lg shadow p-4">
+                    <div class="text-sm text-muted-foreground">Pending</div>
+                    <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ stats.pending }}</div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-4">
-                    <div class="text-sm text-gray-500">In Progress</div>
-                    <div class="text-2xl font-bold text-blue-600">{{ stats.in_progress }}</div>
+                <div class="bg-card rounded-lg shadow p-4">
+                    <div class="text-sm text-muted-foreground">In Progress</div>
+                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ stats.in_progress }}</div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-4">
-                    <div class="text-sm text-gray-500">Completed Today</div>
-                    <div class="text-2xl font-bold text-green-600">{{ stats.completed_today }}</div>
+                <div class="bg-card rounded-lg shadow p-4">
+                    <div class="text-sm text-muted-foreground">Completed Today</div>
+                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.completed_today }}</div>
                 </div>
             </div>
 
             <!-- Filters -->
-            <div class="mb-4 flex gap-4">
-                <select
-                    v-model="filterForm.status"
-                    class="rounded-md border-gray-300 text-sm"
-                    @change="applyFilters"
-                >
-                    <option value="">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                </select>
-                <select
-                    v-model="filterForm.type"
-                    class="rounded-md border-gray-300 text-sm"
-                    @change="applyFilters"
-                >
-                    <option value="">All Types</option>
-                    <option value="cleaning">Cleaning</option>
-                    <option value="deep_clean">Deep Clean</option>
-                    <option value="turnover">Turnover</option>
-                    <option value="inspection">Inspection</option>
-                    <option value="laundry">Laundry</option>
-                    <option value="maintenance_request">Maintenance Request</option>
-                </select>
-                <select
-                    v-model="filterForm.assigned_to"
-                    class="rounded-md border-gray-300 text-sm"
-                    @change="applyFilters"
-                >
-                    <option value="">All Housekeepers</option>
-                    <option v-for="hk in housekeepers" :key="hk.id" :value="hk.id">
-                        {{ hk.name }}
-                    </option>
-                </select>
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row">
+                <Select v-model="filterForm.status" @update:model-value="applyFilters" aria-label="Filter by status">
+                    <SelectTrigger class="w-full sm:w-[180px]">
+                        <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="option in statusOptions" :key="option.value" :value="option.value">
+                            {{ option.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select v-model="filterForm.type" @update:model-value="applyFilters" aria-label="Filter by task type">
+                    <SelectTrigger class="w-full sm:w-[180px]">
+                        <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="option in typeOptions" :key="option.value" :value="option.value">
+                            {{ option.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select v-model="filterForm.assigned_to" @update:model-value="applyFilters" aria-label="Filter by housekeeper">
+                    <SelectTrigger class="w-full sm:w-[180px]">
+                        <SelectValue placeholder="All Housekeepers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="option in housekeeperOptions" :key="option.value" :value="option.value">
+                            {{ option.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
 
-            <!-- Tasks Table -->
-            <div class="bg-white rounded-lg shadow overflow-hidden">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+            <!-- Mobile: Card View -->
+            <div class="md:hidden space-y-3">
+                <div v-for="task in tasks.data" :key="task.id" class="rounded-lg border bg-card p-4">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                            <span class="text-sm font-medium text-foreground">{{ task.room?.number || 'N/A' }}</span>
+                            <span class="text-xs text-muted-foreground ml-1">Floor {{ task.room?.floor }}</span>
+                        </div>
+                        <Badge :class="getPriorityBadgeClass(task.priority)" variant="outline">
+                            {{ task.priority }}
+                        </Badge>
+                    </div>
+                    <div class="text-sm text-muted-foreground mb-2">{{ getTypeLabel(task.type) }}</div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs text-muted-foreground">Status:</span>
+                        <Badge :class="getStatusBadgeClass(task.status)" variant="outline">
+                            {{ task.status.replace('_', ' ') }}
+                        </Badge>
+                    </div>
+                    <div class="text-sm text-muted-foreground mb-3">
+                        {{ task.assignee?.name || 'Unassigned' }}
+                        <span v-if="task.estimated_minutes" class="ml-1">• {{ task.estimated_minutes }} min</span>
+                    </div>
+                    <div class="flex gap-1">
+                        <Button v-if="task.status === 'pending'" size="sm" @click="startTask(task)">Start</Button>
+                        <Button v-if="task.status === 'in_progress'" size="sm" variant="default" @click="completeTask(task)">Complete</Button>
+                        <Button size="sm" variant="outline" @click="openAssign(task)">Assign</Button>
+                        <Button size="sm" variant="destructive" aria-label="Delete task" @click="deleteTask(task)">×</Button>
+                    </div>
+                </div>
+                <div v-if="tasks.data.length === 0" class="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+                    No tasks found.
+                </div>
+            </div>
+
+            <!-- Desktop: Table View -->
+            <div class="hidden md:block overflow-x-auto rounded-md border">
+                <table class="w-full caption-bottom text-sm">
+                    <thead class="border-b bg-muted/50 [&_tr]:border-b">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Room</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Est. Time</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Room</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Type</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Priority</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Status</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Assigned To</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Est. Time</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground"><span class="sr-only">Actions</span></th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        <tr v-for="task in filteredTasks" :key="task.id" class="hover:bg-gray-50">
-                            <td class="px-4 py-3 text-sm font-medium text-gray-900">
-                                {{ task.room?.number || 'N/A' }}
-                                <div class="text-xs text-gray-500">Floor {{ task.room?.floor }}</div>
+                    <tbody class="[&_tr:last-child]:border-0">
+                        <tr v-for="task in tasks.data" :key="task.id" class="border-b transition-colors hover:bg-muted/50">
+                            <td class="p-2 align-middle">
+                                <span class="font-medium text-foreground">{{ task.room?.number || 'N/A' }}</span>
+                                <div class="text-xs text-muted-foreground">Floor {{ task.room?.floor }}</div>
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">
+                            <td class="p-2 align-middle">
                                 {{ getTypeLabel(task.type) }}
                             </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="px-2 py-1 text-xs font-medium rounded-full"
-                                    :class="getPriorityBadgeClass(task.priority)"
-                                >
+                            <td class="p-2 align-middle">
+                                <Badge :class="getPriorityBadgeClass(task.priority)" variant="outline">
                                     {{ task.priority }}
-                                </span>
+                                </Badge>
                             </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="px-2 py-1 text-xs font-medium rounded-full"
-                                    :class="getStatusBadgeClass(task.status)"
-                                >
+                            <td class="p-2 align-middle">
+                                <Badge :class="getStatusBadgeClass(task.status)" variant="outline">
                                     {{ task.status.replace('_', ' ') }}
-                                </span>
+                                </Badge>
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">
+                            <td class="p-2 align-middle">
                                 {{ task.assignee?.name || 'Unassigned' }}
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">
+                            <td class="p-2 align-middle">
                                 {{ task.estimated_minutes ? `${task.estimated_minutes} min` : '-' }}
                             </td>
-                            <td class="px-4 py-3 text-right">
+                            <td class="p-2 align-middle">
                                 <div class="flex justify-end gap-1">
-                                    <button
+                                    <Button
                                         v-if="task.status === 'pending'"
-                                        class="px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded hover:bg-blue-100"
+                                        size="sm"
                                         @click="startTask(task)"
                                     >
                                         Start
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         v-if="task.status === 'in_progress'"
-                                        class="px-2 py-1 text-xs text-green-700 bg-green-50 rounded hover:bg-green-100"
+                                        size="sm"
+                                        variant="default"
                                         @click="completeTask(task)"
                                     >
                                         Complete
-                                    </button>
-                                    <button
-                                        class="px-2 py-1 text-xs text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
                                         @click="openAssign(task)"
                                     >
                                         Assign
-                                    </button>
-                                    <button
-                                        class="px-2 py-1 text-xs text-red-700 bg-red-50 rounded hover:bg-red-100"
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        aria-label="Delete task"
                                         @click="deleteTask(task)"
                                     >
                                         ×
-                                    </button>
+                                    </Button>
                                 </div>
                             </td>
                         </tr>
-                        <tr v-if="filteredTasks.length === 0">
-                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                        <tr v-if="tasks.data.length === 0">
+                            <td colspan="7" class="p-2 align-middle text-center text-muted-foreground">
                                 No tasks found.
                             </td>
                         </tr>
@@ -322,120 +383,118 @@ const applyFilters = () => {
                 </table>
             </div>
 
-            <!-- Create Modal -->
-            <div
-                v-if="showCreateModal"
-                class="fixed inset-0 z-50 overflow-y-auto"
-                @click.self="showCreateModal = false"
-            >
-                <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                    <div class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                        <h3 class="text-lg font-semibold mb-4">Create Housekeeping Task</h3>
-                        <form @submit.prevent="submitCreate">
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Room ID</label>
-                                    <input v-model="form.room_id" type="number" class="mt-1 block w-full rounded-md border-gray-300" required>
-                                </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Type</label>
-                                        <select v-model="form.type" class="mt-1 block w-full rounded-md border-gray-300">
-                                            <option value="cleaning">Cleaning</option>
-                                            <option value="deep_clean">Deep Clean</option>
-                                            <option value="turnover">Turnover</option>
-                                            <option value="inspection">Inspection</option>
-                                            <option value="laundry">Laundry</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Priority</label>
-                                        <select v-model="form.priority" class="mt-1 block w-full rounded-md border-gray-300">
-                                            <option value="low">Low</option>
-                                            <option value="normal">Normal</option>
-                                            <option value="high">High</option>
-                                            <option value="urgent">Urgent</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Description</label>
-                                    <textarea v-model="form.description" rows="2" class="mt-1 block w-full rounded-md border-gray-300"></textarea>
-                                </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Assign To</label>
-                                        <select v-model="form.assigned_to" class="mt-1 block w-full rounded-md border-gray-300">
-                                            <option value="">Unassigned</option>
-                                            <option v-for="hk in housekeepers" :key="hk.id" :value="hk.id">
-                                                {{ hk.name }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Est. Minutes</label>
-                                        <input v-model="form.estimated_minutes" type="number" min="5" max="480" class="mt-1 block w-full rounded-md border-gray-300">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mt-6 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                                    @click="showCreateModal = false"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    class="px-4 py-2 text-sm text-white bg-gray-900 rounded-md hover:bg-gray-800"
-                                >
-                                    Create Task
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+            <div class="mt-4">
+                <Pagination :data="tasks" label="tasks" @page-change="goToPage" />
             </div>
 
+            <!-- Create Modal -->
+            <Dialog v-model:open="showCreateModal">
+                <DialogContent class="sm:max-w-[600px]">
+                    <DialogHeader>
+                        <DialogTitle>Create Housekeeping Task</DialogTitle>
+                    </DialogHeader>
+                    <form @submit.prevent="submitCreate">
+                        <div class="space-y-4 py-4">
+                            <div class="grid gap-2">
+                                <Label for="room_id">Room ID</Label>
+                                <Input id="room_id" v-model="form.room_id" type="number" required />
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="grid gap-2">
+                                    <Label>Type</Label>
+                                    <Select v-model="form.type" aria-label="Task type">
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem v-for="option in createTypeOptions" :key="option.value" :value="option.value">
+                                                {{ option.label }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label>Priority</Label>
+                                    <Select v-model="form.priority" aria-label="Priority">
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem v-for="option in priorityOptions" :key="option.value" :value="option.value">
+                                                {{ option.label }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div class="grid gap-2">
+                                <Label for="description">Description</Label>
+                                <textarea id="description" v-model="form.description" :rows="2" class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="grid gap-2">
+                                    <Label>Assign To</Label>
+                                    <Select v-model="form.assigned_to" aria-label="Assign to housekeeper">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Unassigned" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem v-for="option in housekeeperOptions" :key="option.value" :value="option.value">
+                                                {{ option.label }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label for="estimated_minutes">Est. Minutes</Label>
+                                    <Input id="estimated_minutes" v-model="form.estimated_minutes" type="number" />
+                                </div>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" @click="showCreateModal = false">
+                                Cancel
+                            </Button>
+                            <Button type="submit" variant="secondary">
+                                Create Task
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
             <!-- Assign Modal -->
-            <div
-                v-if="showAssignModal && selectedTask"
-                class="fixed inset-0 z-50 overflow-y-auto"
-                @click.self="showAssignModal = false"
-            >
-                <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                    <div class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl sm:my-8 sm:w-full sm:max-w-sm sm:p-6">
-                        <h3 class="text-lg font-semibold mb-4">Assign Task</h3>
-                        <form @submit.prevent="submitAssign">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Housekeeper</label>
-                                <select v-model="assignForm.assigned_to" class="mt-1 block w-full rounded-md border-gray-300">
-                                    <option value="">Unassigned</option>
-                                    <option v-for="hk in housekeepers" :key="hk.id" :value="hk.id">
-                                        {{ hk.name }}
-                                    </option>
-                                </select>
+            <Dialog v-model:open="showAssignModal">
+                <DialogContent class="sm:max-w-[400px]">
+                    <DialogHeader>
+                        <DialogTitle>Assign Task</DialogTitle>
+                    </DialogHeader>
+                    <form @submit.prevent="submitAssign">
+                        <div class="py-4">
+                            <div class="grid gap-2">
+                                <Label>Housekeeper</Label>
+                                <Select v-model="assignForm.assigned_to" aria-label="Housekeeper">
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Unassigned" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="option in housekeeperOptions" :key="option.value" :value="option.value">
+                                            {{ option.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <div class="mt-6 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                                    @click="showAssignModal = false"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    class="px-4 py-2 text-sm text-white bg-gray-900 rounded-md hover:bg-gray-800"
-                                >
-                                    Assign
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" @click="showAssignModal = false">
+                                Cancel
+                            </Button>
+                            <Button type="submit" variant="secondary">
+                                Assign
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
-    </AppLayout>
 </template>

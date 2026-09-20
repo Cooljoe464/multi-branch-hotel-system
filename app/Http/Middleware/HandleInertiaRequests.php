@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Branding;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -37,15 +38,53 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
-            'name' => config('app.name'),
+            'name' => $this->resolveAppName(),
+            'branding' => $this->resolveBrandingData(),
             'auth' => [
                 'user' => $request->user(),
+                'roles' => $request->user()?->getRoleNames()->values()->all() ?? [],
+                'permissions' => $request->user()?->getAllPermissions()->pluck('name')->values()->all() ?? [],
             ],
             'branch' => $this->resolveBranchData($request),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }
 
+    private function resolveAppName(): string
+    {
+        try {
+            $branding = Branding::instance();
+            $appName = $branding->app_name;
+        } catch (\Throwable) {
+            $appName = config('app.name');
+        }
+
+        return is_string($appName) ? $appName : 'Laravel';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resolveBrandingData(): array
+    {
+        try {
+            $branding = Branding::instance();
+
+            return [
+                'app_name' => $branding->app_name,
+                'logo_url' => $branding->logo_url,
+            ];
+        } catch (\Throwable) {
+            return [
+                'app_name' => config('app.name', 'Laravel'),
+                'logo_url' => null,
+            ];
+        }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
     private function resolveBranchData(Request $request): ?array
     {
         $user = $request->user();
@@ -60,9 +99,18 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
+        $branding = Branding::instance();
+
+        $currencyCode = $currentBranch->currency_code ?: $branding->currency_code;
+        $currencySymbol = $currentBranch->currency_symbol ?: $branding->currency_symbol;
+
         return [
-            'current' => $currentBranch,
-            'available' => $user->branches()->active()->get(),
+            'current' => [
+                ...$currentBranch->toArray(),
+                'currency_code' => $currencyCode,
+                'currency_symbol' => $currencySymbol,
+            ],
+            'available' => $user->branches()->where('is_active', true)->get(),
             'can_switch' => $user->hasRole('Global Admin') || $user->branches()->count() > 1,
         ];
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Reservation;
 use App\Models\Room;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -13,9 +14,12 @@ class TapeChartController extends Controller
 {
     public function index(Request $request): Response
     {
-        $branchId = $request->user()->branch_id;
+        $user = $request->user();
+        abort_unless($user !== null, 401);
 
-        $startDate = $request->start_date ? Carbon::parse($request->start_date) : now()->startOfDay();
+        $branchId = (int) $user->branch_id;
+
+        $startDate = is_string($request->start_date) ? Carbon::parse($request->start_date) : now()->startOfDay();
         $endDate = $startDate->copy()->addDays(13);
 
         $rooms = Room::forBranch($branchId)
@@ -36,7 +40,7 @@ class TapeChartController extends Controller
         $current = $startDate->copy();
         while ($current->lte($endDate)) {
             $dates[] = $current->format('Y-m-d');
-            $current->addDay();
+            $current = $current->copy()->addDay();
         }
 
         $chartData = $this->buildChartData($rooms, $reservations, $dates);
@@ -51,6 +55,12 @@ class TapeChartController extends Controller
         ]);
     }
 
+    /**
+     * @param  Collection<int, Room>  $rooms
+     * @param  Collection<int, Reservation>  $reservations
+     * @param  list<string>  $dates
+     * @return list<array<string, mixed>>
+     */
     private function buildChartData($rooms, $reservations, array $dates): array
     {
         $chart = [];

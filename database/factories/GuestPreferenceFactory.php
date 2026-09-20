@@ -24,10 +24,13 @@ class GuestPreferenceFactory extends Factory
             'temperature' => ['setting' => ['cool', 'moderate', 'warm'], 'units' => ['celsius', 'fahrenheit']],
         ];
 
-        $category = fake()->randomElement(array_keys($categories));
+        $rawCategory = fake()->randomElement(array_keys($categories));
+        $category = is_string($rawCategory) ? $rawCategory : 'room';
         $options = $categories[$category];
-        $key = fake()->randomElement(array_keys($options));
-        $value = fake()->randomElement($options[$key]);
+        $rawKey = fake()->randomElement(array_keys($options));
+        $key = is_string($rawKey) ? $rawKey : 'default';
+        $rawValue = fake()->randomElement($options[$key]);
+        $value = is_string($rawValue) ? $rawValue : '';
 
         return [
             'guest_id' => Guest::factory(),

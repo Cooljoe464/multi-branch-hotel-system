@@ -1,21 +1,26 @@
 <script setup lang="ts">
-import { router, Link } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { type BreadcrumbItem } from '@/types';
-import { reactive } from 'vue';
+import { Head, router, Link, usePage } from '@inertiajs/vue3';
+import { reactive, computed } from 'vue';
+import { getCurrencySymbol } from '@/lib/format';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Maintenance', href: '/maintenance' },
-    { title: 'New Ticket', href: '/maintenance/create' },
-];
+const page = usePage();
+const branchSymbol = computed(() => (page.props.branch?.current as any)?.currency_symbol || '$');
+const resolveSymbol = (code?: string) => getCurrencySymbol(code || 'NGN') || branchSymbol.value;
+const currencySymbol = computed(() => branchSymbol.value);
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+
+defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Maintenance', href: '/maintenance' }, { title: 'New Ticket', href: '/maintenance/create' }] } });
 
 const props = defineProps<{
     rooms: Array<{ id: number; number: string; floor: string }>;
 }>();
 
 const form = reactive({
-    room_id: '',
+    room_id: 'none',
     category: 'plumbing',
     priority: 'normal',
     title: '',
@@ -23,6 +28,23 @@ const form = reactive({
     is_room_locked: false,
     estimated_cost: '',
 });
+
+const categoryOptions = [
+    { label: 'Plumbing', value: 'plumbing' },
+    { label: 'Electrical', value: 'electrical' },
+    { label: 'HVAC', value: 'hvac' },
+    { label: 'Furniture', value: 'furniture' },
+    { label: 'Appliance', value: 'appliance' },
+    { label: 'Structural', value: 'structural' },
+    { label: 'Other', value: 'other' },
+];
+
+const priorityOptions = [
+    { label: 'Low', value: 'low' },
+    { label: 'Normal', value: 'normal' },
+    { label: 'High', value: 'high' },
+    { label: 'Urgent', value: 'urgent' },
+];
 
 const submit = () => {
     router.post('/maintenance', {
@@ -33,83 +55,94 @@ const submit = () => {
 </script>
 
 <template>
-    <AppLayout title="New Maintenance Ticket" :breadcrumbs="breadcrumbs">
-        <div class="p-6 max-w-2xl mx-auto">
-            <h1 class="text-2xl font-bold text-gray-900 mb-6">New Maintenance Ticket</h1>
+    <Head title="New Maintenance Ticket" />
+    <div class="p-6 max-w-2xl mx-auto">
+        <h1 class="text-2xl font-bold text-foreground mb-6">New Maintenance Ticket</h1>
 
-            <form @submit.prevent="submit" class="space-y-6">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Room</label>
-                            <select v-model="form.room_id" class="mt-1 block w-full rounded-md border-gray-300">
-                                <option value="">No room (general issue)</option>
-                                <option v-for="room in rooms" :key="room.id" :value="room.id">
+        <form @submit.prevent="submit" class="space-y-6">
+            <div class="bg-card rounded-lg border border-border shadow p-6">
+                <div class="space-y-4">
+                    <div class="grid gap-2">
+                        <Label>Room</Label>
+                        <Select v-model="form.room_id">
+                            <SelectTrigger class="w-full">
+                                <SelectValue placeholder="No room (general issue)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">No room (general issue)</SelectItem>
+                                <SelectItem v-for="room in rooms" :key="room.id" :value="String(room.id)">
                                     Room {{ room.number }} (Floor {{ room.floor }})
-                                </option>
-                            </select>
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div class="grid gap-2">
+                        <Label>Title *</Label>
+                        <Input v-model="form.title" type="text" required placeholder="Brief description of the issue" />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="grid gap-2">
+                            <Label>Category *</Label>
+                            <Select v-model="form.category">
+                                <SelectTrigger class="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="option in categoryOptions" :key="option.value" :value="option.value">
+                                        {{ option.label }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Title *</label>
-                            <input v-model="form.title" type="text" required class="mt-1 block w-full rounded-md border-gray-300" placeholder="Brief description of the issue">
+                        <div class="grid gap-2">
+                            <Label>Priority *</Label>
+                            <Select v-model="form.priority">
+                                <SelectTrigger class="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="option in priorityOptions" :key="option.value" :value="option.value">
+                                        {{ option.label }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Category *</label>
-                                <select v-model="form.category" class="mt-1 block w-full rounded-md border-gray-300">
-                                    <option value="plumbing">Plumbing</option>
-                                    <option value="electrical">Electrical</option>
-                                    <option value="hvac">HVAC</option>
-                                    <option value="furniture">Furniture</option>
-                                    <option value="appliance">Appliance</option>
-                                    <option value="structural">Structural</option>
-                                    <option value="other">Other</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Priority *</label>
-                                <select v-model="form.priority" class="mt-1 block w-full rounded-md border-gray-300">
-                                    <option value="low">Low</option>
-                                    <option value="normal">Normal</option>
-                                    <option value="high">High</option>
-                                    <option value="urgent">Urgent</option>
-                                </select>
-                            </div>
+                    </div>
+
+                    <div class="grid gap-2">
+                        <Label>Description *</Label>
+                        <textarea
+                            v-model="form.description"
+                            rows="4"
+                            required
+                            class="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus:border-primary focus:ring-primary focus:outline-none"
+                            placeholder="Detailed description of the issue..."
+                        ></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="grid gap-2">
+                            <Label>Estimated Cost ({{ currencySymbol }})</Label>
+                            <Input v-model="form.estimated_cost" type="number" min="0" />
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Description *</label>
-                            <textarea v-model="form.description" rows="4" required class="mt-1 block w-full rounded-md border-gray-300" placeholder="Detailed description of the issue..."></textarea>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Estimated Cost ($)</label>
-                                <input v-model="form.estimated_cost" type="number" min="0" class="mt-1 block w-full rounded-md border-gray-300">
-                            </div>
-                            <div class="flex items-end">
-                                <label class="flex items-center gap-2">
-                                    <input v-model="form.is_room_locked" type="checkbox" class="rounded border-gray-300">
-                                    <span class="text-sm font-medium text-gray-700">Lock room for maintenance</span>
-                                </label>
-                            </div>
+                        <div class="flex items-end">
+                            <label class="flex items-center gap-2">
+                                <Checkbox v-model:checked="form.is_room_locked" />
+                                <span class="text-sm font-medium text-muted-foreground">Lock room for maintenance</span>
+                            </label>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="flex justify-end gap-2">
-                    <Link
-                        href="/maintenance"
-                        class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                    >
-                        Cancel
-                    </Link>
-                    <button
-                        type="submit"
-                        class="px-4 py-2 text-sm text-white bg-gray-900 rounded-md hover:bg-gray-800"
-                    >
-                        Create Ticket
-                    </button>
-                </div>
-            </form>
-        </div>
-    </AppLayout>
+            <div class="flex justify-end gap-2">
+                <Button type="button" variant="outline" as-child>
+                    <Link href="/maintenance">Cancel</Link>
+                </Button>
+                <Button type="submit">Create Ticket</Button>
+            </div>
+        </form>
+    </div>
 </template>

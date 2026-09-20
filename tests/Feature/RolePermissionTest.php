@@ -16,7 +16,7 @@ beforeEach(function () {
 test('roles are created with correct permissions', function () {
     $this->seed(RoleSeeder::class);
 
-    expect(Role::count())->toBe(5);
+    expect(Role::count())->toBe(9);
     expect(Permission::count())->toBeGreaterThan(0);
 
     $globalAdmin = Role::findByName('Global Admin');
@@ -26,6 +26,8 @@ test('roles are created with correct permissions', function () {
     expect($housekeeper->permissions->pluck('name')->toArray())->toBe([
         'rooms.view',
         'rooms.update_status',
+        'housekeeping.view',
+        'housekeeping.manage',
     ]);
 });
 

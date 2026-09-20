@@ -1,0 +1,55 @@
+# ──────────────────────────────────────────────
+# Version control
+# ──────────────────────────────────────────────
+.git
+.github
+.gitignore
+
+# ──────────────────────────────────────────────
+# Docker (prevent recursive copy)
+# ──────────────────────────────────────────────
+Dockerfile
+docker-compose.yml
+docker/
+
+# ──────────────────────────────────────────────
+# Dependencies (rebuilt in container)
+# ──────────────────────────────────────────────
+node_modules
+vendor
+
+# ──────────────────────────────────────────────
+# Build artifacts (rebuilt in container)
+# ──────────────────────────────────────────────
+public/build
+public/hot
+
+# ──────────────────────────────────────────────
+# Environment & IDE
+# ──────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+.vscode
+.idea
+*.swp
+*.swo
+
+# ──────────────────────────────────────────────
+# Testing
+# ──────────────────────────────────────────────
+tests
+phpunit.xml
+phpunit.xml.bak
+pest.config.js
+.phpunit.result.cache
+.phpunit.cache
+
+# ──────────────────────────────────────────────
+# Documentation & misc
+# ──────────────────────────────────────────────
+*.md
+LICENSE
+docker
+.ai
+.claude

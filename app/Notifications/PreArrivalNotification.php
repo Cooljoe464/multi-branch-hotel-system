@@ -16,6 +16,9 @@ class PreArrivalNotification extends Notification implements ShouldQueue
         public Reservation $reservation,
     ) {}
 
+    /**
+     * @return list<string>
+     */
     public function via(object $notifiable): array
     {
         return ['mail'];
@@ -27,7 +30,7 @@ class PreArrivalNotification extends Notification implements ShouldQueue
         $branch = $this->reservation->branch;
         $roomType = $this->reservation->roomType;
 
-        $name = $guest?->full_name ?? $this->reservation->guest_name;
+        $name = $guest->full_name ?? $this->reservation->guest_name;
 
         return (new MailMessage)
             ->subject("Your upcoming stay at {$branch->name}")

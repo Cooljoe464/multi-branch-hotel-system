@@ -1,7 +1,18 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import PlaceholderPattern from '@/components/PlaceholderPattern.vue';
+import { ref, computed, watch } from 'vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { Button } from '@/components/ui/button';
+import DatePicker from '@/components/ui/date-picker/DatePicker.vue';
+import { Label } from '@/components/ui/label';
 import { dashboard } from '@/routes';
+import KpiCard from '@/components/analytics/KpiCard.vue';
+import RevenueChart from '@/components/analytics/RevenueChart.vue';
+import OccupancyChart from '@/components/analytics/OccupancyChart.vue';
+import RoomTypeBreakdown from '@/components/analytics/RoomTypeBreakdown.vue';
+import { formatDate } from '@/lib/dates';
+
+const page = usePage();
+const currencySymbol = computed(() => (page.props.branch?.current as any)?.currency_symbol || '₦');
 
 defineOptions({
     layout: {
@@ -14,63 +25,234 @@ defineOptions({
     },
 });
 
-const pmsFeatures = [
-    {
-        title: 'Tape Chart',
-        description: 'Visual room availability and reservation grid',
-        href: '/tape-chart',
-        icon: '📊',
-    },
-    {
-        title: 'Rooms',
-        description: 'Manage room inventory and status',
-        href: '/rooms',
-        icon: '🚪',
-    },
-    {
-        title: 'Reservations',
-        description: 'View and manage guest reservations',
-        href: '/reservations',
-        icon: '📅',
-    },
-    {
-        title: 'Housekeeping',
-        description: 'Task management and room turnover',
-        href: '/housekeeping',
-        icon: '🧹',
-    },
-    {
-        title: 'Maintenance',
-        description: 'Track maintenance tickets and repairs',
-        href: '/maintenance',
-        icon: '🔧',
-    },
+const props = defineProps<{
+    kpi: {
+        date: string;
+        occupancy_pct: number;
+        adr: number;
+        revpar: number;
+        revenue_7d: {
+            total_room_revenue: number;
+            total_tax: number;
+            total_payments: number;
+            net_revenue: number;
+            daily: Array<{
+                date: string;
+                room_revenue: number;
+                tax: number;
+                other_charges: number;
+                payments: number;
+                net_revenue: number;
+            }>;
+        };
+        revenue_30d: {
+            total_room_revenue: number;
+            total_tax: number;
+            total_payments: number;
+            net_revenue: number;
+            daily: Array<{
+                date: string;
+                room_revenue: number;
+                tax: number;
+                other_charges: number;
+                payments: number;
+                net_revenue: number;
+            }>;
+        };
+        occupancy_trend_30d: Array<{
+            date: string;
+            occupancy_pct: number;
+            occupied_rooms: number;
+            total_rooms: number;
+        }>;
+        room_type_performance: Array<{
+            room_type_name: string;
+            total_revenue: number;
+            rooms_sold: number;
+            adr: number;
+        }>;
+    };
+    branch: {
+        name: string;
+        currency_symbol: string;
+    };
+    days: number;
+    startDate: string | null;
+    endDate: string | null;
+    roomStatusCounts: {
+        available: number;
+        occupied: number;
+        dirty: number;
+        out_of_order: number;
+    };
+}>();
+
+const periodOptions = [
+    { label: '7 Days', value: 7 },
+    { label: '30 Days', value: 30 },
+    { label: '90 Days', value: 90 },
 ];
+
+const dateFrom = ref(props.startDate ?? '');
+const dateTo = ref(props.endDate ?? '');
+
+function changePeriod(days: number) {
+    dateFrom.value = '';
+    dateTo.value = '';
+    router.get('/dashboard', { days }, { preserveState: true });
+}
+
+function applyDateRange() {
+    if (dateFrom.value && dateTo.value) {
+        router.get('/dashboard', { start_date: dateFrom.value, end_date: dateTo.value }, { preserveState: true });
+    }
+}
+
+function clearDateRange() {
+    dateFrom.value = '';
+    dateTo.value = '';
+    router.get('/dashboard', { days: 30 }, { preserveState: true });
+}
 </script>
 
 <template>
     <Head title="Dashboard" />
 
-    <div
-        class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4"
-    >
-        <div class="grid auto-rows-min gap-4 md:grid-cols-3">
-            <div
-                v-for="feature in pmsFeatures"
-                :key="feature.title"
-                class="border-sidebar-border/70 dark:border-sidebar-border relative overflow-hidden rounded-xl border p-6 hover:border-gray-400 transition-colors"
-            >
-                <Link :href="feature.href" class="block">
-                    <div class="text-3xl mb-2">{{ feature.icon }}</div>
-                    <h3 class="text-lg font-semibold text-gray-900">{{ feature.title }}</h3>
-                    <p class="text-sm text-gray-600 mt-1">{{ feature.description }}</p>
-                </Link>
+    <div class="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-foreground">Revenue Dashboard</h1>
+                <p class="text-sm text-muted-foreground mt-0.5">
+                    Overview and performance metrics for <span class="font-medium text-foreground">{{ branch.name }}</span>
+                </p>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="flex gap-2">
+                    <Button
+                        v-for="option in periodOptions"
+                        :key="option.value"
+                        size="sm"
+                        :variant="days === option.value && !dateFrom && !dateTo ? 'default' : 'outline'"
+                        @click="changePeriod(option.value)"
+                    >
+                        {{ option.label }}
+                    </Button>
+                </div>
+                <div class="flex items-end gap-2">
+                    <div class="grid gap-1.5">
+                        <Label class="text-xs text-muted-foreground">From</Label>
+                        <DatePicker v-model="dateFrom" placeholder="Start date" class="w-36" @change="applyDateRange" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label class="text-xs text-muted-foreground">To</Label>
+                        <DatePicker v-model="dateTo" :min-date="dateFrom || undefined" placeholder="End date" class="w-36" @change="applyDateRange" />
+                    </div>
+                    <Button v-if="dateFrom || dateTo" variant="ghost" size="sm" @click="clearDateRange" class="mb-0.5">
+                        Clear
+                    </Button>
+                </div>
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted text-xs font-medium text-muted-foreground self-start sm:self-auto">
+                    <span class="size-2 rounded-full bg-emerald-500"></span>
+                    <span>As of {{ formatDate(kpi.date) }}</span>
+                </div>
             </div>
         </div>
-        <div
-            class="border-sidebar-border/70 dark:border-sidebar-border relative min-h-[100vh] flex-1 rounded-xl border md:min-h-min"
-        >
-            <PlaceholderPattern />
+
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <KpiCard
+                title="Occupancy"
+                :value="kpi.occupancy_pct"
+                format="percent"
+                icon="🏨"
+            />
+            <KpiCard
+                title="Average Daily Rate"
+                :value="kpi.adr"
+                format="currency"
+                icon="💰"
+            />
+            <KpiCard
+                title="RevPAR"
+                :value="kpi.revpar"
+                format="currency"
+                icon="📈"
+            />
+            <KpiCard
+                title="Net Revenue (30d)"
+                :value="kpi.revenue_30d.net_revenue"
+                format="currency"
+                icon="📊"
+            />
         </div>
+
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <a
+                href="/rooms?status=available"
+                class="flex items-center gap-4 rounded-lg border border-border bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-green-300"
+            >
+                <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30">
+                    <span class="text-xl">🟢</span>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">Available</p>
+                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ roomStatusCounts.available }}</p>
+                </div>
+            </a>
+            <a
+                href="/rooms?status=occupied"
+                class="flex items-center gap-4 rounded-lg border border-border bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-red-300"
+            >
+                <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
+                    <span class="text-xl">🔴</span>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">Occupied</p>
+                    <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ roomStatusCounts.occupied }}</p>
+                </div>
+            </a>
+            <a
+                href="/rooms?status=dirty"
+                class="flex items-center gap-4 rounded-lg border border-border bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-yellow-300"
+            >
+                <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
+                    <span class="text-xl">🟡</span>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">Needs Cleanup</p>
+                    <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ roomStatusCounts.dirty }}</p>
+                </div>
+            </a>
+            <a
+                href="/rooms?status=out_of_order"
+                class="flex items-center gap-4 rounded-lg border border-border bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-muted-foreground/30"
+            >
+                <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
+                    <span class="text-xl">⚫</span>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">Out of Order</p>
+                    <p class="text-2xl font-bold text-muted-foreground">{{ roomStatusCounts.out_of_order }}</p>
+                </div>
+            </a>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-2">
+            <RevenueChart
+                :data="kpi.revenue_30d.daily"
+                :height="320"
+                :currency-symbol="currencySymbol"
+            />
+            <OccupancyChart
+                :data="kpi.occupancy_trend_30d"
+                :height="320"
+            />
+        </div>
+
+        <RoomTypeBreakdown
+            v-if="kpi.room_type_performance.length > 0"
+            :data="kpi.room_type_performance"
+            :currency-symbol="currencySymbol"
+            :height="350"
+        />
     </div>
 </template>

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
+import { Loader2 } from '@lucide/vue';
+import { Button } from '@/components/ui/button';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { edit } from '@/routes/security';
 import type { Props as ManagePasskeysProps } from '@/components/ManagePasskeys.vue';
 import ManagePasskeys from '@/components/ManagePasskeys.vue';
@@ -59,10 +59,10 @@ defineOptions({
             v-slot="{ errors, processing }"
         >
             <div class="grid gap-2">
-                <Label for="current_password">Current password</Label>
                 <PasswordInput
                     id="current_password"
                     name="current_password"
+                    label="Current password"
                     class="mt-1 block w-full"
                     autocomplete="current-password"
                     placeholder="Current password"
@@ -71,10 +71,10 @@ defineOptions({
             </div>
 
             <div class="grid gap-2">
-                <Label for="password">New password</Label>
                 <PasswordInput
                     id="password"
                     name="password"
+                    label="New password"
                     class="mt-1 block w-full"
                     autocomplete="new-password"
                     placeholder="New password"
@@ -84,10 +84,10 @@ defineOptions({
             </div>
 
             <div class="grid gap-2">
-                <Label for="password_confirmation">Confirm password</Label>
                 <PasswordInput
                     id="password_confirmation"
                     name="password_confirmation"
+                    label="Confirm password"
                     class="mt-1 block w-full"
                     autocomplete="new-password"
                     placeholder="Confirm password"
@@ -98,9 +98,11 @@ defineOptions({
 
             <div class="flex items-center gap-4">
                 <Button
+                    type="submit"
                     :disabled="processing"
                     data-test="update-password-button"
                 >
+                    <Loader2 v-if="processing" class="mr-2 size-4 animate-spin" />
                     Save
                 </Button>
             </div>

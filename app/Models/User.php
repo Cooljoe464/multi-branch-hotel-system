@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Laravel\Sanctum\HasApiTokens;
 use Spatie\Activitylog\Models\Concerns\CausesActivity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -43,16 +44,18 @@ use Spatie\Permission\Traits\HasRoles;
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read Branch|null $currentBranch
- * @property-read Collection<Branch> $branches
+ * @property-read Collection<int, Branch> $branches
  */
 #[Fillable(['name', 'email', 'password', 'branch_id', 'is_global_admin'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
-    /** @use HasFactory<UserFactory> */
     use CausesActivity;
+    use HasApiTokens;
 
+    /** @use HasFactory<UserFactory> */
     use HasFactory;
+
     use HasRoles;
     use LogsActivity;
     use Notifiable;
@@ -80,16 +83,34 @@ class User extends Authenticatable implements PasskeyUser
             ->dontLogEmptyChanges();
     }
 
+    /** @return BelongsTo<Branch, $this> */
     public function currentBranch(): BelongsTo
     {
         return $this->belongsTo(Branch::class, 'branch_id');
     }
 
+    /** @return BelongsToMany<Branch, $this> */
     public function branches(): BelongsToMany
     {
         return $this->belongsToMany(Branch::class, 'user_branch')
             ->withPivot('is_default')
             ->withTimestamps();
+    }
+
+    /** @return BelongsToMany<Outlet, $this> */
+    public function posOutlets(): BelongsToMany
+    {
+        return $this->belongsToMany(Outlet::class, 'outlet_user')
+            ->withTimestamps();
+    }
+
+    public function hasPosAccessToOutlet(Outlet $outlet): bool
+    {
+        if ($this->is_global_admin) {
+            return true;
+        }
+
+        return $this->posOutlets()->where('outlets.id', $outlet->id)->exists();
     }
 
     public function defaultBranch(): ?Branch
@@ -108,11 +129,19 @@ class User extends Authenticatable implements PasskeyUser
         return $this->branches()->where('branches.id', $branch->id)->exists();
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeGlobalAdmin(Builder $query): Builder
     {
         return $query->where('is_global_admin', true);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeForBranch(Builder $query, int $branchId): Builder
     {
         return $query->where('branch_id', $branchId);

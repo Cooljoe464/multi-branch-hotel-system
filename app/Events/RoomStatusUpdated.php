@@ -15,7 +15,9 @@ class RoomStatusUpdated implements ShouldBroadcast
 
     public function __construct(
         public Room $room,
-    ) {}
+    ) {
+        $this->room->loadMissing('roomType');
+    }
 
     public function broadcastOn(): array
     {
@@ -29,6 +31,9 @@ class RoomStatusUpdated implements ShouldBroadcast
         return 'room.status.updated';
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function broadcastWith(): array
     {
         return [
@@ -42,7 +47,7 @@ class RoomStatusUpdated implements ShouldBroadcast
                 'name' => $this->room->roomType->name,
                 'code' => $this->room->roomType->code,
             ],
-            'updated_at' => $this->room->updated_at->toISOString(),
+            'updated_at' => $this->room->updated_at?->toISOString(),
         ];
     }
 }

@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use Database\Factories\GuestFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -36,15 +36,15 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string|null $dietary_restrictions
  * @property string|null $special_notes
  * @property string|null $internal_notes
- * @property array|null $metadata
+ * @property array<string, mixed>|null $metadata
  * @property Carbon|null $last_stayed_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read string $full_name
- * @property-read HasMany $preferences
- * @property-read HasMany $reservations
- * @property-read HasManyThrough $allReservations
+ * @property-read HasMany<GuestPreference, $this> $preferences
+ * @property-read HasMany<Reservation, $this> $reservations
+ * @property-read HasMany<Reservation, $this> $allReservations
  */
 #[Fillable([
     'first_name',
@@ -72,7 +72,9 @@ use Spatie\Activitylog\Support\LogOptions;
 ])]
 class Guest extends Model
 {
+    /** @use HasFactory<GuestFactory> */
     use HasFactory;
+
     use LogsActivity;
     use Notifiable;
     use SoftDeletes;
@@ -99,19 +101,22 @@ class Guest extends Model
 
     // --- Relationships ---
 
+    /** @return HasMany<GuestPreference, $this> */
     public function preferences(): HasMany
     {
         return $this->hasMany(GuestPreference::class);
     }
 
+    /** @return HasMany<Reservation, $this> */
     public function reservations(): HasMany
     {
         return $this->hasMany(Reservation::class);
     }
 
-    public function allReservations(): HasManyThrough
+    /** @return HasMany<Reservation, $this> */
+    public function allReservations(): HasMany
     {
-        return $this->HasManyThrough(Reservation::class, 'guest_id');
+        return $this->reservations();
     }
 
     // --- Accessors ---
@@ -123,21 +128,37 @@ class Guest extends Model
 
     // --- Scopes ---
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeForEmail(Builder $query, string $email): Builder
     {
         return $query->where('email', $email);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeWithVipStatus(Builder $query, string $status): Builder
     {
         return $query->where('vip_status', $status);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeVip(Builder $query): Builder
     {
         return $query->where('vip_status', '!=', 'none');
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeReturning(Builder $query): Builder
     {
         return $query->where('total_stays', '>', 1);
@@ -147,10 +168,12 @@ class Guest extends Model
 
     public function incrementStay(int $nights, int $amount): void
     {
-        $this->increment('total_stays');
-        $this->increment('total_nights', $nights);
-        $this->increment('total_spent', $amount);
-        $this->update(['last_stayed_at' => now()]);
+        $this->update([
+            'total_stays' => $this->total_stays + 1,
+            'total_nights' => $this->total_nights + $nights,
+            'total_spent' => $this->total_spent + $amount,
+            'last_stayed_at' => now(),
+        ]);
 
         $this->evaluateVipStatus();
     }
@@ -172,6 +195,7 @@ class Guest extends Model
 
     public function getPreference(string $category, string $key): ?string
     {
+        /** @var GuestPreference|null $pref */
         $pref = $this->preferences()
             ->where('category', $category)
             ->where('key', $key)
@@ -188,6 +212,10 @@ class Guest extends Model
         );
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeSearch(Builder $query, string $search): Builder
     {
         return $query->where(function ($q) use ($search) {

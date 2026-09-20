@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 
 class AdminSeeder extends Seeder
@@ -17,47 +18,50 @@ class AdminSeeder extends Seeder
         $this->createUsers($branches, $roles);
     }
 
+    /**
+     * @return array{downtown: Branch, seaside: Branch}
+     */
     private function createBranches(): array
     {
         $downtown = Branch::firstOrCreate(
-            ['code' => 'GHD-001'],
+            ['code' => 'EGH-001'],
             [
-                'name' => 'Grand Hotel Downtown',
-                'slug' => 'grand-hotel-downtown',
-                'address' => '123 Main Street',
-                'city' => 'New York',
-                'state' => 'NY',
-                'country' => 'US',
-                'postal_code' => '10001',
-                'phone' => '+1-212-555-0100',
-                'email' => 'downtown@grandhotel.com',
-                'timezone' => 'America/New_York',
-                'currency_code' => 'USD',
-                'currency_symbol' => '$',
-                'tax_rate' => 8.875,
-                'tax_label' => 'NYC Tax',
+                'name' => 'Eko Grand Hotel',
+                'slug' => 'eko-grand-hotel',
+                'address' => '42 Marina Road, Lagos Island',
+                'city' => 'Lagos',
+                'state' => 'Lagos',
+                'country' => 'NG',
+                'postal_code' => '102273',
+                'phone' => '+234-1-271-0200',
+                'email' => 'info@ekograndhotel.com',
+                'timezone' => 'Africa/Lagos',
+                'currency_code' => 'NGN',
+                'currency_symbol' => '₦',
+                'tax_rate' => 7.5,
+                'tax_label' => 'VAT',
                 'is_active' => true,
                 'is_primary' => true,
             ]
         );
 
         $seaside = Branch::firstOrCreate(
-            ['code' => 'SRR-002'],
+            ['code' => 'CBR-002'],
             [
-                'name' => 'Seaside Resort & Retreat',
-                'slug' => 'seaside-resort-retreat',
-                'address' => '456 Ocean Drive',
-                'city' => 'Miami',
-                'state' => 'FL',
-                'country' => 'US',
-                'postal_code' => '33139',
-                'phone' => '+1-305-555-0200',
-                'email' => 'reservations@seasideresort.com',
-                'timezone' => 'America/New_York',
-                'currency_code' => 'USD',
-                'currency_symbol' => '$',
-                'tax_rate' => 7.0,
-                'tax_label' => 'Tourist Tax',
+                'name' => 'Calabar Beach Resort & Spa',
+                'slug' => 'calabar-beach-resort-spa',
+                'address' => '15 Beach Road, Calabar',
+                'city' => 'Calabar',
+                'state' => 'Cross River',
+                'country' => 'NG',
+                'postal_code' => '540242',
+                'phone' => '+234-87-234-5678',
+                'email' => 'reservations@calabarbeachresort.com',
+                'timezone' => 'Africa/Lagos',
+                'currency_code' => 'NGN',
+                'currency_symbol' => '₦',
+                'tax_rate' => 7.5,
+                'tax_label' => 'VAT',
                 'is_active' => true,
                 'is_primary' => false,
             ]
@@ -66,6 +70,9 @@ class AdminSeeder extends Seeder
         return compact('downtown', 'seaside');
     }
 
+    /**
+     * @return array{global_admin: \Spatie\Permission\Contracts\Role, property_owner: \Spatie\Permission\Contracts\Role, branch_gm: \Spatie\Permission\Contracts\Role, front_desk: \Spatie\Permission\Contracts\Role, housekeeper: \Spatie\Permission\Contracts\Role, kitchen_staff: \Spatie\Permission\Contracts\Role, laundry_attendant: \Spatie\Permission\Contracts\Role, cashier: \Spatie\Permission\Contracts\Role, auditor: \Spatie\Permission\Contracts\Role}
+     */
     private function getRoles(): array
     {
         return [
@@ -74,9 +81,17 @@ class AdminSeeder extends Seeder
             'branch_gm' => Role::findByName('Branch GM'),
             'front_desk' => Role::findByName('Front Desk'),
             'housekeeper' => Role::findByName('Housekeeper'),
+            'kitchen_staff' => Role::findByName('Kitchen Staff'),
+            'laundry_attendant' => Role::findByName('Laundry Attendant'),
+            'cashier' => Role::findByName('Cashier'),
+            'auditor' => Role::findByName('Auditor'),
         ];
     }
 
+    /**
+     * @param  array{downtown: Branch, seaside: Branch}  $branches
+     * @param  array{global_admin: \Spatie\Permission\Contracts\Role, property_owner: \Spatie\Permission\Contracts\Role, branch_gm: \Spatie\Permission\Contracts\Role, front_desk: \Spatie\Permission\Contracts\Role, housekeeper: \Spatie\Permission\Contracts\Role, kitchen_staff: \Spatie\Permission\Contracts\Role, laundry_attendant: \Spatie\Permission\Contracts\Role, cashier: \Spatie\Permission\Contracts\Role, auditor: \Spatie\Permission\Contracts\Role}  $roles
+     */
     private function createUsers(array $branches, array $roles): void
     {
         $admin = User::firstOrCreate(
@@ -97,7 +112,7 @@ class AdminSeeder extends Seeder
             ['email' => 'owner@hotel.com'],
             [
                 'name' => 'Property Owner',
-                'password' => 'password',
+                'password' => Hash::make('password'),
                 'is_global_admin' => false,
                 'gdpr_consent_at' => now(),
                 'gdpr_consent_version' => '1.0',
@@ -111,7 +126,7 @@ class AdminSeeder extends Seeder
             ['email' => 'gm@hotel.com'],
             [
                 'name' => 'Branch General Manager',
-                'password' => 'password',
+                'password' => Hash::make('password'),
                 'is_global_admin' => false,
                 'gdpr_consent_at' => now(),
                 'gdpr_consent_version' => '1.0',
@@ -125,7 +140,7 @@ class AdminSeeder extends Seeder
             ['email' => 'frontdesk@hotel.com'],
             [
                 'name' => 'Front Desk Staff',
-                'password' => 'password',
+                'password' => Hash::make('password'),
                 'is_global_admin' => false,
                 'gdpr_consent_at' => now(),
                 'gdpr_consent_version' => '1.0',
@@ -139,7 +154,7 @@ class AdminSeeder extends Seeder
             ['email' => 'housekeeper@hotel.com'],
             [
                 'name' => 'Housekeeping Staff',
-                'password' => 'password',
+                'password' => Hash::make('password'),
                 'is_global_admin' => false,
                 'gdpr_consent_at' => now(),
                 'gdpr_consent_version' => '1.0',
@@ -148,5 +163,61 @@ class AdminSeeder extends Seeder
         $housekeeper->syncRoles([$roles['housekeeper']]);
         $housekeeper->branches()->sync([$branches['downtown']->id]);
         $housekeeper->update(['branch_id' => $branches['downtown']->id]);
+
+        $kitchenStaff = User::firstOrCreate(
+            ['email' => 'kitchenstaff@hotel.com'],
+            [
+                'name' => 'Kitchen Staff',
+                'password' => Hash::make('password'),
+                'is_global_admin' => false,
+                'gdpr_consent_at' => now(),
+                'gdpr_consent_version' => '1.0',
+            ]
+        );
+        $kitchenStaff->syncRoles([$roles['kitchen_staff']]);
+        $kitchenStaff->branches()->sync([$branches['downtown']->id]);
+        $kitchenStaff->update(['branch_id' => $branches['downtown']->id]);
+
+        $laundryAttendant = User::firstOrCreate(
+            ['email' => 'laundry@hotel.com'],
+            [
+                'name' => 'Laundry Attendant',
+                'password' => Hash::make('password'),
+                'is_global_admin' => false,
+                'gdpr_consent_at' => now(),
+                'gdpr_consent_version' => '1.0',
+            ]
+        );
+        $laundryAttendant->syncRoles([$roles['laundry_attendant']]);
+        $laundryAttendant->branches()->sync([$branches['downtown']->id]);
+        $laundryAttendant->update(['branch_id' => $branches['downtown']->id]);
+
+        $cashier = User::firstOrCreate(
+            ['email' => 'cashier@hotel.com'],
+            [
+                'name' => 'Cashier',
+                'password' => Hash::make('password'),
+                'is_global_admin' => false,
+                'gdpr_consent_at' => now(),
+                'gdpr_consent_version' => '1.0',
+            ]
+        );
+        $cashier->syncRoles([$roles['cashier']]);
+        $cashier->branches()->sync([$branches['downtown']->id]);
+        $cashier->update(['branch_id' => $branches['downtown']->id]);
+
+        $auditor = User::firstOrCreate(
+            ['email' => 'auditor@hotel.com'],
+            [
+                'name' => 'Auditor',
+                'password' => Hash::make('password'),
+                'is_global_admin' => false,
+                'gdpr_consent_at' => now(),
+                'gdpr_consent_version' => '1.0',
+            ]
+        );
+        $auditor->syncRoles([$roles['auditor']]);
+        $auditor->branches()->sync([$branches['downtown']->id]);
+        $auditor->update(['branch_id' => $branches['downtown']->id]);
     }
 }

@@ -1,8 +1,26 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, router, Link } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { type BreadcrumbItem } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import Pagination from '@/components/ui/pagination/Pagination.vue';
 
 interface RoomType {
     id: number;
@@ -24,7 +42,13 @@ interface Room {
 }
 
 const props = defineProps<{
-    rooms: Room[];
+    rooms: {
+        data: Room[];
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+    };
     roomTypes: RoomType[];
     floors: string[];
     filters: {
@@ -33,10 +57,7 @@ const props = defineProps<{
     };
 }>();
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Rooms', href: '/rooms' },
-];
+defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Rooms', href: '/rooms' }] } });
 
 const showCreateModal = ref(false);
 const selectedRoom = ref<Room | null>(null);
@@ -72,25 +93,11 @@ const filterForm = ref({
     floor: props.filters.floor || '',
 });
 
-const filteredRooms = computed(() => {
-    let result = [...props.rooms];
-    if (filterForm.value.status) {
-        result = result.filter(r => r.status === filterForm.value.status);
-    }
-    if (filterForm.value.floor) {
-        result = result.filter(r => r.floor === filterForm.value.floor);
-    }
-    return result;
-});
-
-const getStatusBadgeClass = (status: string) => {
-    const classes: Record<string, string> = {
-        available: 'bg-green-100 text-green-800',
-        occupied: 'bg-red-100 text-red-800',
-        dirty: 'bg-yellow-100 text-yellow-800',
-        out_of_order: 'bg-gray-100 text-gray-800',
-    };
-    return classes[status] || 'bg-gray-100 text-gray-800';
+const statusBadgeVariant: Record<string, string> = {
+    available: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700',
+    occupied: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700',
+    dirty: 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700',
+    out_of_order: 'bg-muted text-muted-foreground border-border',
 };
 
 const submitCreate = () => {
@@ -162,269 +169,245 @@ const applyFilters = () => {
         replace: true,
     });
 };
+
+const goToPage = (page: number) => {
+    router.get('/rooms', { ...filterForm.value, page }, {
+        preserveState: true,
+        replace: true,
+    });
+};
 </script>
 
 <template>
-    <AppLayout title="Rooms" :breadcrumbs="breadcrumbs">
-        <div class="p-6">
-            <div class="mb-6 flex items-center justify-between">
-                <h1 class="text-2xl font-bold text-gray-900">Rooms</h1>
-                <button
-                    class="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800"
-                    @click="showCreateModal = true"
-                >
+        <div class="p-4 md:p-6">
+            <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h1 class="text-2xl font-bold text-foreground">Rooms</h1>
+                <Button @click="showCreateModal = true">
                     Add Room
-                </button>
+                </Button>
             </div>
 
             <!-- Filters -->
-            <div class="mb-4 flex gap-4">
-                <select
-                    v-model="filterForm.status"
-                    class="rounded-md border-gray-300 text-sm"
-                    @change="applyFilters"
-                >
-                    <option value="">All Statuses</option>
-                    <option value="available">Available</option>
-                    <option value="occupied">Occupied</option>
-                    <option value="dirty">Dirty</option>
-                    <option value="out_of_order">Out of Order</option>
-                </select>
-                <select
-                    v-model="filterForm.floor"
-                    class="rounded-md border-gray-300 text-sm"
-                    @change="applyFilters"
-                >
-                    <option value="">All Floors</option>
-                    <option v-for="floor in floors" :key="floor" :value="floor">
-                        Floor {{ floor }}
-                    </option>
-                </select>
+            <div class="mb-4 flex flex-col gap-4 sm:flex-row">
+                <Select v-model="filterForm.status" class="sm:max-w-xs" aria-label="Filter by status" @update:model-value="applyFilters">
+                    <SelectTrigger>
+                        <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="available">Available</SelectItem>
+                        <SelectItem value="occupied">Occupied</SelectItem>
+                        <SelectItem value="dirty">Dirty</SelectItem>
+                        <SelectItem value="out_of_order">Out of Order</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select v-model="filterForm.floor" class="sm:max-w-xs" aria-label="Filter by floor" @update:model-value="applyFilters">
+                    <SelectTrigger>
+                        <SelectValue placeholder="All Floors" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="floor in floors" :key="floor" :value="floor">
+                            Floor {{ floor }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
 
             <!-- Room Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 <div
-                    v-for="room in filteredRooms"
+                    v-for="room in rooms.data"
                     :key="room.id"
-                    class="bg-white rounded-lg shadow border p-4 hover:shadow-md transition-shadow"
+                    class="bg-card rounded-lg shadow border border-border p-4 hover:shadow-md transition-shadow"
                 >
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-lg font-bold">{{ room.number }}</span>
-                        <span
-                            class="px-2 py-1 text-xs font-medium rounded-full"
-                            :class="getStatusBadgeClass(room.status)"
-                        >
+                        <span class="text-lg font-bold text-foreground">{{ room.number }}</span>
+                        <Badge :class="statusBadgeVariant[room.status] ?? 'bg-muted text-muted-foreground border-border'" variant="outline">
                             {{ room.status.replace('_', ' ') }}
-                        </span>
+                        </Badge>
                     </div>
-                    <div class="text-sm text-gray-600 mb-2">
+                    <div class="text-sm text-muted-foreground mb-2">
                         {{ room.room_type.name }}
                     </div>
-                    <div class="text-xs text-gray-500 mb-3">
+                    <div class="text-xs text-muted-foreground mb-3">
                         Floor {{ room.floor }}{{ room.wing ? ` - ${room.wing}` : '' }}
                         <span v-if="room.is_accessible" class="ml-2">♿</span>
                         <span v-if="room.is_smoking" class="ml-2">🚬</span>
                     </div>
                     <div class="flex gap-1">
-                        <button
-                            class="flex-1 px-2 py-1 text-xs text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
-                            @click="openStatus(room)"
-                        >
+                        <Button variant="outline" size="sm" class="flex-1" @click="openStatus(room)">
                             Status
-                        </button>
-                        <button
-                            class="flex-1 px-2 py-1 text-xs text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
-                            @click="openEdit(room)"
-                        >
+                        </Button>
+                        <Button variant="outline" size="sm" class="flex-1" @click="openEdit(room)">
                             Edit
-                        </button>
-                        <button
-                            class="px-2 py-1 text-xs text-red-700 bg-red-50 rounded hover:bg-red-100"
-                            @click="deleteRoom(room)"
-                        >
+                        </Button>
+                        <Button variant="destructive" size="sm" aria-label="Delete room" @click="deleteRoom(room)">
                             ×
-                        </button>
+                        </Button>
                     </div>
                 </div>
+            </div>
+
+            <div class="mt-4">
+                <Pagination :data="rooms" label="rooms" @page-change="goToPage" />
             </div>
 
             <!-- Create Modal -->
-            <div
-                v-if="showCreateModal"
-                class="fixed inset-0 z-50 overflow-y-auto"
-                @click.self="showCreateModal = false"
-            >
-                <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                    <div class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                        <h3 class="text-lg font-semibold mb-4">Add New Room</h3>
-                        <form @submit.prevent="submitCreate">
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Room Type</label>
-                                    <select v-model="form.room_type_id" class="mt-1 block w-full rounded-md border-gray-300" required>
-                                        <option value="">Select type</option>
-                                        <option v-for="type in roomTypes" :key="type.id" :value="type.id">
+            <Dialog :open="showCreateModal" @update:open="showCreateModal = $event">
+                <DialogContent class="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Add New Room</DialogTitle>
+                    </DialogHeader>
+                    <form id="create-room-form" @submit.prevent="submitCreate">
+                        <div class="space-y-4">
+                            <div class="grid gap-2">
+                                <Label>Room Type</Label>
+                                <Select v-model="form.room_type_id" aria-label="Room Type">
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="type in roomTypes" :key="type.id" :value="String(type.id)">
                                             {{ type.name }} - ${{ type.base_rate }}/night
-                                        </option>
-                                    </select>
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div class="grid gap-2">
+                                <Label for="room-number">Room Number</Label>
+                                <Input id="room-number" v-model="form.number" type="text" required />
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="grid gap-2">
+                                    <Label for="room-floor">Floor</Label>
+                                    <Input id="room-floor" v-model="form.floor" type="text" />
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Room Number</label>
-                                    <input v-model="form.number" type="text" class="mt-1 block w-full rounded-md border-gray-300" required>
-                                </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Floor</label>
-                                        <input v-model="form.floor" type="text" class="mt-1 block w-full rounded-md border-gray-300">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Wing</label>
-                                        <input v-model="form.wing" type="text" class="mt-1 block w-full rounded-md border-gray-300">
-                                    </div>
-                                </div>
-                                <div class="flex gap-4">
-                                    <label class="flex items-center gap-2">
-                                        <input v-model="form.is_accessible" type="checkbox" class="rounded border-gray-300">
-                                        <span class="text-sm">Accessible</span>
-                                    </label>
-                                    <label class="flex items-center gap-2">
-                                        <input v-model="form.is_smoking" type="checkbox" class="rounded border-gray-300">
-                                        <span class="text-sm">Smoking</span>
-                                    </label>
+                                <div class="grid gap-2">
+                                    <Label for="room-wing">Wing</Label>
+                                    <Input id="room-wing" v-model="form.wing" type="text" />
                                 </div>
                             </div>
-                            <div class="mt-6 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                                    @click="showCreateModal = false"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    class="px-4 py-2 text-sm text-white bg-gray-900 rounded-md hover:bg-gray-800"
-                                >
-                                    Create Room
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Edit Modal -->
-            <div
-                v-if="showEditModal && selectedRoom"
-                class="fixed inset-0 z-50 overflow-y-auto"
-                @click.self="showEditModal = false"
-            >
-                <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                    <div class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                        <h3 class="text-lg font-semibold mb-4">Edit Room {{ selectedRoom.number }}</h3>
-                        <form @submit.prevent="submitEdit">
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Room Type</label>
-                                    <select v-model="editForm.room_type_id" class="mt-1 block w-full rounded-md border-gray-300" required>
-                                        <option v-for="type in roomTypes" :key="type.id" :value="type.id">
-                                            {{ type.name }}
-                                        </option>
-                                    </select>
-                                </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Floor</label>
-                                        <input v-model="editForm.floor" type="text" class="mt-1 block w-full rounded-md border-gray-300">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Wing</label>
-                                        <input v-model="editForm.wing" type="text" class="mt-1 block w-full rounded-md border-gray-300">
-                                    </div>
-                                </div>
-                                <div class="flex gap-4">
-                                    <label class="flex items-center gap-2">
-                                        <input v-model="editForm.is_accessible" type="checkbox" class="rounded border-gray-300">
-                                        <span class="text-sm">Accessible</span>
-                                    </label>
-                                    <label class="flex items-center gap-2">
-                                        <input v-model="editForm.is_smoking" type="checkbox" class="rounded border-gray-300">
-                                        <span class="text-sm">Smoking</span>
-                                    </label>
-                                    <label class="flex items-center gap-2">
-                                        <input v-model="editForm.is_active" type="checkbox" class="rounded border-gray-300">
-                                        <span class="text-sm">Active</span>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="mt-6 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                                    @click="showEditModal = false"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    class="px-4 py-2 text-sm text-white bg-gray-900 rounded-md hover:bg-gray-800"
-                                >
-                                    Save Changes
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Status Modal -->
-            <div
-                v-if="showStatusModal && selectedRoom"
-                class="fixed inset-0 z-50 overflow-y-auto"
-                @click.self="showStatusModal = false"
-            >
-                <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                    <div class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl sm:my-8 sm:w-full sm:max-w-sm sm:p-6">
-                        <h3 class="text-lg font-semibold mb-4">
-                            Room {{ selectedRoom.number }} Status
-                        </h3>
-                        <form @submit.prevent="submitStatus">
-                            <div class="space-y-2">
-                                <label
-                                    v-for="status in ['available', 'occupied', 'dirty', 'out_of_order']"
-                                    :key="status"
-                                    class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                                    :class="{ 'bg-gray-50 border-gray-900': statusForm.status === status }"
-                                >
-                                    <input
-                                        v-model="statusForm.status"
-                                        type="radio"
-                                        :value="status"
-                                        class="text-gray-900"
-                                    >
-                                    <span class="text-sm font-medium capitalize">{{ status.replace('_', ' ') }}</span>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2">
+                                    <Checkbox :checked="form.is_accessible" @update:checked="form.is_accessible = $event" />
+                                    <span class="text-sm text-foreground">Accessible</span>
+                                </label>
+                                <label class="flex items-center gap-2">
+                                    <Checkbox :checked="form.is_smoking" @update:checked="form.is_smoking = $event" />
+                                    <span class="text-sm text-foreground">Smoking</span>
                                 </label>
                             </div>
-                            <div class="mt-6 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                                    @click="showStatusModal = false"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    class="px-4 py-2 text-sm text-white bg-gray-900 rounded-md hover:bg-gray-800"
-                                >
-                                    Update Status
-                                </button>
+                        </div>
+                    </form>
+                    <DialogFooter>
+                        <div class="flex justify-end gap-2">
+                            <Button variant="outline" @click="showCreateModal = false">
+                                Cancel
+                            </Button>
+                            <Button type="submit" form="create-room-form">
+                                Create Room
+                            </Button>
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <!-- Edit Modal -->
+            <Dialog :open="showEditModal" @update:open="showEditModal = $event">
+                <DialogContent class="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Edit Room {{ selectedRoom?.number }}</DialogTitle>
+                    </DialogHeader>
+                    <form id="edit-room-form" @submit.prevent="submitEdit">
+                        <div class="space-y-4">
+                            <div class="grid gap-2">
+                                <Label>Room Type</Label>
+                                <Select :model-value="String(editForm.room_type_id)" @update:model-value="editForm.room_type_id = $event" aria-label="Room Type">
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="type in roomTypes" :key="type.id" :value="String(type.id)">
+                                            {{ type.name }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="grid gap-2">
+                                    <Label for="edit-floor">Floor</Label>
+                                    <Input id="edit-floor" v-model="editForm.floor" type="text" />
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label for="edit-wing">Wing</Label>
+                                    <Input id="edit-wing" v-model="editForm.wing" type="text" />
+                                </div>
+                            </div>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2">
+                                    <Checkbox :checked="editForm.is_accessible" @update:checked="editForm.is_accessible = $event" />
+                                    <span class="text-sm text-foreground">Accessible</span>
+                                </label>
+                                <label class="flex items-center gap-2">
+                                    <Checkbox :checked="editForm.is_smoking" @update:checked="editForm.is_smoking = $event" />
+                                    <span class="text-sm text-foreground">Smoking</span>
+                                </label>
+                                <label class="flex items-center gap-2">
+                                    <Checkbox :checked="editForm.is_active" @update:checked="editForm.is_active = $event" />
+                                    <span class="text-sm text-foreground">Active</span>
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                    <DialogFooter>
+                        <div class="flex justify-end gap-2">
+                            <Button variant="outline" @click="showEditModal = false">
+                                Cancel
+                            </Button>
+                            <Button type="submit" form="edit-room-form">
+                                Save Changes
+                            </Button>
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <!-- Status Modal -->
+            <Dialog :open="showStatusModal" @update:open="showStatusModal = $event">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            Room {{ selectedRoom?.number }} Status
+                        </DialogTitle>
+                    </DialogHeader>
+                    <form id="status-room-form" @submit.prevent="submitStatus">
+                        <div class="space-y-2">
+                            <label
+                                v-for="status in ['available', 'occupied', 'dirty', 'out_of_order']"
+                                :key="status"
+                                class="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-accent"
+                                :class="{ 'bg-accent border-accent-foreground': statusForm.status === status }"
+                            >
+                                <input
+                                    v-model="statusForm.status"
+                                    type="radio"
+                                    :value="status"
+                                    class="text-foreground"
+                                >
+                                <span class="text-sm font-medium capitalize text-foreground">{{ status.replace('_', ' ') }}</span>
+                            </label>
+                        </div>
+                    </form>
+                    <DialogFooter>
+                        <div class="flex justify-end gap-2">
+                            <Button variant="outline" @click="showStatusModal = false">
+                                Cancel
+                            </Button>
+                            <Button type="submit" form="status-room-form">
+                                Update Status
+                            </Button>
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
-    </AppLayout>
 </template>

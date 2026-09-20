@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Form, Head, setLayoutProps } from '@inertiajs/vue3';
 import { computed, ref, watchEffect } from 'vue';
-import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
+import InputError from '@/components/InputError.vue';
 import {
     InputOTP,
     InputOTPGroup,
@@ -82,14 +84,21 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                     </div>
                     <InputError :message="errors.code" />
                 </div>
-                <Button type="submit" class="w-full" :disabled="processing"
-                    >Continue</Button
+                <Button
+                    type="submit"
+                    class="w-full"
+                    :disabled="processing"
                 >
-                <div class="text-muted-foreground text-center text-sm">
+                    <Spinner v-if="processing" class="mr-2" />
+                    Continue
+                </Button>
+                <div
+                    class="text-muted-foreground text-center text-sm"
+                >
                     <span>or you can </span>
                     <button
                         type="button"
-                        class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                        class="text-foreground underline underline-offset-4 transition-colors hover:text-foreground/80"
                         @click="() => toggleRecoveryMode(clearErrors)"
                     >
                         {{ authConfigContent.buttonText }}
@@ -105,23 +114,34 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                 reset-on-error
                 #default="{ errors, processing, clearErrors }"
             >
-                <Input
-                    name="recovery_code"
-                    type="text"
-                    placeholder="Enter recovery code"
-                    :autofocus="showRecoveryInput"
-                    required
-                />
-                <InputError :message="errors.recovery_code" />
-                <Button type="submit" class="w-full" :disabled="processing"
-                    >Continue</Button
+                <div class="grid gap-2">
+                    <Label for="recovery_code">Recovery code</Label>
+                    <Input
+                        id="recovery_code"
+                        name="recovery_code"
+                        type="text"
+                        placeholder="Enter recovery code"
+                        :autofocus="showRecoveryInput"
+                        required
+                    />
+                    <InputError :message="errors.recovery_code" />
+                </div>
+                <Button
+                    type="submit"
+                    class="w-full"
+                    :disabled="processing"
                 >
+                    <Spinner v-if="processing" class="mr-2" />
+                    Continue
+                </Button>
 
-                <div class="text-muted-foreground text-center text-sm">
+                <div
+                    class="text-muted-foreground text-center text-sm"
+                >
                     <span>or you can </span>
                     <button
                         type="button"
-                        class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                        class="text-foreground underline underline-offset-4 transition-colors hover:text-foreground/80"
                         @click="() => toggleRecoveryMode(clearErrors)"
                     >
                         {{ authConfigContent.buttonText }}

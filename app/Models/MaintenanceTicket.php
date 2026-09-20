@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\MaintenanceTicketFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,7 +31,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property Carbon|null $completed_at
  * @property int|null $estimated_cost
  * @property int|null $actual_cost
- * @property array|null $metadata
+ * @property array<string, mixed>|null $metadata
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -41,6 +42,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[Fillable([
     'branch_id',
+    'currency_code',
     'room_id',
     'reported_by',
     'assigned_to',
@@ -58,7 +60,9 @@ use Spatie\Activitylog\Support\LogOptions;
 ])]
 class MaintenanceTicket extends Model
 {
+    /** @use HasFactory<MaintenanceTicketFactory> */
     use HasFactory;
+
     use LogsActivity;
     use SoftDeletes;
 
@@ -102,51 +106,79 @@ class MaintenanceTicket extends Model
         return $number;
     }
 
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
+    /** @return BelongsTo<Room, $this> */
     public function room(): BelongsTo
     {
         return $this->belongsTo(Room::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function reporter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reported_by');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeActive(Builder $query): Builder
     {
         return $query->whereIn('status', ['open', 'in_progress']);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeForBranch(Builder $query, int $branchId): Builder
     {
         return $query->where('branch_id', $branchId);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeForCategory(Builder $query, string $category): Builder
     {
         return $query->where('category', $category);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeForStatus(Builder $query, string $status): Builder
     {
         return $query->where('status', $status);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeForPriority(Builder $query, string $priority): Builder
     {
         return $query->where('priority', $priority);
     }
 
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeLockedRooms(Builder $query): Builder
     {
         return $query->where('is_room_locked', true)
@@ -190,6 +222,20 @@ class MaintenanceTicket extends Model
 
         if ($this->is_room_locked) {
             $this->unlockRoom();
+        }
+
+        if ($this->room && $this->room->status !== 'out_of_order') {
+            $this->room->update(['status' => 'dirty']);
+
+            Task::create([
+                'branch_id' => $this->branch_id,
+                'room_id' => $this->room_id,
+                'type' => 'turnover',
+                'priority' => 'normal',
+                'status' => 'pending',
+                'description' => "Post-maintenance cleaning for ticket {$this->ticket_number}: {$this->title}",
+                'estimated_minutes' => 30,
+            ]);
         }
     }
 }

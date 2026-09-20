@@ -7,31 +7,48 @@ use App\Models\Guest;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Models\TabletSession;
 use App\Notifications\CheckInNotification;
 use App\Notifications\CheckoutNotification;
+use App\Services\DoorLock\DoorLockService;
+use App\Services\PricingService;
+use App\Services\TabletService;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ReservationController extends Controller
 {
+    use Concerns\EnsuresBranchAccess;
+
     public function index(Request $request): Response
     {
-        $branchId = $request->user()->branch_id;
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $branchId = (int) $user->branch_id;
 
         $reservations = Reservation::forBranch($branchId)
             ->with(['room', 'roomType', 'guest'])
-            ->when($request->status, fn ($q, $status) => $q->forStatus($status))
-            ->when($request->date, fn ($q, $date) => $q->forDate($date))
-            ->when($request->search, function ($q, $search) {
-                $q->where(function ($query) use ($search) {
-                    $query->where('guest_name', 'ilike', "%{$search}%")
-                        ->orWhere('confirmation_number', 'ilike', "%{$search}%")
-                        ->orWhere('guest_email', 'ilike', "%{$search}%");
+            ->when($request->filled('status') && $request->string('status') !== 'all', fn ($q) => $q->forStatus($request->string('status')->value()))
+            ->when($request->filled('date'), fn ($q) => $q->forDate($request->string('date')->value()))
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $searchStr = $request->string('search')->value();
+                $q->where(function ($query) use ($searchStr) {
+                    $query->where('guest_name', 'ilike', "%{$searchStr}%")
+                        ->orWhere('confirmation_number', 'ilike', "%{$searchStr}%")
+                        ->orWhere('guest_email', 'ilike', "%{$searchStr}%");
                 });
             })
-            ->orderBy($request->sort ?? 'check_in_date', $request->direction ?? 'asc')
+            ->orderBy(
+                $request->string('sort', 'created_at')->value(),
+                in_array($request->string('direction')->value(), ['asc', 'desc']) ? $request->string('direction')->value() : 'desc'
+            )
             ->paginate(25)
             ->withQueryString();
 
@@ -43,7 +60,10 @@ class ReservationController extends Controller
 
     public function create(Request $request): Response
     {
-        $branchId = $request->user()->branch_id;
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $branchId = (int) $user->branch_id;
 
         $roomTypes = RoomType::forBranch($branchId)->active()->get();
         $availableRooms = Room::forBranch($branchId)
@@ -62,11 +82,11 @@ class ReservationController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
+        $request->validate([
             'room_type_id' => 'required|exists:room_types,id',
-            'room_id' => 'nullable|exists:rooms,id',
+            'room_id' => 'required|exists:rooms,id',
             'branch_id' => 'sometimes|exists:branches,id',
             'guest_id' => 'nullable|exists:guests,id',
             'guest_name' => 'required|string|max:255',
@@ -82,47 +102,119 @@ class ReservationController extends Controller
             'group_id' => 'nullable|string|max:50',
         ]);
 
-        $branchId = $validated['branch_id'] ?? $request->user()->branch_id;
-        $roomType = RoomType::findOrFail($validated['room_type_id']);
+        $user = $request->user();
+        abort_unless($user !== null, 401);
 
-        $validated['branch_id'] = $branchId;
-        $validated['room_rate'] = $roomType->base_rate;
-        $validated['status'] = 'confirmed';
-        $validated['source'] = 'direct';
-        $validated['payment_status'] = 'pending';
+        $branchId = $request->filled('branch_id') ? $request->integer('branch_id') : (int) $user->branch_id;
+        $branch = Branch::findOrFail($branchId);
 
-        $nights = Carbon::parse($validated['check_in_date'])
-            ->diffInDays($validated['check_out_date']);
-        $validated['total_amount'] = $roomType->base_rate * $nights;
+        $this->ensureBranchAccess($branch);
 
-        // Link to guest profile if email provided
-        if (! empty($validated['guest_email']) && empty($validated['guest_id'])) {
-            $guest = Guest::firstOrCreate(
-                ['email' => $validated['guest_email']],
-                [
-                    'first_name' => explode(' ', $validated['guest_name'])[0] ?? $validated['guest_name'],
-                    'last_name' => implode(' ', array_slice(explode(' ', $validated['guest_name']), 1)) ?: '',
-                    'phone' => $validated['guest_phone'] ?? null,
-                ]
-            );
-            $validated['guest_id'] = $guest->id;
+        $roomType = RoomType::findOrFail($request->integer('room_type_id'));
+
+        if ($roomType->branch_id !== $branch->id) {
+            abort(403, 'The selected room type does not belong to this property.');
         }
 
-        $reservation = Reservation::create($validated);
+        $checkInDate = $request->string('check_in_date')->value();
+        $checkOutDate = $request->string('check_out_date')->value();
+        $guestName = $request->string('guest_name')->value();
+        $guestEmail = $request->string('guest_email')->value();
+        $guestPhone = $request->string('guest_phone')->value();
+        $guestId = $request->filled('guest_id') ? $request->integer('guest_id') : null;
+        $roomId = $request->filled('room_id') ? $request->integer('room_id') : null;
+        $adults = $request->integer('adults');
+        $children = $request->integer('children');
+        $specialRequests = $request->input('special_requests');
+        $isGroupBooking = $request->boolean('is_group_booking');
+        $groupId = $request->string('group_id')->value();
 
-        if (! empty($validated['room_id'])) {
-            $room = Room::find($validated['room_id']);
+        if ($roomId !== null) {
+            $selectedRoom = Room::find($roomId);
+
+            if (! $selectedRoom || $selectedRoom->branch_id !== $branch->id) {
+                abort(403, 'The selected room does not belong to this property.');
+            }
+
+            $hasOverlap = Reservation::where('room_id', $selectedRoom->id)
+                ->whereIn('status', ['confirmed', 'reserved', 'checked_in'])
+                ->where('check_in_date', '<', $checkOutDate)
+                ->where('check_out_date', '>', $checkInDate)
+                ->exists();
+
+            if ($hasOverlap) {
+                return back()->withErrors(['room_id' => 'This room is already booked for the selected dates.']);
+            }
+        }
+
+        $pricingService = (new PricingService)->forBranch($branch);
+        $pricing = $pricingService->calculateTotal(
+            $roomType,
+            Carbon::parse($checkInDate),
+            Carbon::parse($checkOutDate)
+        );
+
+        if ($pricing['cta_violated']) {
+            return back()->withErrors(['check_in_date' => 'Check-in is closed for this date.']);
+        }
+
+        if (! $pricing['mlos_met']) {
+            return back()->withErrors(['check_out_date' => 'Minimum length of stay is '.$pricing['mlos'].' nights.']);
+        }
+
+        if ($guestEmail !== '' && $guestId === null) {
+            $nameParts = explode(' ', $guestName);
+            $guest = Guest::firstOrCreate(
+                ['email' => $guestEmail],
+                [
+                    'first_name' => $nameParts[0],
+                    'last_name' => implode(' ', array_slice($nameParts, 1)) ?: '',
+                    'phone' => $guestPhone !== '' ? $guestPhone : null,
+                ]
+            );
+            $guestId = $guest->id;
+        }
+
+        $reservation = Reservation::create([
+            'branch_id' => $branchId,
+            'currency_code' => $branch->currency_code,
+            'room_type_id' => $roomType->id,
+            'room_id' => $roomId,
+            'guest_id' => $guestId,
+            'guest_name' => $guestName,
+            'guest_email' => $guestEmail !== '' ? $guestEmail : null,
+            'guest_phone' => $guestPhone !== '' ? $guestPhone : null,
+            'guest_notes' => $request->string('guest_notes')->value(),
+            'adults' => $adults,
+            'children' => $children,
+            'check_in_date' => $checkInDate,
+            'check_out_date' => $checkOutDate,
+            'special_requests' => $specialRequests,
+            'is_group_booking' => $isGroupBooking,
+            'group_id' => $groupId !== '' ? $groupId : null,
+            'room_rate' => $pricing['per_night'][0]['rate'] ?? $roomType->base_rate,
+            'total_amount' => $pricing['total'],
+            'status' => 'confirmed',
+            'source' => 'direct',
+            'payment_status' => 'pending',
+        ]);
+
+        if ($roomId !== null) {
+            $room = Room::find($roomId);
             if ($room && $room->status === 'available') {
                 $room->update(['status' => 'reserved']);
             }
         }
 
-        return redirect()->route('reservations.show', $reservation)
-            ->with('success', 'Reservation '.$reservation->confirmation_number.' created.');
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Reservation '.$reservation->confirmation_number.' created.']);
+
+        return redirect()->route('reservations.show', $reservation);
     }
 
     public function show(Reservation $reservation): Response
     {
+        $this->ensureBranchAccess($reservation->branch);
+
         $reservation->load(['room', 'roomType', 'branch', 'guest']);
 
         return Inertia::render('reservations/Show', [
@@ -132,6 +224,8 @@ class ReservationController extends Controller
 
     public function edit(Reservation $reservation): Response
     {
+        $this->ensureBranchAccess($reservation->branch);
+
         $branchId = $reservation->branch_id;
 
         $roomTypes = RoomType::forBranch($branchId)->active()->get();
@@ -151,9 +245,11 @@ class ReservationController extends Controller
         ]);
     }
 
-    public function update(Request $request, Reservation $reservation)
+    public function update(Request $request, Reservation $reservation): RedirectResponse
     {
-        $validated = $request->validate([
+        $this->ensureBranchAccess($reservation->branch);
+
+        $request->validate([
             'room_type_id' => 'sometimes|exists:room_types,id',
             'room_id' => 'nullable|exists:rooms,id',
             'branch_id' => 'sometimes|exists:branches,id',
@@ -168,50 +264,120 @@ class ReservationController extends Controller
             'special_requests' => 'nullable|array',
         ]);
 
-        $reservation->update($validated);
+        $data = [];
+        if ($request->has('room_type_id')) {
+            $data['room_type_id'] = $request->integer('room_type_id');
+        }
+        if ($request->has('room_id')) {
+            $data['room_id'] = $request->integer('room_id');
+        }
+        if ($request->has('branch_id')) {
+            $data['branch_id'] = $request->integer('branch_id');
+        }
+        if ($request->has('guest_name')) {
+            $data['guest_name'] = $request->string('guest_name')->value();
+        }
+        if ($request->has('guest_email')) {
+            $email = $request->string('guest_email')->value();
+            $data['guest_email'] = $email !== '' ? $email : null;
+        }
+        if ($request->has('guest_phone')) {
+            $phone = $request->string('guest_phone')->value();
+            $data['guest_phone'] = $phone !== '' ? $phone : null;
+        }
+        if ($request->has('guest_notes')) {
+            $notes = $request->string('guest_notes')->value();
+            $data['guest_notes'] = $notes !== '' ? $notes : null;
+        }
+        if ($request->has('adults')) {
+            $data['adults'] = $request->integer('adults');
+        }
+        if ($request->has('children')) {
+            $data['children'] = $request->integer('children');
+        }
+        if ($request->has('check_in_date')) {
+            $data['check_in_date'] = $request->string('check_in_date')->value();
+        }
+        if ($request->has('check_out_date')) {
+            $data['check_out_date'] = $request->string('check_out_date')->value();
+        }
+        if ($request->has('special_requests')) {
+            $data['special_requests'] = $request->input('special_requests');
+        }
 
-        return back()->with('success', 'Reservation updated.');
+        $newRoomId = $data['room_id'] ?? $reservation->room_id;
+        $newCheckIn = $data['check_in_date'] ?? $reservation->check_in_date->format('Y-m-d');
+        $newCheckOut = $data['check_out_date'] ?? $reservation->check_out_date->format('Y-m-d');
+
+        if ($newRoomId) {
+            $hasOverlap = Reservation::where('room_id', $newRoomId)
+                ->where('id', '!=', $reservation->id)
+                ->whereIn('status', ['confirmed', 'reserved', 'checked_in'])
+                ->where('check_in_date', '<', $newCheckOut)
+                ->where('check_out_date', '>', $newCheckIn)
+                ->exists();
+
+            if ($hasOverlap) {
+                return back()->withErrors(['room_id' => 'This room is already booked for the selected dates.']);
+            }
+        }
+
+        $reservation->update($data);
+
+        return $this->flashSuccess('Reservation updated.');
     }
 
-    public function checkIn(Request $request, Reservation $reservation)
+    public function checkIn(Request $request, Reservation $reservation): RedirectResponse
     {
+        $reservation->load(['branch', 'room', 'guest']);
+
+        $this->ensureBranchAccess($reservation->branch);
+
         if ($reservation->status !== 'confirmed' && $reservation->status !== 'reserved') {
             return back()->withErrors(['status' => 'This reservation cannot be checked in.']);
         }
 
-        $validated = $request->validate([
-            'room_id' => 'required|exists:rooms,id',
-        ]);
+        if (! $reservation->room_id) {
+            return back()->withErrors(['room_id' => 'No room assigned to this reservation.']);
+        }
 
-        $room = Room::find($validated['room_id']);
+        $room = $reservation->room;
 
-        if ($room->status !== 'available') {
+        if (! $room || $room->branch_id !== $reservation->branch_id) {
+            abort(403, 'The assigned room does not belong to this property.');
+        }
+
+        if (! in_array($room->status, ['available', 'reserved'])) {
             return back()->withErrors(['room_id' => 'This room is not available.']);
         }
 
-        $oldRoomId = $reservation->room_id;
+        $hasOverlap = Reservation::where('room_id', $room->id)
+            ->where('id', '!=', $reservation->id)
+            ->whereIn('status', ['confirmed', 'reserved', 'checked_in'])
+            ->where('check_in_date', '<', $reservation->check_out_date)
+            ->where('check_out_date', '>', $reservation->check_in_date)
+            ->exists();
+
+        if ($hasOverlap) {
+            return back()->withErrors(['room_id' => 'This room is already booked for the reservation dates.']);
+        }
 
         $reservation->update([
-            'room_id' => $room->id,
             'status' => 'checked_in',
             'actual_check_in_at' => now(),
         ]);
 
         $room->update(['status' => 'occupied']);
 
-        if ($oldRoomId && $oldRoomId !== $room->id) {
-            $oldRoom = Room::find($oldRoomId);
-            if ($oldRoom && $oldRoom->status === 'reserved') {
-                $oldRoom->update(['status' => 'available']);
-            }
-        }
-
-        // Update guest lifetime stats
-        if ($reservation->guest) {
-            $reservation->guest->incrementStay(
-                $reservation->nights,
-                $reservation->total_amount
-            );
+        // Issue door lock key
+        try {
+            $lockService = new DoorLockService;
+            $lockService->forBranch($reservation->branch)->issueKey($reservation);
+        } catch (\Throwable $e) {
+            Log::warning('Door lock key issuance failed', [
+                'reservation' => $reservation->confirmation_number,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         // Send check-in notification
@@ -219,13 +385,39 @@ class ReservationController extends Controller
             $reservation->guest->notify(new CheckInNotification($reservation));
         }
 
-        return back()->with('success', 'Guest checked in to room '.$room->number.'.');
+        // Auto-pair in-room tablet
+        try {
+            $tabletService = new TabletService;
+            $tabletService->pair($room, $reservation);
+        } catch (\Throwable $e) {
+            Log::warning('Tablet pairing failed', [
+                'reservation' => $reservation->confirmation_number,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $this->flashSuccess('Guest checked in to room '.$room->number.'.');
     }
 
-    public function checkOut(Reservation $reservation)
+    public function checkOut(Reservation $reservation): RedirectResponse
     {
+        $reservation->load(['branch', 'room', 'guest']);
+
+        $this->ensureBranchAccess($reservation->branch);
+
         if ($reservation->status !== 'checked_in') {
             return back()->withErrors(['status' => 'This reservation is not checked in.']);
+        }
+
+        // Revoke door lock key
+        try {
+            $lockService = new DoorLockService;
+            $lockService->forBranch($reservation->branch)->revokeKey($reservation);
+        } catch (\Throwable $e) {
+            Log::warning('Door lock key revocation failed', [
+                'reservation' => $reservation->confirmation_number,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         $reservation->update([
@@ -242,11 +434,39 @@ class ReservationController extends Controller
             $reservation->guest->notify(new CheckoutNotification($reservation));
         }
 
-        return back()->with('success', 'Guest checked out from room '.$reservation->room?->number.'.');
+        // Auto-wipe in-room tablet
+        try {
+            $tabletService = new TabletService;
+            $session = TabletSession::where('reservation_id', $reservation->id)
+                ->whereNull('wiped_at')
+                ->first();
+            if ($session !== null) {
+                $tabletService->wipeSession($session);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Tablet wipe failed', [
+                'reservation' => $reservation->confirmation_number,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Update guest lifetime stats
+        if ($reservation->guest) {
+            $reservation->guest->incrementStay(
+                $reservation->nights,
+                $reservation->total_amount
+            );
+        }
+
+        return $this->flashSuccess('Guest checked out from room '.$reservation->room?->number.'.');
     }
 
-    public function cancel(Reservation $reservation)
+    public function cancel(Reservation $reservation): RedirectResponse
     {
+        $reservation->load(['branch', 'room']);
+
+        $this->ensureBranchAccess($reservation->branch);
+
         if (in_array($reservation->status, ['checked_out', 'cancelled'])) {
             return back()->withErrors(['status' => 'This reservation cannot be cancelled.']);
         }
@@ -257,19 +477,22 @@ class ReservationController extends Controller
             $reservation->room->update(['status' => 'available']);
         }
 
-        return back()->with('success', 'Reservation cancelled.');
+        return $this->flashSuccess('Reservation cancelled.');
     }
 
-    public function destroy(Reservation $reservation)
+    public function destroy(Reservation $reservation): RedirectResponse
     {
+        $this->ensureBranchAccess($reservation->branch);
+
         if (in_array($reservation->status, ['checked_in'])) {
             return back()->withErrors(['status' => 'Cannot delete an active reservation.']);
         }
 
         $reservation->delete();
 
-        return redirect()->route('reservations.index')
-            ->with('success', 'Reservation deleted.');
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Reservation deleted.']);
+
+        return redirect()->route('reservations.index');
     }
 
     /**
@@ -277,31 +500,53 @@ class ReservationController extends Controller
      */
     public function crossBranchSearch(Request $request): Response
     {
-        $validated = $request->validate([
+        $request->validate([
             'check_in' => 'required|date|after_or_equal:today',
             'check_out' => 'required|date|after:check_in',
             'adults' => 'required|integer|min:1|max:10',
         ]);
 
-        $checkIn = $validated['check_in'];
-        $checkOut = $validated['check_out'];
-        $adults = $validated['adults'];
+        $checkIn = $request->string('check_in')->value();
+        $checkOut = $request->string('check_out')->value();
+        $adults = $request->integer('adults');
 
-        $branches = Branch::active()->with(['roomTypes' => fn ($q) => $q->where('is_active', true)])->get();
+        $branches = Branch::active()->with('roomTypes')->get()
+            ->each(function (Branch $branch) {
+                $branch->setRelation('roomTypes', $branch->roomTypes->where('is_active', true));
+                foreach ($branch->roomTypes as $rt) {
+                    $totalRooms = $rt->rooms()->where('is_active', true)->count();
+                    $rt->setAttribute('total_rooms', $totalRooms);
+                }
+            });
 
-        $results = $branches->map(function ($branch) use ($checkIn, $checkOut, $adults) {
-            $roomTypes = $branch->roomTypes->filter(fn ($rt) => $rt->max_occupancy >= $adults);
+        $branchIds = $branches->pluck('id');
+        $roomTypeIds = $branches->flatMap->roomTypes->pluck('id');
 
-            $availableData = $roomTypes->map(function ($rt) use ($branch, $checkIn, $checkOut) {
-                $bookedCount = Reservation::where('branch_id', $branch->id)
-                    ->where('room_type_id', $rt->id)
-                    ->whereIn('status', ['confirmed', 'reserved', 'checked_in'])
-                    ->where('check_in_date', '<', $checkOut)
-                    ->where('check_out_date', '>', $checkIn)
-                    ->count();
+        // Bulk-fetch booked counts per branch+room_type
+        /** @var array<int, array<int, int>> $bookedMap */
+        $bookedMap = [];
+        if ($branchIds->isNotEmpty() && $roomTypeIds->isNotEmpty()) {
+            Reservation::whereIn('branch_id', $branchIds)
+                ->whereIn('room_type_id', $roomTypeIds)
+                ->whereIn('status', ['confirmed', 'reserved', 'checked_in'])
+                ->where('check_in_date', '<', $checkOut)
+                ->where('check_out_date', '>', $checkIn)
+                ->select('branch_id', 'room_type_id', DB::raw('count(*) as booked_count'))
+                ->groupBy('branch_id', 'room_type_id')
+                ->get()
+                ->each(function ($row) use (&$bookedMap) {
+                    $bookedCount = is_numeric($row->getAttribute('booked_count')) ? (int) $row->getAttribute('booked_count') : 0;
+                    $bookedMap[$row->branch_id][$row->room_type_id] = $bookedCount;
+                });
+        }
 
-                $totalRooms = $rt->rooms()->where('is_active', true)->count();
-                $available = max(0, $totalRooms - $bookedCount);
+        $results = $branches->map(function (Branch $branch) use ($adults, $bookedMap) {
+            /** @var Collection<int, RoomType> $roomTypes */
+            $roomTypes = $branch->roomTypes->filter(fn (RoomType $rt) => $rt->max_occupancy >= $adults);
+
+            $availableData = $roomTypes->map(function (RoomType $rt) use ($branch, $bookedMap) {
+                $bookedCount = $bookedMap[$branch->id][$rt->id] ?? 0;
+                $available = max(0, $rt->total_rooms - $bookedCount);
 
                 return [
                     'room_type_id' => $rt->id,
@@ -309,7 +554,7 @@ class ReservationController extends Controller
                     'base_rate' => $rt->base_rate,
                     'available_count' => $available,
                 ];
-            })->filter(fn ($data) => $data['available_count'] > 0);
+            })->filter(fn (array $data) => $data['available_count'] > 0);
 
             return [
                 'branch_id' => $branch->id,

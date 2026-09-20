@@ -16,6 +16,9 @@ class CheckInNotification extends Notification implements ShouldQueue
         public Reservation $reservation,
     ) {}
 
+    /**
+     * @return list<string>
+     */
     public function via(object $notifiable): array
     {
         return ['mail'];
@@ -27,8 +30,8 @@ class CheckInNotification extends Notification implements ShouldQueue
         $branch = $this->reservation->branch;
         $room = $this->reservation->room;
 
-        $name = $guest?->full_name ?? $this->reservation->guest_name;
-        $roomNumber = $room?->number ?? 'To be assigned';
+        $name = $guest->full_name ?? $this->reservation->guest_name;
+        $roomNumber = $room->number ?? 'To be assigned';
 
         return (new MailMessage)
             ->subject("Welcome to {$branch->name} - You're Checked In!")

@@ -1,8 +1,20 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { Head, router, Link } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { type BreadcrumbItem } from '@/types';
+import { Head, router, Link, usePage } from '@inertiajs/vue3';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import DatePicker from '@/components/ui/date-picker/DatePicker.vue';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChevronLeft, ChevronRight } from '@lucide/vue';
+import { formatDate } from '@/lib/dates';
+import { formatCurrency as formatCurrencyRaw, getCurrencySymbol } from '@/lib/format';
+
+const page = usePage();
+const branchSymbol = computed(() => (page.props.branch?.current as any)?.currency_symbol || '$');
+const resolveSymbol = (code?: string) => getCurrencySymbol(code || 'NGN') || branchSymbol.value;
+const formatCurrency = (amount: number, currencyCode?: string) => formatCurrencyRaw(amount, resolveSymbol(currencyCode));
 
 interface Room {
     id: number;
@@ -50,26 +62,20 @@ const props = defineProps<{
     };
 }>();
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Reservations', href: '/reservations' },
-];
+defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Reservations', href: '/reservations' }] } });
 
 const filterForm = ref({
-    status: props.filters.status || '',
+    status: props.filters.status || 'all',
     date: props.filters.date || '',
 });
 
-const getStatusBadgeClass = (status: string) => {
-    const classes: Record<string, string> = {
-        pending: 'bg-yellow-100 text-yellow-800',
-        confirmed: 'bg-blue-100 text-blue-800',
-        reserved: 'bg-indigo-100 text-indigo-800',
-        checked_in: 'bg-green-100 text-green-800',
-        checked_out: 'bg-gray-100 text-gray-800',
-        cancelled: 'bg-red-100 text-red-800',
-    };
-    return classes[status] || 'bg-gray-100 text-gray-800';
+const statusBadgeVariant: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+    confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+    reserved: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300',
+    checked_in: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+    checked_out: 'bg-muted text-muted-foreground',
+    cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
 };
 
 const applyFilters = () => {
@@ -79,110 +85,149 @@ const applyFilters = () => {
     });
 };
 
-const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-    });
+const goToPage = (page: number) => {
+    router.get(
+        '/reservations',
+        { ...filterForm.value, page },
+        {
+            preserveState: true,
+            replace: true,
+        },
+    );
 };
 </script>
 
 <template>
-    <AppLayout title="Reservations" :breadcrumbs="breadcrumbs">
-        <div class="p-6">
-            <div class="mb-6 flex items-center justify-between">
-                <h1 class="text-2xl font-bold text-gray-900">Reservations</h1>
-                <Link
-                    href="/reservations/create"
-                    class="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800"
-                >
-                    New Reservation
+        <div class="p-4 md:p-6">
+            <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h1 class="text-2xl font-bold text-foreground">Reservations</h1>
+                <Link href="/reservations/create">
+                    <Button>New Reservation</Button>
                 </Link>
             </div>
 
             <!-- Filters -->
-            <div class="mb-4 flex gap-4">
-                <select
-                    v-model="filterForm.status"
-                    class="rounded-md border-gray-300 text-sm"
-                    @change="applyFilters"
-                >
-                    <option value="">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="reserved">Reserved</option>
-                    <option value="checked_in">Checked In</option>
-                    <option value="checked_out">Checked Out</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
-                <input
-                    v-model="filterForm.date"
-                    type="date"
-                    class="rounded-md border-gray-300 text-sm"
-                    @change="applyFilters"
-                >
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row">
+                <div class="w-full sm:w-auto">
+                    <Select v-model="filterForm.status" @update:model-value="applyFilters" aria-label="Filter by status">
+                        <SelectTrigger class="w-full">
+                            <SelectValue placeholder="All Statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="confirmed">Confirmed</SelectItem>
+                            <SelectItem value="reserved">Reserved</SelectItem>
+                            <SelectItem value="checked_in">Checked In</SelectItem>
+                            <SelectItem value="checked_out">Checked Out</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div class="w-full sm:w-auto">
+                    <DatePicker
+                        v-model="filterForm.date"
+                        aria-label="Filter by date"
+                        placeholder="Filter by date"
+                        @change="applyFilters"
+                    />
+                </div>
             </div>
 
-            <!-- Reservations Table -->
-            <div class="bg-white rounded-lg shadow overflow-hidden">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+            <!-- Mobile: Card View -->
+            <div class="md:hidden space-y-3">
+                <div v-for="reservation in reservations.data" :key="reservation.id" class="rounded-lg border bg-card p-4">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <span class="text-sm font-medium text-foreground">{{ reservation.confirmation_number }}</span>
+                        <Badge :class="statusBadgeVariant[reservation.status] ?? ''" variant="outline">
+                            {{ reservation.status.replace('_', ' ') }}
+                        </Badge>
+                    </div>
+                    <div class="text-sm text-foreground mb-1">{{ reservation.guest_name }}</div>
+                    <div v-if="reservation.guest_email" class="text-xs text-muted-foreground mb-2">{{ reservation.guest_email }}</div>
+                    <div class="text-sm text-muted-foreground mb-1">
+                        Room: {{ reservation.room?.number || 'Unassigned' }} • {{ reservation.room_type.name }}
+                    </div>
+                    <div class="text-sm text-muted-foreground mb-2">
+                        In: {{ formatDate(reservation.check_in_date) }} • Out: {{ formatDate(reservation.check_out_date) }}
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-foreground">{{ formatCurrency(reservation.total_amount) }}</span>
+                        <Link :href="`/reservations/${reservation.id}`" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-500">
+                            View →
+                        </Link>
+                    </div>
+                </div>
+                <div v-if="reservations.data.length === 0" class="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+                    No reservations found.
+                </div>
+            </div>
+
+            <!-- Desktop: Table View -->
+            <div class="hidden md:block overflow-x-auto rounded-md border">
+                <table class="w-full caption-bottom text-sm">
+                    <thead class="border-b bg-muted/50 [&_tr]:border-b">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Confirmation</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Guest</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Room</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Check-in</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Check-out</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Confirmation</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Guest</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Room</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Type</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Check-in</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Check-out</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Status</th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">
+                                <span class="sr-only">Total</span>
+                                <span class="flex justify-end">Total</span>
+                            </th>
+                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">
+                                <span class="sr-only">Actions</span>
+                            </th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        <tr v-for="reservation in reservations.data" :key="reservation.id" class="hover:bg-gray-50">
-                            <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                    <tbody class="[&_tr:last-child]:border-0">
+                        <tr
+                            v-for="reservation in reservations.data"
+                            :key="reservation.id"
+                            class="border-b transition-colors hover:bg-muted/50"
+                        >
+                            <td class="p-2 align-middle font-medium whitespace-nowrap text-foreground">
                                 {{ reservation.confirmation_number }}
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">
+                            <td class="p-2 align-middle">
                                 {{ reservation.guest_name }}
-                                <div class="text-xs text-gray-500">{{ reservation.guest_email }}</div>
+                                <div class="text-xs text-muted-foreground">{{ reservation.guest_email }}</div>
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">
+                            <td class="p-2 align-middle">
                                 {{ reservation.room?.number || 'Unassigned' }}
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">
+                            <td class="p-2 align-middle">
                                 {{ reservation.room_type.name }}
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">
+                            <td class="p-2 align-middle">
                                 {{ formatDate(reservation.check_in_date) }}
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">
+                            <td class="p-2 align-middle">
                                 {{ formatDate(reservation.check_out_date) }}
                             </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="px-2 py-1 text-xs font-medium rounded-full"
-                                    :class="getStatusBadgeClass(reservation.status)"
-                                >
+                            <td class="p-2 align-middle">
+                                <Badge :class="statusBadgeVariant[reservation.status] ?? ''" variant="outline">
                                     {{ reservation.status.replace('_', ' ') }}
-                                </span>
+                                </Badge>
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-900 text-right">
-                                ${{ reservation.total_amount }}
+                            <td class="p-2 align-middle text-right">
+                                {{ formatCurrency(reservation.total_amount) }}
                             </td>
-                            <td class="px-4 py-3 text-right">
+                            <td class="p-2 align-middle text-right">
                                 <Link
                                     :href="`/reservations/${reservation.id}`"
-                                    class="text-sm text-gray-600 hover:text-gray-900"
+                                    class="font-medium text-blue-600 hover:underline dark:text-blue-500"
                                 >
                                     View
                                 </Link>
                             </td>
                         </tr>
                         <tr v-if="reservations.data.length === 0">
-                            <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+                            <td colspan="9" class="p-2 align-middle py-8 text-center text-muted-foreground">
                                 No reservations found.
                             </td>
                         </tr>
@@ -191,24 +236,42 @@ const formatDate = (dateStr: string) => {
             </div>
 
             <!-- Pagination -->
-            <div v-if="reservations.last_page > 1" class="mt-4 flex items-center justify-between">
-                <div class="text-sm text-gray-500">
+            <div v-if="reservations.last_page > 1" class="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
+                <p class="text-sm text-muted-foreground">
                     Showing {{ (reservations.current_page - 1) * reservations.per_page + 1 }}
                     to {{ Math.min(reservations.current_page * reservations.per_page, reservations.total) }}
                     of {{ reservations.total }} reservations
-                </div>
-                <div class="flex gap-1">
-                    <Link
+                </p>
+                <div class="flex items-center gap-1">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        :disabled="reservations.current_page <= 1"
+                        aria-label="Previous page"
+                        @click="goToPage(reservations.current_page - 1)"
+                    >
+                        <ChevronLeft class="h-4 w-4" />
+                    </Button>
+                    <Button
                         v-for="page in reservations.last_page"
                         :key="page"
-                        :href="`/reservations?page=${page}&status=${filterForm.status || ''}`"
-                        class="px-3 py-1 text-sm rounded-md"
-                        :class="page === reservations.current_page ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'"
+                        variant="outline"
+                        size="sm"
+                        :class="page === reservations.current_page ? 'bg-primary text-primary-foreground' : ''"
+                        @click="goToPage(page)"
                     >
                         {{ page }}
-                    </Link>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        :disabled="reservations.current_page >= reservations.last_page"
+                        aria-label="Next page"
+                        @click="goToPage(reservations.current_page + 1)"
+                    >
+                        <ChevronRight class="h-4 w-4" />
+                    </Button>
                 </div>
             </div>
         </div>
-    </AppLayout>
 </template>

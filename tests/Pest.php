@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /*
@@ -15,8 +14,25 @@ use Tests\TestCase;
 */
 
 pest()->extend(TestCase::class)
-    ->use(RefreshDatabase::class)
     ->in('Feature');
+
+/*
+|--------------------------------------------------------------------------
+| Browser Tests
+|--------------------------------------------------------------------------
+|
+| Browser tests live in tests/Feature/Browser and are auto-detected by
+| pestphp/pest-plugin-browser. The plugin boots Playwright and the
+| built-in HTTP server automatically when a test calls visit().
+|
+| We configure Playwright to use the local Chrome installation via the
+| channel option instead of downloading bundled Chromium.
+|
+*/
+
+pest()->browser()->inChrome();
+
+pest()->in('Feature/Browser');
 
 /*
 |--------------------------------------------------------------------------

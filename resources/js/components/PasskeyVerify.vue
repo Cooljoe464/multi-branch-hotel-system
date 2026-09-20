@@ -2,11 +2,9 @@
 import type { UrlMethodPair } from '@inertiajs/core';
 import { router } from '@inertiajs/vue3';
 import { usePasskeyVerify } from '@laravel/passkeys/vue';
-import { KeyRound } from '@lucide/vue';
-import InputError from '@/components/InputError.vue';
+import { KeyRound, Loader2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Spinner } from '@/components/ui/spinner';
+import InputError from '@/components/InputError.vue';
 
 type Props = {
     routes?: {
@@ -41,12 +39,12 @@ const { verify, isLoading, error, isSupported } = usePasskeyVerify({
             <Button
                 type="button"
                 variant="outline"
-                class="w-full"
+                class="w-full justify-center"
                 @click="verify"
                 :disabled="isLoading"
             >
-                <Spinner v-if="isLoading" />
-                <KeyRound v-else class="h-4 w-4" />
+                <Loader2 v-if="isLoading" class="mr-2 h-4 w-4 animate-spin" />
+                <KeyRound v-else class="mr-2 h-4 w-4" />
                 {{
                     isLoading
                         ? (props.loadingLabel ?? 'Authenticating...')
@@ -61,7 +59,7 @@ const { verify, isLoading, error, isSupported } = usePasskeyVerify({
 
         <div class="relative my-6">
             <div class="absolute inset-0 flex items-center">
-                <Separator class="w-full" />
+                <div class="w-full border-t border-border"></div>
             </div>
             <div class="relative flex justify-center text-xs uppercase">
                 <span class="bg-background text-muted-foreground px-2">

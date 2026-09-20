@@ -51,7 +51,7 @@ class BookingEngineTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonFragment([
-            'id' => $this->roomType->id,
+            'room_type_id' => $this->roomType->id,
         ]);
     }
 

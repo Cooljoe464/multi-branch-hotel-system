@@ -17,6 +17,9 @@ class ProfileUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
-        return $this->profileRules($this->user()->id);
+        $user = $this->user();
+        abort_unless($user !== null, 401);
+
+        return $this->profileRules($user->id);
     }
 }
