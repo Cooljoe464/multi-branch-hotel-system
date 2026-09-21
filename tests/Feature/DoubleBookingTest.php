@@ -5,8 +5,10 @@ use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\User;
+use App\Services\AvailabilityService;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class DoubleBookingTest extends TestCase
@@ -41,13 +43,16 @@ class DoubleBookingTest extends TestCase
 
     public function test_cannot_book_room_with_overlapping_dates(): void
     {
-        Reservation::factory()->confirmed()->create([
-            'branch_id' => $this->branch->id,
-            'room_id' => $this->room->id,
-            'room_type_id' => $this->roomType->id,
-            'check_in_date' => now()->addDays(3)->format('Y-m-d'),
-            'check_out_date' => now()->addDays(7)->format('Y-m-d'),
-        ]);
+        // Conflict lives in the inventory engine (the source of truth).
+        app(AvailabilityService::class)->reserve(
+            $this->branch,
+            $this->roomType,
+            now()->addDays(3)->format('Y-m-d'),
+            now()->addDays(7)->format('Y-m-d'),
+            $this->engineAttributes(),
+            $this->room->id,
+            (string) Str::uuid(),
+        );
 
         $response = $this->actingAs($this->user)->post('/reservations', [
             'room_type_id' => $this->roomType->id,
@@ -62,7 +67,7 @@ class DoubleBookingTest extends TestCase
 
         $response->assertSessionHasErrors('room_id');
         $response->assertSessionHasErrors([
-            'room_id' => 'This room is already booked for the selected dates.',
+            'room_id' => 'No availability for the requested dates.',
         ]);
     }
 
@@ -183,13 +188,15 @@ class DoubleBookingTest extends TestCase
 
     public function test_overlapping_detection_across_same_room_reservations(): void
     {
-        Reservation::factory()->confirmed()->create([
-            'branch_id' => $this->branch->id,
-            'room_id' => $this->room->id,
-            'room_type_id' => $this->roomType->id,
-            'check_in_date' => '2026-10-01',
-            'check_out_date' => '2026-10-04',
-        ]);
+        app(AvailabilityService::class)->reserve(
+            $this->branch,
+            $this->roomType,
+            '2026-10-01',
+            '2026-10-04',
+            $this->engineAttributes(),
+            $this->room->id,
+            (string) Str::uuid(),
+        );
 
         $overlappingDates = [
             ['2026-10-03', '2026-10-06'],
@@ -212,5 +219,22 @@ class DoubleBookingTest extends TestCase
 
             $response->assertSessionHasErrors('room_id');
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function engineAttributes(): array
+    {
+        return [
+            'guest_name' => 'Engine Seed',
+            'adults' => 2,
+            'children' => 0,
+            'room_rate' => 25000,
+            'total_amount' => 50000,
+            'status' => 'confirmed',
+            'source' => 'direct',
+            'payment_status' => 'pending',
+        ];
     }
 }

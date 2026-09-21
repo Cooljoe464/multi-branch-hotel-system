@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\HasOptimisticLock;
 use Database\Factories\FolioFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,6 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
 /**
  * @property int $id
  * @property int $branch_id
+ * @property string $currency_code
  * @property int|null $reservation_id
  * @property int|null $parent_folio_id
  * @property string $folio_number
@@ -29,6 +31,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string|null $notes
  * @property int $balance
  * @property bool $is_settled
+ * @property int $version
  * @property Carbon|null $closed_at
  * @property array<string, mixed>|null $metadata
  * @property Carbon|null $created_at
@@ -45,6 +48,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[Fillable([
     'branch_id',
     'currency_code',
+    'idempotency_key',
     'reservation_id',
     'parent_folio_id',
     'folio_number',
@@ -57,12 +61,15 @@ use Spatie\Activitylog\Support\LogOptions;
     'is_settled',
     'closed_at',
     'metadata',
+    'version',
+    'is_master',
 ])]
 class Folio extends Model
 {
     /** @use HasFactory<FolioFactory> */
     use HasFactory;
 
+    use HasOptimisticLock;
     use LogsActivity;
     use SoftDeletes;
 
@@ -83,6 +90,8 @@ class Folio extends Model
             'is_settled' => 'boolean',
             'closed_at' => 'datetime',
             'metadata' => 'array',
+            'version' => 'integer',
+            'is_master' => 'boolean',
         ];
     }
 
@@ -144,6 +153,12 @@ class Folio extends Model
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    /** @return HasMany<FolioWindow, $this> */
+    public function windows(): HasMany
+    {
+        return $this->hasMany(FolioWindow::class);
     }
 
     /** @return HasMany<PosCharge, $this> */

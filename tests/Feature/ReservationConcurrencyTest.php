@@ -6,8 +6,10 @@ use App\Models\Branch;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Services\AvailabilityService;
 use App\Services\FolioService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ReservationConcurrencyTest extends TestCase
@@ -35,13 +37,25 @@ class ReservationConcurrencyTest extends TestCase
 
     public function test_prevents_double_booking_via_overlap_detection(): void
     {
-        Reservation::factory()->confirmed()->create([
-            'branch_id' => $this->branch->id,
-            'room_id' => $this->room->id,
-            'room_type_id' => $this->roomType->id,
-            'check_in_date' => now()->addDays(3)->toDateString(),
-            'check_out_date' => now()->addDays(7)->toDateString(),
-        ]);
+        // Conflict lives in the inventory engine (the source of truth).
+        app(AvailabilityService::class)->reserve(
+            $this->branch,
+            $this->roomType,
+            now()->addDays(3)->toDateString(),
+            now()->addDays(7)->toDateString(),
+            [
+                'guest_name' => 'Engine Seed',
+                'adults' => 2,
+                'children' => 0,
+                'room_rate' => 25000,
+                'total_amount' => 50000,
+                'status' => 'confirmed',
+                'source' => 'direct',
+                'payment_status' => 'pending',
+            ],
+            $this->room->id,
+            (string) Str::uuid(),
+        );
 
         $this->actingAs($this->makeAdminUser($this->branch))
             ->post('/reservations', [

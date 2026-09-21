@@ -40,4 +40,9 @@ return [
         'public_key' => env('PAYSTACK_PUBLIC_KEY'),
     ],
 
+    'firs' => [
+        'endpoint' => env('FIRS_ENDPOINT'),
+        'api_key' => env('FIRS_API_KEY'),
+    ],
+
 ];

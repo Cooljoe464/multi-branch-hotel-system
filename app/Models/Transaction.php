@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 
@@ -24,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property bool $is_taxable
  * @property int $tax_amount
  * @property bool $is_voided
+ * @property Carbon|null $business_date
  * @property Carbon|null $voided_at
  * @property array<string, mixed>|null $metadata
  * @property Carbon|null $created_at
@@ -36,6 +38,7 @@ use Illuminate\Support\Carbon;
     'folio_id',
     'currency_code',
     'business_date',
+    'idempotency_key',
     'type',
     'category',
     'description',
@@ -45,6 +48,13 @@ use Illuminate\Support\Carbon;
     'posted_by',
     'is_taxable',
     'tax_amount',
+    'tax_snapshot',
+    'tax_total_minor',
+    'folio_window_id',
+    'group_master_folio_id',
+    'transfer_of_transaction_id',
+    'void_reason_code_id',
+    'cashier_shift_id',
     'is_voided',
     'voided_at',
     'metadata',
@@ -59,6 +69,8 @@ class Transaction extends Model
         return [
             'amount' => 'integer',
             'tax_amount' => 'integer',
+            'tax_snapshot' => 'array',
+            'tax_total_minor' => 'integer',
             'business_date' => 'date',
             'is_taxable' => 'boolean',
             'is_voided' => 'boolean',
@@ -71,6 +83,18 @@ class Transaction extends Model
     public function folio(): BelongsTo
     {
         return $this->belongsTo(Folio::class);
+    }
+
+    /** @return BelongsTo<FolioWindow, $this> */
+    public function window(): BelongsTo
+    {
+        return $this->belongsTo(FolioWindow::class, 'folio_window_id');
+    }
+
+    /** @return HasMany<TransactionSplit, $this> */
+    public function splits(): HasMany
+    {
+        return $this->hasMany(TransactionSplit::class);
     }
 
     /** @return BelongsTo<User, $this> */
@@ -139,7 +163,7 @@ class Transaction extends Model
         return $query->where('category', $category);
     }
 
-    public function void(): bool
+    public function void(?int $reasonCodeId = null): bool
     {
         if ($this->is_voided) {
             return false;
@@ -148,12 +172,14 @@ class Transaction extends Model
         $result = $this->update([
             'is_voided' => true,
             'voided_at' => now(),
+            'void_reason_code_id' => $reasonCodeId ?? $this->void_reason_code_id,
         ]);
 
         if ($result) {
             $folio = $this->folio ?? Folio::find($this->folio_id);
             if ($folio) {
                 $folio->balance = $folio->outstanding_balance;
+                $folio->version = $folio->version + 1;
                 $folio->save();
             }
         }

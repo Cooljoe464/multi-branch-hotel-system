@@ -1,7 +1,10 @@
 <?php
 
+use App\Exceptions\AvailabilityException;
+use App\Exceptions\StaleModelException;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\RequireIdempotencyKey;
 use App\Http\Middleware\SetBranchContext;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -34,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleAppearance::class,
             HandleInertiaRequests::class,
             SetBranchContext::class,
+            RequireIdempotencyKey::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
     })
@@ -41,6 +45,29 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        $exceptions->render(function (StaleModelException $e, Request $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'code' => 'STALE_VERSION',
+                ], 409);
+            }
+
+            return back()->withErrors(['version' => $e->getMessage()]);
+        });
+
+        $exceptions->render(function (AvailabilityException $e, Request $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'code' => $e->availabilityCode,
+                    'unavailable_dates' => $e->unavailableDates,
+                ], $e->availabilityCode === 'OVERBOOK_FORBIDDEN' ? 403 : 422);
+            }
+
+            return back()->withErrors(['room_id' => $e->getMessage()]);
+        });
 
         $exceptions->respond(function (Response $response, Throwable $exception, Request $request) {
             if (! $request->expectsJson()

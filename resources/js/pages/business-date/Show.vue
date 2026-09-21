@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
+import { useIdempotentForm } from '@/lib/idempotency';
 
 interface BusinessDate {
     id: number;
@@ -20,7 +21,8 @@ const props = defineProps<{
 defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Business Date', href: '#' }] } });
 
 function advance() {
-    router.post(`/branches/${props.branch.id}/business-date/advance`);
+    const { withKey } = useIdempotentForm({});
+    router.post(`/branches/${props.branch.id}/business-date/advance`, {}, withKey);
 }
 </script>
 

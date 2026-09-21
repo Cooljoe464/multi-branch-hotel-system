@@ -133,9 +133,17 @@ class RoomController extends Controller
 
         $request->validate([
             'status' => 'required|string|in:available,occupied,dirty,out_of_order',
+            'version' => 'nullable|integer|min:1',
         ]);
 
-        $room->update(['status' => $request->string('status')->value()]);
+        if ($request->has('version')) {
+            $room->saveWithVersion(
+                ['status' => $request->string('status')->value()],
+                $request->integer('version'),
+            );
+        } else {
+            $room->update(['status' => $request->string('status')->value()]);
+        }
 
         return $this->flashSuccess('Room '.$room->number.' status updated.');
     }

@@ -5,6 +5,8 @@ on:
     branches:
       - main
   pull_request:
+  schedule:
+    - cron: '0 2 * * *'
 
 permissions:
   contents: read
@@ -28,6 +30,16 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       DB_CONNECTION: pgsql
       DB_HOST: 127.0.0.1
@@ -40,6 +52,8 @@ jobs:
       SESSION_DRIVER: array
       BROADCAST_CONNECTION: null
       MAIL_MAILER: array
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
 
     steps:
       - name: Checkout code
@@ -52,7 +66,7 @@ jobs:
         with:
           php-version: '8.4'
           tools: composer:v2
-          extensions: pdo_pgsql, pgsql
+          extensions: pdo_pgsql, pgsql, redis
           coverage: none
 
       - name: Setup Node
@@ -65,3 +79,68 @@ jobs:
 
       - name: Run CI Checks
         run: composer ci:check
+
+  load:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: hotel_system_test
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: ''
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U root -d hotel_system_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: hotel_system_test
+      DB_USERNAME: root
+      DB_PASSWORD: ''
+      CACHE_DRIVER: array
+      QUEUE_CONNECTION: sync
+      SESSION_DRIVER: array
+      BROADCAST_CONNECTION: null
+      MAIL_MAILER: array
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      LOAD_WORKERS: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          extensions: pdo_pgsql, pgsql, redis
+          coverage: none
+
+      - name: Setup Application
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Run availability load test
+        run: php artisan test --compact --group=load

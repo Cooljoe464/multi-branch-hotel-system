@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\HasOptimisticLock;
 use Database\Factories\ReservationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,11 +37,22 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int $room_rate
  * @property int $total_amount
  * @property int $amount_paid
+ * @property int $version
+ * @property bool $overbooked
  * @property string $payment_status
  * @property bool $is_group_booking
  * @property string|null $group_id
  * @property array<string, mixed>|null $special_requests
  * @property array<string, mixed>|null $metadata
+ * @property int|null $rate_plan_id
+ * @property int|null $promo_code_id
+ * @property int|null $corporate_account_id
+ * @property array<string, mixed>|null $rate_snapshot
+ * @property string $guarantee_status
+ * @property int $deposit_due_minor
+ * @property int $deposit_paid_minor
+ * @property Carbon|null $cancel_deadline_at
+ * @property Carbon|null $hold_expires_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -48,11 +60,19 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property-read Room|null $room
  * @property-read RoomType $roomType
  * @property-read Guest|null $guest
+ * @property-read RatePlan|null $ratePlan
+ * @property-read PromoCode|null $promoCode
+ * @property-read CorporateAccount|null $corporateAccount
  */
 #[Fillable([
     'branch_id',
     'currency_code',
     'business_date',
+    'idempotency_key',
+    'version',
+    'overbooked',
+    'audit_outcome',
+    'no_show_fee_minor',
     'room_id',
     'room_type_id',
     'guest_id',
@@ -67,6 +87,8 @@ use Spatie\Activitylog\Support\LogOptions;
     'children',
     'check_in_date',
     'check_out_date',
+    'actual_check_in_at',
+    'actual_check_out_at',
     'room_rate',
     'total_amount',
     'amount_paid',
@@ -75,12 +97,22 @@ use Spatie\Activitylog\Support\LogOptions;
     'group_id',
     'special_requests',
     'metadata',
+    'rate_plan_id',
+    'promo_code_id',
+    'corporate_account_id',
+    'rate_snapshot',
+    'guarantee_status',
+    'deposit_due_minor',
+    'deposit_paid_minor',
+    'cancel_deadline_at',
+    'hold_expires_at',
 ])]
 class Reservation extends Model
 {
     /** @use HasFactory<ReservationFactory> */
     use HasFactory;
 
+    use HasOptimisticLock;
     use LogsActivity;
     use SoftDeletes;
 
@@ -92,6 +124,9 @@ class Reservation extends Model
             'check_in_date' => 'date',
             'check_out_date' => 'date',
             'business_date' => 'date',
+            'version' => 'integer',
+            'overbooked' => 'boolean',
+            'no_show_fee_minor' => 'integer',
             'actual_check_in_at' => 'datetime',
             'actual_check_out_at' => 'datetime',
             'adults' => 'integer',
@@ -102,6 +137,9 @@ class Reservation extends Model
             'is_group_booking' => 'boolean',
             'special_requests' => 'array',
             'metadata' => 'array',
+            'rate_snapshot' => 'array',
+            'cancel_deadline_at' => 'datetime',
+            'hold_expires_at' => 'datetime',
         ];
     }
 
@@ -157,6 +195,24 @@ class Reservation extends Model
         return $this->belongsTo(Guest::class);
     }
 
+    /** @return BelongsTo<RatePlan, $this> */
+    public function ratePlan(): BelongsTo
+    {
+        return $this->belongsTo(RatePlan::class);
+    }
+
+    /** @return BelongsTo<PromoCode, $this> */
+    public function promoCode(): BelongsTo
+    {
+        return $this->belongsTo(PromoCode::class);
+    }
+
+    /** @return BelongsTo<CorporateAccount, $this> */
+    public function corporateAccount(): BelongsTo
+    {
+        return $this->belongsTo(CorporateAccount::class);
+    }
+
     /** @return HasOne<Folio, $this> */
     public function folio(): HasOne
     {
@@ -167,6 +223,12 @@ class Reservation extends Model
     public function folios(): HasMany
     {
         return $this->hasMany(Folio::class);
+    }
+
+    /** @return HasMany<ReservationNight, $this> */
+    public function reservationNights(): HasMany
+    {
+        return $this->hasMany(ReservationNight::class);
     }
 
     /** @return HasMany<PosCharge, $this> */

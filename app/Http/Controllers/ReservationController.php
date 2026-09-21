@@ -2,16 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvailabilityException;
 use App\Models\Branch;
+use App\Models\CorporateAccount;
 use App\Models\Guest;
+use App\Models\PromoCode;
+use App\Models\RatePlan;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\TabletSession;
 use App\Notifications\CheckInNotification;
 use App\Notifications\CheckoutNotification;
+use App\Services\AvailabilityService;
+use App\Services\CommissionService;
 use App\Services\DoorLock\DoorLockService;
+use App\Services\GuaranteeService;
 use App\Services\PricingService;
+use App\Services\RateEngine;
 use App\Services\TabletService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -35,7 +43,7 @@ class ReservationController extends Controller
 
         $reservations = Reservation::forBranch($branchId)
             ->with(['room', 'roomType', 'guest'])
-            ->when($request->filled('status') && $request->string('status') !== 'all', fn ($q) => $q->forStatus($request->string('status')->value()))
+            ->when($request->filled('status') && $request->string('status')->value() !== 'all', fn ($q) => $q->forStatus($request->string('status')->value()))
             ->when($request->filled('date'), fn ($q) => $q->forDate($request->string('date')->value()))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $searchStr = $request->string('search')->value();
@@ -86,7 +94,7 @@ class ReservationController extends Controller
     {
         $request->validate([
             'room_type_id' => 'required|exists:room_types,id',
-            'room_id' => 'required|exists:rooms,id',
+            'room_id' => 'nullable|exists:rooms,id',
             'branch_id' => 'sometimes|exists:branches,id',
             'guest_id' => 'nullable|exists:guests,id',
             'guest_name' => 'required|string|max:255',
@@ -100,6 +108,9 @@ class ReservationController extends Controller
             'special_requests' => 'nullable|array',
             'is_group_booking' => 'boolean',
             'group_id' => 'nullable|string|max:50',
+            'rate_plan_id' => 'nullable|exists:rate_plans,id',
+            'promo_code' => 'nullable|string|max:50',
+            'corporate_account_id' => 'nullable|exists:corporate_accounts,id',
         ]);
 
         $user = $request->user();
@@ -135,16 +146,6 @@ class ReservationController extends Controller
             if (! $selectedRoom || $selectedRoom->branch_id !== $branch->id) {
                 abort(403, 'The selected room does not belong to this property.');
             }
-
-            $hasOverlap = Reservation::where('room_id', $selectedRoom->id)
-                ->whereIn('status', ['confirmed', 'reserved', 'checked_in'])
-                ->where('check_in_date', '<', $checkOutDate)
-                ->where('check_out_date', '>', $checkInDate)
-                ->exists();
-
-            if ($hasOverlap) {
-                return back()->withErrors(['room_id' => 'This room is already booked for the selected dates.']);
-            }
         }
 
         $pricingService = (new PricingService)->forBranch($branch);
@@ -175,29 +176,110 @@ class ReservationController extends Controller
             $guestId = $guest->id;
         }
 
-        $reservation = Reservation::create([
-            'branch_id' => $branchId,
-            'currency_code' => $branch->currency_code,
-            'room_type_id' => $roomType->id,
-            'room_id' => $roomId,
-            'guest_id' => $guestId,
-            'guest_name' => $guestName,
-            'guest_email' => $guestEmail !== '' ? $guestEmail : null,
-            'guest_phone' => $guestPhone !== '' ? $guestPhone : null,
-            'guest_notes' => $request->string('guest_notes')->value(),
-            'adults' => $adults,
-            'children' => $children,
-            'check_in_date' => $checkInDate,
-            'check_out_date' => $checkOutDate,
-            'special_requests' => $specialRequests,
-            'is_group_booking' => $isGroupBooking,
-            'group_id' => $groupId !== '' ? $groupId : null,
-            'room_rate' => $pricing['per_night'][0]['rate'] ?? $roomType->base_rate,
-            'total_amount' => $pricing['total'],
-            'status' => 'confirmed',
-            'source' => 'direct',
-            'payment_status' => 'pending',
-        ]);
+        $idempotencyKey = $request->header('X-Idempotency-Key');
+        $overbookReason = $request->string('overbook_reason')->value();
+        $availability = new AvailabilityService;
+
+        $ratePlan = $availability->defaultPlan($branch);
+
+        if ($request->filled('rate_plan_id')) {
+            $requested = RatePlan::forBranch($branch->id)->active()->find($request->integer('rate_plan_id'));
+
+            if (! $requested) {
+                return back()->withErrors(['rate_plan_id' => 'The selected rate plan is not available for this property.']);
+            }
+
+            $ratePlan = $requested;
+        }
+
+        $corporate = null;
+
+        if ($request->filled('corporate_account_id')) {
+            $corporate = CorporateAccount::forBranch($branch->id)->active()->find($request->integer('corporate_account_id'));
+
+            if (! $corporate) {
+                return back()->withErrors(['corporate_account_id' => 'The selected corporate account is not available for this property.']);
+            }
+
+            if ($corporate->negotiated_plan_id !== null) {
+                $negotiated = RatePlan::forBranch($branch->id)->active()->find($corporate->negotiated_plan_id);
+
+                if (! $negotiated) {
+                    return back()->withErrors(['corporate_account_id' => 'The corporate negotiated plan is no longer active.']);
+                }
+
+                $ratePlan = $negotiated;
+            }
+        }
+
+        $promo = null;
+
+        if ($request->filled('promo_code')) {
+            $promo = PromoCode::forBranch($branch->id)
+                ->where('code', $request->string('promo_code')->value())
+                ->first();
+
+            if (! $promo) {
+                return back()->withErrors(['promo_code' => 'Promo code not recognised for this property.']);
+            }
+        }
+
+        try {
+            $quote = $ratePlan !== null ? (new RateEngine)->price(
+                $branch,
+                $ratePlan,
+                $roomType,
+                $checkInDate,
+                $checkOutDate,
+                $promo,
+                $corporate,
+            ) : null;
+        } catch (AvailabilityException $e) {
+            return back()->withErrors(['rate_plan_id' => $e->getMessage()]);
+        }
+
+        // Plan-less properties keep the legacy totals path: no quote, no
+        // snapshot, no promo/corporate stacking. Explicit commercial
+        // inputs always need a resolvable plan.
+        if ($quote === null && ($promo !== null || $corporate !== null)) {
+            return back()->withErrors(['rate_plan_id' => 'Promo codes and corporate rates need an active rate plan for this property.']);
+        }
+
+        $reservation = $availability->reserve(
+            branch: $branch,
+            roomType: $roomType,
+            checkIn: $checkInDate,
+            checkOut: $checkOutDate,
+            attributes: [
+                'currency_code' => $branch->currency_code,
+                'guest_id' => $guestId,
+                'guest_name' => $guestName,
+                'guest_email' => $guestEmail !== '' ? $guestEmail : null,
+                'guest_phone' => $guestPhone !== '' ? $guestPhone : null,
+                'guest_notes' => $request->string('guest_notes')->value(),
+                'adults' => $adults,
+                'children' => $children,
+                'special_requests' => $specialRequests,
+                'is_group_booking' => $isGroupBooking,
+                'group_id' => $groupId !== '' ? $groupId : null,
+                'room_rate' => $quote !== null
+                    ? ($quote['nights'][0]['total_minor'] ?? $roomType->base_rate)
+                    : ($pricing['per_night'][0]['rate'] ?? $roomType->base_rate),
+                'total_amount' => $quote !== null ? $quote['total_minor'] : $pricing['total'],
+                'status' => 'confirmed',
+                'source' => 'direct',
+                'payment_status' => 'pending',
+            ],
+            roomId: $roomId,
+            idempotencyKey: is_string($idempotencyKey) && trim($idempotencyKey) !== '' ? trim($idempotencyKey) : null,
+            overbookedBy: $overbookReason !== '' ? $user : null,
+            overbookReason: $overbookReason !== '' ? $overbookReason : null,
+            ratePlan: $ratePlan,
+            restrictionOverrider: $overbookReason !== '' ? $user : null,
+            restrictionReason: $overbookReason !== '' ? $overbookReason : null,
+            rateQuote: $quote,
+            promo: $promo,
+        );
 
         if ($roomId !== null) {
             $room = Room::find($roomId);
@@ -211,14 +293,18 @@ class ReservationController extends Controller
         return redirect()->route('reservations.show', $reservation);
     }
 
-    public function show(Reservation $reservation): Response
+    public function show(Request $request, Reservation $reservation): Response
     {
         $this->ensureBranchAccess($reservation->branch);
 
-        $reservation->load(['room', 'roomType', 'branch', 'guest']);
+        $reservation->load(['room', 'roomType', 'branch', 'guest', 'ratePlan']);
 
         return Inertia::render('reservations/Show', [
             'reservation' => $reservation,
+            'guarantee' => [
+                'policy' => (new GuaranteeService)->policyFor($reservation->branch_id, $reservation->rate_plan_id),
+                'can_waive_penalty' => $request->user()?->can('reservations.waive_penalty') ?? false,
+            ],
         ]);
     }
 
@@ -262,6 +348,7 @@ class ReservationController extends Controller
             'check_in_date' => 'sometimes|date',
             'check_out_date' => 'sometimes|date|after:check_in_date',
             'special_requests' => 'nullable|array',
+            'version' => 'nullable|integer|min:1',
         ]);
 
         $data = [];
@@ -322,7 +409,11 @@ class ReservationController extends Controller
             }
         }
 
-        $reservation->update($data);
+        if ($request->has('version')) {
+            $reservation->saveWithVersion($data, $request->integer('version'));
+        } else {
+            $reservation->update($data);
+        }
 
         return $this->flashSuccess('Reservation updated.');
     }
@@ -337,8 +428,26 @@ class ReservationController extends Controller
             return back()->withErrors(['status' => 'This reservation cannot be checked in.']);
         }
 
+        // Front desk picks the room at check-in time when none is assigned.
         if (! $reservation->room_id) {
-            return back()->withErrors(['room_id' => 'No room assigned to this reservation.']);
+            $requestedRoomId = $request->integer('room_id');
+
+            if ($requestedRoomId <= 0) {
+                return back()->withErrors(['room_id' => 'No room assigned to this reservation.']);
+            }
+
+            $candidate = Room::find($requestedRoomId);
+
+            if (! $candidate || $candidate->branch_id !== $reservation->branch_id) {
+                abort(403, 'The assigned room does not belong to this property.');
+            }
+
+            if (! in_array($candidate->status, ['available', 'reserved'])) {
+                return back()->withErrors(['room_id' => 'This room is not available.']);
+            }
+
+            $reservation->update(['room_id' => $candidate->id]);
+            $reservation->load(['branch', 'room', 'guest']);
         }
 
         $room = $reservation->room;
@@ -360,6 +469,16 @@ class ReservationController extends Controller
 
         if ($hasOverlap) {
             return back()->withErrors(['room_id' => 'This room is already booked for the reservation dates.']);
+        }
+
+        try {
+            (new AvailabilityService)->setRoomForRemainingNights(
+                $reservation,
+                $room,
+                now()->toDateString(),
+            );
+        } catch (AvailabilityException $e) {
+            return back()->withErrors(['room_id' => $e->getMessage()]);
         }
 
         $reservation->update([
@@ -425,6 +544,9 @@ class ReservationController extends Controller
             'actual_check_out_at' => now(),
         ]);
 
+        // Return unsold future nights (early departure) to inventory.
+        (new AvailabilityService)->releaseFromDate($reservation->fresh() ?? $reservation, now()->toDateString());
+
         if ($reservation->room) {
             $reservation->room->update(['status' => 'dirty']);
         }
@@ -458,26 +580,76 @@ class ReservationController extends Controller
             );
         }
 
+        // Accrue OTA/agent commission (idempotent; gaps covered by
+        // commissions:backfill). Checkout never fails on journal errors.
+        try {
+            (new CommissionService)->accrue($reservation->fresh() ?? $reservation);
+        } catch (\Throwable $e) {
+            Log::warning('Commission accrual failed', [
+                'reservation' => $reservation->confirmation_number,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         return $this->flashSuccess('Guest checked out from room '.$reservation->room?->number.'.');
     }
 
-    public function cancel(Reservation $reservation): RedirectResponse
+    public function cancel(Request $request, Reservation $reservation): RedirectResponse
     {
         $reservation->load(['branch', 'room']);
 
         $this->ensureBranchAccess($reservation->branch);
 
-        if (in_array($reservation->status, ['checked_out', 'cancelled'])) {
+        if (in_array($reservation->status, ['checked_out', 'cancelled'], true)) {
             return back()->withErrors(['status' => 'This reservation cannot be cancelled.']);
         }
 
-        $reservation->update(['status' => 'cancelled']);
+        $waive = $request->boolean('waive_penalty');
 
-        if ($reservation->room && $reservation->room->status === 'reserved') {
-            $reservation->room->update(['status' => 'available']);
+        if ($waive && ! ($request->user()?->can('reservations.waive_penalty') ?? false)) {
+            abort(403, 'Waiving penalties requires the reservations.waive_penalty permission.');
         }
 
-        return $this->flashSuccess('Reservation cancelled.');
+        try {
+            $outcome = (new GuaranteeService)->cancelReservation($reservation, $request->user(), $waive);
+        } catch (AvailabilityException $e) {
+            return back()->withErrors(['status' => $e->getMessage()]);
+        }
+
+        if ($outcome['fee_minor'] > 0) {
+            $formatted = number_format($outcome['fee_minor'] / 100, 2).' '.$reservation->branch->currency_code;
+
+            return $this->flashSuccess('Reservation cancelled with a '.$formatted.' fee.');
+        }
+
+        return $this->flashSuccess($outcome['waived'] ? 'Reservation cancelled; penalty waived.' : 'Reservation cancelled.');
+    }
+
+    public function collectDeposit(Request $request, Reservation $reservation): RedirectResponse
+    {
+        $reservation->load(['branch']);
+
+        $this->ensureBranchAccess($reservation->branch);
+
+        $request->validate([
+            'amount_minor' => 'required|integer|min:1',
+            'method' => 'nullable|string|in:cash,card,online',
+            'reference' => 'nullable|string|max:128',
+        ]);
+
+        try {
+            (new GuaranteeService)->collectDeposit(
+                $reservation,
+                $request->integer('amount_minor'),
+                $request->user(),
+                $request->string('method', 'card')->value(),
+                $request->string('reference')->value() ?: null,
+            );
+        } catch (AvailabilityException $e) {
+            return back()->withErrors(['amount_minor' => $e->getMessage()]);
+        }
+
+        return $this->flashSuccess('Deposit collected.');
     }
 
     public function destroy(Reservation $reservation): RedirectResponse

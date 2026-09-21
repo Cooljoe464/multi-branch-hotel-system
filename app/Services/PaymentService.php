@@ -2,24 +2,67 @@
 
 namespace App\Services;
 
+use App\Contracts\PaymentDriver;
+use App\Models\Branch;
 use App\Models\Branding;
 use App\Models\Folio;
+use App\Models\PaymentMethod;
 use App\Models\PaymentTransaction;
+use App\Models\Reservation;
+use App\Services\Payments\PaystackDriver;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
+use RuntimeException;
 
+/**
+ * Payment facade: selects the gateway driver per branch, owns the
+ * transaction state machine (pre-auth → capture, partial refunds, voids)
+ * and keeps every transition idempotent. Transport lives in drivers.
+ */
 class PaymentService
 {
-    private string $secretKey;
+    private PaymentDriver $driver;
 
-    private string $baseUrl;
-
-    public function __construct()
+    public function __construct(?PaymentDriver $driver = null)
     {
-        $secretKey = config('services.paystack.secret_key', '');
-        $this->secretKey = is_string($secretKey) ? $secretKey : '';
-        $this->baseUrl = 'https://api.paystack.co';
+        $this->driver = $driver ?? new PaystackDriver;
+    }
+
+    public function forBranch(Branch $branch): self
+    {
+        $settings = $branch->settings;
+        $override = $settings['payment_driver'] ?? null;
+        $default = config('payments.default');
+
+        $name = is_string($override) && $override !== ''
+            ? $override
+            : (is_string($default) && $default !== '' ? $default : 'paystack');
+
+        $drivers = config('payments.drivers');
+        $drivers = is_array($drivers) ? $drivers : [];
+        $class = $drivers[$name] ?? PaystackDriver::class;
+
+        if (! is_string($class) || ! is_subclass_of($class, PaymentDriver::class)) {
+            $class = PaystackDriver::class;
+        }
+
+        $driver = app($class);
+
+        if (! $driver instanceof PaymentDriver) {
+            throw new RuntimeException("Payment driver [{$class}] did not resolve.");
+        }
+
+        $this->driver = $driver;
+
+        return $this;
+    }
+
+    public function driver(): PaymentDriver
+    {
+        return $this->driver;
     }
 
     /**
@@ -27,48 +70,34 @@ class PaymentService
      */
     public function initializePayment(Folio $folio, int $amount, string $email, ?string $callbackUrl = null): array
     {
-        $reference = 'HMS-'.Str::upper(Str::random(12));
-
-        $response = Http::withHeaders([
-            'Authorization' => "Bearer {$this->secretKey}",
-            'Content-Type' => 'application/json',
-        ])->post("{$this->baseUrl}/transaction/initialize", [
-            'email' => $email,
-            'amount' => $amount,
-            'reference' => $reference,
-            'callback_url' => $callbackUrl,
-            'metadata' => [
+        $initialized = $this->driver->initialize(
+            $amount,
+            $folio->branch->currency_code ?? Branding::instance()->currency_code,
+            $email,
+            [
                 'folio_id' => $folio->id,
                 'branch_id' => $folio->branch_id,
                 'folio_number' => $folio->folio_number,
             ],
-        ]);
-
-        if (! $response->successful()) {
-            throw new \RuntimeException('Paystack initialization failed: '.$response->body());
-        }
-
-        /** @var array{authorization_url: string, access_code: string} $data */
-        $data = $response->json('data');
+            $callbackUrl,
+        );
 
         PaymentTransaction::create([
             'branch_id' => $folio->branch_id,
             'folio_id' => $folio->id,
             'reservation_id' => $folio->reservation_id,
-            'paystack_reference' => $reference,
-            'paystack_access_code' => $data['access_code'],
+            'paystack_reference' => $initialized['reference'],
+            'paystack_access_code' => $initialized['access_code'],
             'type' => 'charge',
+            'driver' => $this->driver->name(),
+            'kind' => PaymentTransaction::KIND_SALE,
             'status' => 'pending',
             'amount' => $amount,
             'currency' => $folio->branch->currency_code ?? Branding::instance()->currency_code,
             'customer_email' => $email,
         ]);
 
-        return [
-            'authorization_url' => $data['authorization_url'],
-            'access_code' => $data['access_code'],
-            'reference' => $reference,
-        ];
+        return $initialized;
     }
 
     /**
@@ -76,18 +105,171 @@ class PaymentService
      */
     public function verifyTransaction(string $reference): array
     {
-        $response = Http::withHeaders([
-            'Authorization' => "Bearer {$this->secretKey}",
-        ])->get("{$this->baseUrl}/transaction/verify/{$reference}");
+        return $this->driver->verify($reference);
+    }
 
-        if (! $response->successful()) {
-            throw new \RuntimeException('Paystack verification failed: '.$response->body());
+    /**
+     * Hold funds on a tokenized card without capturing.
+     */
+    public function preauthorize(Model $owner, Folio $folio, PaymentMethod $method, int $amountMinor): PaymentTransaction
+    {
+        if ($amountMinor <= 0) {
+            throw new InvalidArgumentException('Pre-auth amount must be positive.');
         }
 
-        /** @var array<string, mixed> $data */
-        $data = $response->json('data');
+        return DB::transaction(function () use ($owner, $folio, $method, $amountMinor) {
+            $reservation = $folio->relationLoaded('reservation')
+                ? $folio->getRelation('reservation')
+                : $folio->reservation()->first();
+            $email = $reservation instanceof Reservation ? $reservation->guest_email : '';
 
-        return $data;
+            $held = $this->driver->preauthorize(
+                $amountMinor,
+                $folio->branch->currency_code ?? 'NGN',
+                $method->token,
+                ['folio_id' => $folio->id, 'email' => $email ?? '']
+            );
+
+            return PaymentTransaction::create([
+                'branch_id' => $folio->branch_id,
+                'folio_id' => $folio->id,
+                'reservation_id' => $folio->reservation_id,
+                'paystack_reference' => $held['reference'],
+                'type' => 'preauth',
+                'driver' => $this->driver->name(),
+                'kind' => PaymentTransaction::KIND_PREAUTH,
+                'status' => 'held',
+                'amount' => $amountMinor,
+                'currency' => $folio->branch->currency_code ?? 'NGN',
+                'authorization_code' => $held['authorization_code'],
+                'metadata' => ['owner_type' => $owner->getMorphClass(), 'owner_id' => $owner->getKey()],
+            ]);
+        });
+    }
+
+    /**
+     * Capture (possibly partially) a held pre-auth.
+     */
+    public function capture(PaymentTransaction $preauth, int $amountMinor, ?int $postedBy = null): PaymentTransaction
+    {
+        if ($preauth->kind !== PaymentTransaction::KIND_PREAUTH || $preauth->status !== 'held') {
+            throw new InvalidArgumentException('Only held pre-auths can be captured.');
+        }
+
+        return DB::transaction(function () use ($preauth, $amountMinor, $postedBy) {
+            $locked = PaymentTransaction::where('id', $preauth->id)->lockForUpdate()->firstOrFail();
+
+            $captured = (int) PaymentTransaction::where('parent_id', $locked->id)
+                ->where('kind', PaymentTransaction::KIND_CAPTURE)
+                ->where('status', 'success')
+                ->sum('amount');
+
+            if ($amountMinor <= 0 || $captured + $amountMinor > $locked->amount) {
+                throw new InvalidArgumentException('Capture exceeds the held amount.');
+            }
+
+            $result = $this->driver->capture((string) $locked->authorization_code, $amountMinor);
+
+            $capture = PaymentTransaction::create([
+                'branch_id' => $locked->branch_id,
+                'folio_id' => $locked->folio_id,
+                'reservation_id' => $locked->reservation_id,
+                'paystack_reference' => $result['reference'],
+                'type' => 'charge',
+                'driver' => $this->driver->name(),
+                'kind' => PaymentTransaction::KIND_CAPTURE,
+                'parent_id' => $locked->id,
+                'status' => 'success',
+                'amount' => $result['captured_minor'],
+                'currency' => $locked->currency,
+                'paid_at' => now(),
+            ]);
+
+            $folio = Folio::find($locked->folio_id);
+            if ($folio) {
+                (new FolioService)->recordPayment(
+                    $folio,
+                    $result['captured_minor'],
+                    'card',
+                    $postedBy,
+                    $result['reference'],
+                );
+            }
+
+            if ($captured + $result['captured_minor'] >= $locked->amount) {
+                $locked->update(['status' => 'captured']);
+            }
+
+            return $capture;
+        });
+    }
+
+    /**
+     * Refund (possibly partially) a successful charge or capture.
+     */
+    public function refundPayment(PaymentTransaction $charge, int $amountMinor, ?int $postedBy = null): PaymentTransaction
+    {
+        return DB::transaction(function () use ($charge, $amountMinor, $postedBy) {
+            $locked = PaymentTransaction::where('id', $charge->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->status !== 'success') {
+                throw new InvalidArgumentException('Only successful payments can be refunded.');
+            }
+
+            $refunded = (int) PaymentTransaction::where('parent_id', $locked->id)
+                ->where('kind', PaymentTransaction::KIND_REFUND)
+                ->where('status', 'success')
+                ->sum('amount');
+
+            if ($amountMinor <= 0 || $refunded + $amountMinor > $locked->amount) {
+                throw new InvalidArgumentException('Refund exceeds the refundable amount.');
+            }
+
+            $result = $this->driver->refund($locked->paystack_reference, $amountMinor);
+
+            $refund = PaymentTransaction::create([
+                'branch_id' => $locked->branch_id,
+                'folio_id' => $locked->folio_id,
+                'reservation_id' => $locked->reservation_id,
+                'paystack_reference' => $result['reference'],
+                'type' => 'refund',
+                'driver' => $this->driver->name(),
+                'kind' => PaymentTransaction::KIND_REFUND,
+                'parent_id' => $locked->id,
+                'status' => 'success',
+                'amount' => $result['refunded_minor'],
+                'currency' => $locked->currency,
+                'paid_at' => now(),
+            ]);
+
+            $folio = Folio::find($locked->folio_id);
+            if ($folio) {
+                (new FolioService)->postDebit(
+                    $folio,
+                    'refund',
+                    "Refund: {$locked->paystack_reference}",
+                    $result['refunded_minor'],
+                    $postedBy,
+                    null,
+                    PaymentTransaction::class,
+                    $refund->id,
+                    null,
+                    null,
+                    null,
+                    'refund.issued',
+                );
+            }
+
+            return $refund;
+        });
+    }
+
+    /**
+     * @return array{reference: string, captured_minor: int}
+     */
+    public function capturePreauth(string $authorizationCode, int $amount): array
+    {
+        return $this->driver->capture($authorizationCode, $amount);
     }
 
     /**
@@ -119,29 +301,6 @@ class PaymentService
     }
 
     /**
-     * @return array<string, mixed>
-     */
-    public function capturePreauth(string $authorizationCode, int $amount): array
-    {
-        $response = Http::withHeaders([
-            'Authorization' => "Bearer {$this->secretKey}",
-            'Content-Type' => 'application/json',
-        ])->post("{$this->baseUrl}/transaction/charge_authorization", [
-            'authorization_code' => $authorizationCode,
-            'amount' => $amount,
-        ]);
-
-        if (! $response->successful()) {
-            throw new \RuntimeException('Paystack pre-auth capture failed: '.$response->body());
-        }
-
-        /** @var array<string, mixed> $data */
-        $data = $response->json('data');
-
-        return $data;
-    }
-
-    /**
      * @param  array<string, mixed>  $data
      */
     private function handleChargeSuccess(PaymentTransaction $paymentTx, array $data): void
@@ -156,6 +315,7 @@ class PaymentService
         $paymentTx->markSuccess([
             'webhook_payload' => ['data' => $data],
             'authorization_code' => is_array($authorization) ? ($authorization['authorization_code'] ?? null) : null,
+            'webhook_event_id' => is_string($data['id'] ?? null) ? $data['id'] : $paymentTx->webhook_event_id,
         ]);
 
         if ($paymentTx->folio_id) {
@@ -210,6 +370,9 @@ class PaymentService
             'reservation_id' => $paymentTx->reservation_id,
             'paystack_reference' => 'REF-'.$paymentTx->paystack_reference.'-'.Str::upper(Str::random(4)),
             'type' => 'refund',
+            'driver' => $this->driver->name(),
+            'kind' => PaymentTransaction::KIND_REFUND,
+            'parent_id' => $paymentTx->id,
             'status' => 'success',
             'amount' => $refundAmount,
             'currency' => $paymentTx->currency,

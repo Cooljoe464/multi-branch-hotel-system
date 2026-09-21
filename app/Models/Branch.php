@@ -65,6 +65,7 @@ use Spatie\Activitylog\Support\LogOptions;
     'currency_code',
     'currency_symbol',
     'current_business_date',
+    'overbooking_policy',
     'tax_rate',
     'tax_label',
     'is_active',
@@ -89,6 +90,7 @@ class Branch extends Model
             'is_primary' => 'boolean',
             'tax_rate' => 'decimal:2',
             'current_business_date' => 'date',
+            'overbooking_policy' => 'array',
         ];
     }
 

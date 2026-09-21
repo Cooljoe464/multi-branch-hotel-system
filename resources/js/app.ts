@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { initializeFlashToast } from '@/lib/flashToast';
+import { initIdempotencyHeader } from '@/lib/idempotency';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -35,6 +36,9 @@ initializeTheme();
 
 // This will listen for flash toast data from the server...
 initializeFlashToast();
+
+// Attach X-Idempotency-Key to every mutating Inertia visit...
+initIdempotencyHeader();
 
 // Initialize WebSocket listener...
 import { initEcho } from '@/bootstrap';

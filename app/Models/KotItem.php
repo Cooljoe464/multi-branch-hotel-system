@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\HasOptimisticLock;
 use App\Events\KotItemStatusUpdated;
 use Database\Factories\KotItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -18,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property string $outlet
  * @property string $item_name
  * @property int $quantity
+ * @property int $version
  * @property string $status
  * @property string|null $notes
  * @property string $priority
@@ -39,11 +41,14 @@ use Illuminate\Support\Carbon;
     'priority',
     'prepared_at',
     'served_at',
+    'version',
 ])]
 class KotItem extends Model
 {
     /** @use HasFactory<KotItemFactory> */
     use HasFactory;
+
+    use HasOptimisticLock;
 
     protected function casts(): array
     {
@@ -51,6 +56,7 @@ class KotItem extends Model
             'quantity' => 'integer',
             'prepared_at' => 'datetime',
             'served_at' => 'datetime',
+            'version' => 'integer',
         ];
     }
 

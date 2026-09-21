@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\HasOptimisticLock;
 use App\Events\RoomStatusUpdated;
 use Database\Factories\RoomFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -25,6 +26,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string|null $floor
  * @property string|null $wing
  * @property string $status
+ * @property int $version
  * @property bool $is_accessible
  * @property bool $is_smoking
  * @property bool $is_active
@@ -50,12 +52,14 @@ use Spatie\Activitylog\Support\LogOptions;
     'is_active',
     'notes',
     'metadata',
+    'version',
 ])]
 class Room extends Model
 {
     /** @use HasFactory<RoomFactory> */
     use HasFactory;
 
+    use HasOptimisticLock;
     use LogsActivity;
     use SoftDeletes;
 
@@ -66,6 +70,7 @@ class Room extends Model
             'is_smoking' => 'boolean',
             'is_active' => 'boolean',
             'metadata' => 'array',
+            'version' => 'integer',
         ];
     }
 

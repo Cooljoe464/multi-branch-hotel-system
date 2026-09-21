@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import { Head, router, Link } from '@inertiajs/vue3';
+import { Head, router, Link, usePage } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from '@lucide/vue';
 import DatePicker from '@/components/ui/date-picker/DatePicker.vue';
+import ConflictDialog from '@/components/ConflictDialog.vue';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -36,6 +37,7 @@ interface Reservation {
     room_type_id: number;
     room_id: number | null;
     special_requests: string[] | null;
+    version: number;
     room: Room | null;
     room_type: RoomType;
 }
@@ -73,6 +75,7 @@ const form = reactive({
     children: props.reservation.children,
     check_in_date: props.reservation.check_in_date,
     check_out_date: props.reservation.check_out_date,
+    version: props.reservation.version,
 });
 
 const filteredRooms = computed(() => {
@@ -85,6 +88,10 @@ const submit = () => {
     data.guest_name = guestTitle.value ? `${guestTitle.value} ${data.guest_name}`.trim() : data.guest_name;
     router.put(`/reservations/${props.reservation.id}`, data);
 };
+
+const page = usePage();
+const conflictOpen = computed(() => Boolean((page.props.errors as Record<string, string>).version));
+const conflictMessage = computed(() => (page.props.errors as Record<string, string>).version ?? '');
 
 const goBack = () => {
     window.history.back();
@@ -190,5 +197,12 @@ const goBack = () => {
                     </Button>
                 </div>
             </form>
+
+            <ConflictDialog
+                :open="conflictOpen"
+                :message="conflictMessage"
+                @reload="router.reload()"
+                @close="conflictOpen = false"
+            />
         </div>
 </template>

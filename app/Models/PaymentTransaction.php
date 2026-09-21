@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property string $type
  * @property string $status
  * @property int $amount
+ * @property Carbon|null $business_date
  * @property string $currency
  * @property string|null $customer_email
  * @property string|null $authorization_code
@@ -35,11 +36,18 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'branch_id',
     'business_date',
+    'idempotency_key',
     'folio_id',
     'reservation_id',
     'paystack_reference',
     'paystack_access_code',
     'type',
+    'driver',
+    'kind',
+    'parent_id',
+    'webhook_event_id',
+    'refund_reason_code_id',
+    'cashier_shift_id',
     'status',
     'amount',
     'currency',
@@ -77,10 +85,26 @@ class PaymentTransaction extends Model
         return $this->belongsTo(Folio::class);
     }
 
+    public const KIND_SALE = 'sale';
+
+    public const KIND_PREAUTH = 'preauth';
+
+    public const KIND_CAPTURE = 'capture';
+
+    public const KIND_REFUND = 'refund';
+
+    public const KIND_VOID = 'void';
+
     /** @return BelongsTo<Reservation, $this> */
     public function reservation(): BelongsTo
     {
         return $this->belongsTo(Reservation::class);
+    }
+
+    /** @return BelongsTo<PaymentTransaction, $this> */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(PaymentTransaction::class, 'parent_id');
     }
 
     /**

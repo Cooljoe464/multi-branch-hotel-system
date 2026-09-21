@@ -69,10 +69,19 @@ interface ChildFolio {
     transactions: Transaction[];
 }
 
+interface FolioWindow {
+    id: number;
+    code: string;
+    payer_type: string;
+    debits_total: number;
+    credits_total: number;
+}
+
 const props = defineProps<{
     folio: Folio;
     transactions: Transaction[];
     childFolios: ChildFolio[];
+    windows: FolioWindow[];
 }>();
 
 defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Folios', href: '/folios' }, { title: 'Details', href: '/folios' }] } });
@@ -82,6 +91,8 @@ const showTransferModal = ref(false);
 const showChargeModal = ref(false);
 const showPaymentModal = ref(false);
 const showDisputeModal = ref(false);
+const showWindowModal = ref(false);
+const showSplitModal = ref(false);
 const selectedTransaction = ref<Transaction | null>(null);
 
 const childForm = ref({ description: '', reservation_id: '' });
@@ -89,6 +100,8 @@ const transferForm = ref({ target_folio_id: '' });
 const chargeForm = ref({ category: 'misc', description: '', amount: 0, tax_rate_bps: 750 });
 const paymentForm = ref({ amount: 0, method: 'cash', reference: '' });
 const disputeForm = ref({ transaction_id: null as number | null, reason: '' });
+const windowForm = ref({ code: '', payer_type: 'guest' });
+const splitForm = ref({ legs: [{ window_code: 'room', percent_bps: 5000 }, { window_code: 'incidentals', percent_bps: 5000 }] });
 
 import { formatCurrency as formatCurrencyRaw } from '@/lib/format';
 const page = usePage();
@@ -209,6 +222,30 @@ const submitPayment = () => {
     });
 };
 
+const submitWindow = () => {
+    router.post(`/folios/${props.folio.id}/windows`, windowForm.value, {
+        onSuccess: () => {
+            showWindowModal.value = false;
+            windowForm.value = { code: '', payer_type: 'guest' };
+        },
+    });
+};
+
+const openSplitModal = (transaction: Transaction) => {
+    selectedTransaction.value = transaction;
+    showSplitModal.value = true;
+};
+
+const submitSplit = () => {
+    if (! selectedTransaction.value) return;
+    router.post(`/transactions/${selectedTransaction.value.id}/split`, { legs: splitForm.value.legs }, {
+        onSuccess: () => {
+            showSplitModal.value = false;
+            selectedTransaction.value = null;
+        },
+    });
+};
+
 const submitDispute = () => {
     router.post(`/folios/${props.folio.id}/disputes`, disputeForm.value, {
         onSuccess: () => {
@@ -325,6 +362,26 @@ const goBack = () => {
             </div>
         </div>
 
+        <!-- Windows -->
+        <div class="bg-card rounded-lg shadow overflow-hidden mb-6">
+            <div class="px-6 py-4 border-b border-border flex items-center justify-between">
+                <h2 class="text-lg font-semibold dark:text-foreground">Payer Windows</h2>
+                <Button variant="outline" size="sm" @click="showWindowModal = true">Add window</Button>
+            </div>
+            <div class="divide-y divide-border">
+                <div v-for="w in windows" :key="w.id" class="px-6 py-3 flex items-center justify-between">
+                    <div>
+                        <span class="font-mono font-medium">{{ w.code }}</span>
+                        <span class="ml-2 text-xs text-muted-foreground">{{ w.payer_type }}</span>
+                    </div>
+                    <div class="text-sm">Dr {{ formatCurrency(w.debits_total) }} · Cr {{ formatCurrency(w.credits_total) }}</div>
+                </div>
+                <div v-if="windows.length === 0" class="px-6 py-4 text-sm text-muted-foreground">
+                    No windows yet — charges post to the default room window.
+                </div>
+            </div>
+        </div>
+
         <!-- Transactions -->
         <div class="bg-card rounded-lg shadow overflow-hidden mb-6">
             <div class="px-6 py-4 border-b border-border">
@@ -353,6 +410,7 @@ const goBack = () => {
                     <div v-if="tx.type === 'debit' && !tx.is_voided && folio.status === 'open'" class="mt-2 flex gap-2">
                         <button class="px-2 py-1 text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900/50" @click="openTransferModal(tx)">Transfer</button>
                         <button class="px-2 py-1 text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 rounded hover:bg-yellow-100 dark:hover:bg-yellow-900/50" @click="openDisputeModal(tx)">Dispute</button>
+                        <button class="px-2 py-1 text-xs text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 rounded hover:bg-teal-100 dark:hover:bg-teal-900/50" @click="openSplitModal(tx)">Split</button>
                     </div>
                 </div>
                 <div v-if="transactions.length === 0" class="px-4 py-8 text-center text-muted-foreground">
@@ -403,6 +461,13 @@ const goBack = () => {
                                         @click="openTransferModal(tx)"
                                     >
                                         Transfer
+                                    </button>
+                                    <button
+                                        v-if="tx.type === 'debit' && !tx.is_voided && folio.status === 'open'"
+                                        class="px-2 py-1 text-xs text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 rounded hover:bg-teal-100 dark:hover:bg-teal-900/50"
+                                        @click="openSplitModal(tx)"
+                                    >
+                                        Split
                                     </button>
                                     <button
                                         v-if="tx.type === 'debit' && !tx.is_voided && folio.status === 'open'"
@@ -614,6 +679,59 @@ const goBack = () => {
                     <DialogFooter>
                         <Button type="button" variant="outline" @click="showTransferModal = false">Cancel</Button>
                         <Button type="submit">Transfer</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-model:open="showWindowModal">
+            <DialogContent class="sm:max-w-[500px]">
+                <DialogHeader>
+                    <DialogTitle>Add Payer Window</DialogTitle>
+                </DialogHeader>
+                <form @submit.prevent="submitWindow">
+                    <div class="grid gap-2 mb-4">
+                        <Label>Code</Label>
+                        <Input v-model="windowForm.code" placeholder="e.g. company" required />
+                    </div>
+                    <div class="grid gap-2 mb-4">
+                        <Label>Payer</Label>
+                        <Select v-model="windowForm.payer_type">
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select payer..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="guest">Guest</SelectItem>
+                                <SelectItem value="company">Company</SelectItem>
+                                <SelectItem value="group_master">Group master</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" @click="showWindowModal = false">Cancel</Button>
+                        <Button type="submit">Create</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-model:open="showSplitModal">
+            <DialogContent class="sm:max-w-[500px]">
+                <DialogHeader>
+                    <DialogTitle>Split Charge</DialogTitle>
+                </DialogHeader>
+                <div v-if="selectedTransaction" class="mb-4 p-3 bg-muted rounded-md">
+                    <p class="text-sm font-medium dark:text-foreground">{{ selectedTransaction.description }}</p>
+                    <p class="text-sm text-muted-foreground">{{ formatCurrency(selectedTransaction.amount) }} across windows by percent.</p>
+                </div>
+                <form @submit.prevent="submitSplit">
+                    <div v-for="(leg, i) in splitForm.legs" :key="i" class="grid grid-cols-2 gap-2 mb-2">
+                        <Input v-model="leg.window_code" placeholder="window code" required />
+                        <Input v-model.number="leg.percent_bps" type="number" min="1" max="10000" placeholder="bps (10000 = 100%)" required />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" @click="showSplitModal = false">Cancel</Button>
+                        <Button type="submit">Split</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

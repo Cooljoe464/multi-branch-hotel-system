@@ -24,6 +24,10 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property bool $is_negotiable
  * @property int|null $min_rate
  * @property int|null $max_rate
+ * @property int|null $base_plan_id
+ * @property int|null $derivation_bps
+ * @property int|null $derivation_fixed_minor
+ * @property array<int, array<string, mixed>>|null $package_components
  * @property string $valid_from
  * @property string|null $valid_to
  * @property bool $is_active
@@ -33,6 +37,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property Carbon|null $deleted_at
  * @property-read Branch $branch
  * @property-read RoomType|null $roomType
+ * @property-read RatePlan|null $basePlan
  */
 #[Fillable([
     'branch_id',
@@ -45,6 +50,10 @@ use Spatie\Activitylog\Support\LogOptions;
     'is_negotiable',
     'min_rate',
     'max_rate',
+    'base_plan_id',
+    'derivation_bps',
+    'derivation_fixed_minor',
+    'package_components',
     'valid_from',
     'valid_to',
     'is_active',
@@ -65,6 +74,10 @@ class RatePlan extends Model
             'is_negotiable' => 'boolean',
             'min_rate' => 'integer',
             'max_rate' => 'integer',
+            'base_plan_id' => 'integer',
+            'derivation_bps' => 'integer',
+            'derivation_fixed_minor' => 'integer',
+            'package_components' => 'array',
             'is_active' => 'boolean',
             'metadata' => 'array',
         ];
@@ -88,6 +101,17 @@ class RatePlan extends Model
     public function roomType(): BelongsTo
     {
         return $this->belongsTo(RoomType::class);
+    }
+
+    /** @return BelongsTo<RatePlan, $this> */
+    public function basePlan(): BelongsTo
+    {
+        return $this->belongsTo(RatePlan::class, 'base_plan_id');
+    }
+
+    public function isPackage(): bool
+    {
+        return is_array($this->package_components) && $this->package_components !== [];
     }
 
     /**

@@ -58,21 +58,32 @@ class FolioController extends Controller
             'parentFolio',
             'children.transactions',
             'transactions.poster',
+            'transactions.window',
             'disputes.reporter',
             'disputes.resolver',
+            'windows',
         ]);
 
         $transactions = $folio->transactions()
-            ->with('poster')
+            ->with(['poster', 'window', 'splits.targetWindow'])
             ->orderByDesc('created_at')
             ->get();
 
         $allChildFolios = $folio->children()->with('transactions')->get();
 
+        $windows = $folio->windows->map(fn ($window) => [
+            'id' => $window->id,
+            'code' => $window->code,
+            'payer_type' => $window->payer_type,
+            'debits_total' => (int) $window->transactions()->where('type', 'debit')->where('is_voided', false)->sum('amount'),
+            'credits_total' => (int) $window->transactions()->where('type', 'credit')->where('is_voided', false)->sum('amount'),
+        ]);
+
         return Inertia::render('folios/Show', [
             'folio' => $folio,
             'transactions' => $transactions,
             'childFolios' => $allChildFolios,
+            'windows' => $windows,
         ]);
     }
 
@@ -141,6 +152,8 @@ class FolioController extends Controller
             'description' => 'required|string|max:255',
             'amount' => 'required|integer|min:1',
             'tax_rate_bps' => 'nullable|integer|min:0|max:10000',
+            'version' => 'nullable|integer|min:1',
+            'tax_profile_id' => 'nullable|integer|exists:tax_profiles,id',
         ]);
 
         $user = $request->user();
@@ -154,6 +167,8 @@ class FolioController extends Controller
             $request->integer('amount'),
             $request->filled('tax_rate_bps') ? $request->integer('tax_rate_bps') : null,
             $user->id,
+            $request->filled('version') ? $request->integer('version') : null,
+            $request->filled('tax_profile_id') ? $request->integer('tax_profile_id') : null,
         );
 
         return $this->flashSuccess('Charge posted successfully.');

@@ -16,12 +16,15 @@ use Illuminate\Support\Carbon;
  * @property string $channel_booking_id
  * @property array<string, mixed> $raw_payload
  * @property string $sync_status
+ * @property int|null $virtual_card_token_id
+ * @property string|null $replay_nonce
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read ChannelProviderModel $channelProvider
  * @property-read Reservation|null $reservation
+ * @property-read PaymentMethod|null $virtualCard
  */
-#[Fillable(['channel_provider_id', 'reservation_id', 'channel_booking_id', 'raw_payload', 'sync_status'])]
+#[Fillable(['channel_provider_id', 'reservation_id', 'channel_booking_id', 'raw_payload', 'sync_status', 'virtual_card_token_id', 'replay_nonce'])]
 class ChannelReservation extends Model
 {
     /** @use HasFactory<ChannelReservationFactory> */
@@ -44,5 +47,11 @@ class ChannelReservation extends Model
     public function reservation(): BelongsTo
     {
         return $this->belongsTo(Reservation::class);
+    }
+
+    /** @return BelongsTo<PaymentMethod, $this> */
+    public function virtualCard(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class, 'virtual_card_token_id');
     }
 }

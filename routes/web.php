@@ -2,51 +2,77 @@
 
 use App\Http\Controllers\Admin\BranchWizardController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\SystemController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AuditFlagController;
+use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\BankProfileController;
 use App\Http\Controllers\BookingEngineController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BusinessDateController;
+use App\Http\Controllers\CashierShiftController;
 use App\Http\Controllers\ChannelManagerController;
+use App\Http\Controllers\ChannelMappingController;
+use App\Http\Controllers\ChannelMessageController;
+use App\Http\Controllers\ChartAccountController;
 use App\Http\Controllers\CityLedgerController;
+use App\Http\Controllers\CommercialController;
+use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\CrsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FolioController;
 use App\Http\Controllers\FolioDisputeController;
+use App\Http\Controllers\FolioWindowController;
 use App\Http\Controllers\FrontDeskDashboardController;
 use App\Http\Controllers\GdprController;
 use App\Http\Controllers\GroupLedgerController;
+use App\Http\Controllers\GuaranteePolicyController;
 use App\Http\Controllers\GuestOrderController;
 use App\Http\Controllers\GuestPaymentController;
 use App\Http\Controllers\GuestPortalController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\HousekeepingController;
+use App\Http\Controllers\IdempotencyController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\ImportTemplateController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\JournalController;
 use App\Http\Controllers\KdsController;
 use App\Http\Controllers\KitchenWasteController;
 use App\Http\Controllers\LaundryController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\MenuItemController;
+use App\Http\Controllers\NightAuditController;
 use App\Http\Controllers\OutletController;
 use App\Http\Controllers\PosTerminalController;
 use App\Http\Controllers\RateOverrideController;
 use App\Http\Controllers\RatePlanController;
+use App\Http\Controllers\RateRestrictionController;
 use App\Http\Controllers\RegistrationCardController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReservationController;
+use App\Http\Controllers\RevenueReportController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\TabletMenuController;
 use App\Http\Controllers\TabletOrderController;
 use App\Http\Controllers\TabletSessionController;
 use App\Http\Controllers\TapeChartController;
+use App\Http\Controllers\TaxProfileController;
 use App\Http\Controllers\TransferController;
+use App\Http\Controllers\TrialBalanceController;
+use App\Http\Controllers\VoidRefundController;
 use App\Http\Controllers\YieldRuleController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => inertia('Welcome'))->name('home');
+
+// Liveness / readiness (unauthenticated, rate-limited for monitors)
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('healthz', [HealthController::class, 'live'])->name('health.live');
+    Route::get('readyz', [HealthController::class, 'ready'])->name('health.ready');
+    Route::get('health/queues', [HealthController::class, 'queues'])->name('health.queues');
+});
 
 // Public routes - Booking Engine (rate limited)
 Route::middleware('throttle:booking')->group(function () {
@@ -80,6 +106,53 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('branch/switch', [BranchController::class, 'switch'])->name('branch.switch');
 
+    // Availability (per-date engine)
+    Route::get('branches/{branch}/availability', [AvailabilityController::class, 'quote'])
+        ->middleware('permission:availability.view')
+        ->name('availability.quote');
+
+    // Rate restrictions
+    Route::get('branches/{branch}/restrictions', [RateRestrictionController::class, 'index'])
+        ->middleware('permission:rate_restrictions.view')
+        ->name('restrictions.index');
+    Route::post('branches/{branch}/restrictions', [RateRestrictionController::class, 'storeRange'])
+        ->middleware('permission:rate_restrictions.manage')
+        ->name('restrictions.store');
+
+    // Commercial setup (seasons, promos, corporate)
+    Route::get('branches/{branch}/commercial', [CommercialController::class, 'index'])
+        ->middleware('permission:rate_seasons.view')
+        ->name('commercial.index');
+    Route::post('branches/{branch}/commercial/seasons', [CommercialController::class, 'storeSeason'])
+        ->middleware('permission:rate_seasons.manage')
+        ->name('commercial.seasons.store');
+    Route::delete('branches/{branch}/commercial/seasons/{season}', [CommercialController::class, 'destroySeason'])
+        ->middleware('permission:rate_seasons.manage')
+        ->name('commercial.seasons.destroy');
+    Route::post('branches/{branch}/commercial/promos', [CommercialController::class, 'storePromo'])
+        ->middleware('permission:promo_codes.manage')
+        ->name('commercial.promos.store');
+    Route::delete('branches/{branch}/commercial/promos/{promo}', [CommercialController::class, 'destroyPromo'])
+        ->middleware('permission:promo_codes.manage')
+        ->name('commercial.promos.destroy');
+    Route::post('branches/{branch}/commercial/corporate', [CommercialController::class, 'storeCorporate'])
+        ->middleware('permission:corporate_accounts.manage')
+        ->name('commercial.corporate.store');
+    Route::delete('branches/{branch}/commercial/corporate/{corporate}', [CommercialController::class, 'destroyCorporate'])
+        ->middleware('permission:corporate_accounts.manage')
+        ->name('commercial.corporate.destroy');
+
+    // Guarantee policies
+    Route::get('branches/{branch}/guarantees', [GuaranteePolicyController::class, 'index'])
+        ->middleware('permission:reservations.view')
+        ->name('guarantees.index');
+    Route::post('branches/{branch}/guarantees', [GuaranteePolicyController::class, 'store'])
+        ->middleware('permission:rate_plans.manage')
+        ->name('guarantees.store');
+    Route::delete('branches/{branch}/guarantees/{policy}', [GuaranteePolicyController::class, 'destroy'])
+        ->middleware('permission:rate_plans.manage')
+        ->name('guarantees.destroy');
+
     // Business Date
     Route::get('branches/{branch}/business-date', [BusinessDateController::class, 'show'])
         ->middleware('permission:business_date.view')
@@ -87,6 +160,106 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('branches/{branch}/business-date/advance', [BusinessDateController::class, 'advance'])
         ->middleware('permission:business_date.close')
         ->name('business-date.advance');
+
+    // Idempotency inspector (read-only)
+    Route::get('branches/{branch}/idempotency-keys', [IdempotencyController::class, 'index'])
+        ->middleware('permission:idempotency.view')
+        ->name('idempotency.index');
+
+    // Financial journal (read-only, append-only)
+    Route::get('branches/{branch}/journal', [JournalController::class, 'index'])
+        ->middleware('permission:journal.view')
+        ->name('journal.index');
+
+    // Tax profiles
+    Route::get('branches/{branch}/tax-profiles', [TaxProfileController::class, 'index'])
+        ->middleware('permission:tax.view')
+        ->name('tax-profiles.index');
+    Route::post('branches/{branch}/tax-profiles', [TaxProfileController::class, 'store'])
+        ->middleware('permission:tax.manage')
+        ->name('tax-profiles.store');
+    Route::post('branches/{branch}/tax-profiles/{profile}/deactivate', [TaxProfileController::class, 'deactivate'])
+        ->middleware('permission:tax.manage')
+        ->name('tax-profiles.deactivate');
+
+    // Chart of accounts + trial balance
+    Route::get('branches/{branch}/chart', [ChartAccountController::class, 'index'])
+        ->middleware('permission:accounting.view')
+        ->name('chart.index');
+    Route::put('branches/{branch}/posting-rules/{rule}', [ChartAccountController::class, 'updateRule'])
+        ->middleware('permission:accounting.manage_chart')
+        ->name('posting-rules.update');
+    Route::get('branches/{branch}/trial-balance', [TrialBalanceController::class, 'index'])
+        ->middleware('permission:accounting.view')
+        ->name('trial-balance.index');
+    Route::post('branches/{branch}/trial-balance/close', [TrialBalanceController::class, 'close'])
+        ->middleware('permission:accounting.close_period')
+        ->name('trial-balance.close');
+
+    // Commissions (accrual inbox, payout builder, disputes)
+    Route::get('branches/{branch}/commissions', [CommissionController::class, 'index'])
+        ->middleware('permission:commissions.view')
+        ->name('commissions.index');
+    Route::post('branches/{branch}/commissions/rules', [CommissionController::class, 'storeRule'])
+        ->middleware('permission:commissions.manage')
+        ->name('commissions.rules.store');
+    Route::post('branches/{branch}/commissions/payouts', [CommissionController::class, 'storePayout'])
+        ->middleware('permission:commissions.manage')
+        ->name('commissions.payouts.store');
+    Route::post('branches/{branch}/commissions/payouts/{payout}/pay', [CommissionController::class, 'pay'])
+        ->middleware('permission:commissions.pay')
+        ->name('commissions.payouts.pay');
+    Route::post('branches/{branch}/commissions/accruals/{accrual}/dispute', [CommissionController::class, 'dispute'])
+        ->middleware('permission:commissions.manage')
+        ->name('commissions.accruals.dispute');
+    Route::post('branches/{branch}/commissions/accruals/{accrual}/resolve', [CommissionController::class, 'resolveDispute'])
+        ->middleware('permission:commissions.manage')
+        ->name('commissions.accruals.resolve');
+
+    // Folio windows, routing, splits, master transfers
+    Route::post('folios/{folio}/windows', [FolioWindowController::class, 'storeWindow'])
+        ->middleware('permission:folios.manage')
+        ->name('folio-windows.store');
+    Route::post('folios/{folio}/routing-rules', [FolioWindowController::class, 'storeRule'])
+        ->middleware('permission:folios.manage_routing')
+        ->name('folio-routing.store');
+    Route::post('transactions/{transaction}/split', [FolioWindowController::class, 'split'])
+        ->middleware('permission:folios.split')
+        ->name('transactions.split');
+    Route::post('transactions/{transaction}/transfer-to-master', [FolioWindowController::class, 'transferToMaster'])
+        ->middleware('permission:folios.transfer')
+        ->name('transactions.transfer-master');
+
+    // Cashier shifts + Z-report
+    Route::get('branches/{branch}/cashier', [CashierShiftController::class, 'index'])
+        ->middleware('permission:cashier.open_shift')
+        ->name('cashier.index');
+    Route::post('branches/{branch}/cashier/open', [CashierShiftController::class, 'open'])
+        ->middleware('permission:cashier.open_shift')
+        ->name('cashier.open');
+    Route::post('cashier-shifts/{shift}/close', [CashierShiftController::class, 'close'])
+        ->middleware('permission:cashier.close_shift')
+        ->name('cashier.close');
+    Route::get('branches/{branch}/cashier-shifts/{shift}/z-report', [CashierShiftController::class, 'zReport'])
+        ->middleware('permission:reports.view')
+        ->name('cashier.z-report');
+
+    // Void / refund approvals
+    Route::get('branches/{branch}/voids', [VoidRefundController::class, 'index'])
+        ->middleware('permission:cashier.approve_void')
+        ->name('voids.index');
+    Route::post('transactions/{transaction}/request-void', [VoidRefundController::class, 'requestVoid'])
+        ->middleware('permission:folios.manage')
+        ->name('voids.request');
+    Route::post('void-approvals/{approval}/approve', [VoidRefundController::class, 'approve'])
+        ->middleware('permission:cashier.approve_void')
+        ->name('voids.approve');
+    Route::post('void-approvals/{approval}/reject', [VoidRefundController::class, 'reject'])
+        ->middleware('permission:cashier.approve_void')
+        ->name('voids.reject');
+    Route::post('payment-transactions/{paymentTransaction}/refund', [VoidRefundController::class, 'refund'])
+        ->middleware('permission:payments.refund')
+        ->name('payments.refund');
 
     // Tape Chart
     Route::get('tape-chart', [TapeChartController::class, 'index'])
@@ -143,6 +316,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])
         ->middleware('permission:reservations.cancel')
         ->name('reservations.cancel');
+    Route::post('reservations/{reservation}/deposit', [ReservationController::class, 'collectDeposit'])
+        ->middleware('permission:payments.charge')
+        ->name('reservations.deposit');
     Route::delete('reservations/{reservation}', [ReservationController::class, 'destroy'])
         ->middleware('permission:reservations.delete')
         ->name('reservations.destroy');
@@ -250,6 +426,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('analytics', [AnalyticsController::class, 'index'])
         ->middleware('permission:analytics.view')
         ->name('analytics.index');
+
+    // Revenue analytics (ADR/RevPAR/pace/OTB vs budget)
+    Route::get('branches/{branch}/revenue', [RevenueReportController::class, 'index'])
+        ->middleware('permission:analytics.view')
+        ->name('revenue.index');
+    Route::post('branches/{branch}/revenue/budgets', [RevenueReportController::class, 'storeBudget'])
+        ->middleware('permission:analytics.manage')
+        ->name('revenue.budgets.store');
 
     // Reports
     Route::get('reports', [ReportController::class, 'index'])
@@ -469,6 +653,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:channels.manage')
         ->name('channels.pull');
 
+    // Channel reliability (outbox, mappings, reconciliation)
+    Route::get('channels/reliability', [ChannelMessageController::class, 'index'])
+        ->middleware('permission:channels.view')
+        ->name('channels.reliability');
+    Route::post('channels/messages', [ChannelMessageController::class, 'push'])
+        ->middleware('permission:channels.manage')
+        ->name('channels.messages.push');
+    Route::post('channels/messages/{message}/replay', [ChannelMessageController::class, 'replay'])
+        ->middleware('permission:channels.replay')
+        ->name('channels.messages.replay');
+    Route::post('channels/mappings', [ChannelMappingController::class, 'store'])
+        ->middleware('permission:channels.manage_mapping')
+        ->name('channels.mappings.store');
+    Route::delete('channels/mappings/{mapping}', [ChannelMappingController::class, 'destroy'])
+        ->middleware('permission:channels.manage_mapping')
+        ->name('channels.mappings.destroy');
+
     // CRS
     Route::get('crs', [CrsController::class, 'index'])
         ->middleware('permission:crs.view')
@@ -580,6 +781,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('admin/users/{user}', [UserController::class, 'destroy'])
         ->middleware('permission:users.delete')
         ->name('admin.users.destroy');
+
+    // Admin — System health
+    Route::get('admin/system-health', [SystemController::class, 'health'])
+        ->middleware('permission:system_health.view')
+        ->name('admin.system-health');
+
+    // Night audit (idempotent, resumable)
+    Route::get('branches/{branch}/night-audit', [NightAuditController::class, 'index'])
+        ->middleware('permission:audit.view')
+        ->name('night-audit.index');
+    Route::post('branches/{branch}/night-audit/run', [NightAuditController::class, 'run'])
+        ->middleware('permission:audit.run_night_audit')
+        ->name('night-audit.run');
+    Route::post('branches/{branch}/night-audit/{run}/retry', [NightAuditController::class, 'retry'])
+        ->middleware('permission:audit.retry_night_audit')
+        ->name('night-audit.retry');
 
     // Tablet Session Management
     Route::post('tablet/pair', [TabletSessionController::class, 'pair'])

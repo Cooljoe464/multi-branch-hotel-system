@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\HasOptimisticLock;
 use Database\Factories\PosChargeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property int $subtotal
  * @property int $tax_amount
  * @property int $total
+ * @property int $version
  * @property string $status
  * @property Carbon|null $posted_at
  * @property array<string, mixed>|null $metadata
@@ -38,6 +40,7 @@ use Illuminate\Support\Carbon;
     'branch_id',
     'currency_code',
     'business_date',
+    'idempotency_key',
     'reservation_id',
     'folio_id',
     'transaction_id',
@@ -49,11 +52,14 @@ use Illuminate\Support\Carbon;
     'status',
     'posted_at',
     'metadata',
+    'version',
 ])]
 class PosCharge extends Model
 {
     /** @use HasFactory<PosChargeFactory> */
     use HasFactory;
+
+    use HasOptimisticLock;
 
     protected function casts(): array
     {
@@ -64,6 +70,7 @@ class PosCharge extends Model
             'total' => 'integer',
             'posted_at' => 'datetime',
             'business_date' => 'date',
+            'version' => 'integer',
             'metadata' => 'array',
         ];
     }
