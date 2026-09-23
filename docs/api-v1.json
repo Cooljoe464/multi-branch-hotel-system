@@ -511,6 +511,50 @@
                     }
                 }
             }
+        },
+        "/api/v1/warehouse/manifests": {
+            "get": {
+                "operationId": "api.v1.warehouse.manifests",
+                "summary": "List warehouse manifests with files, row counts and checksums.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "analytics.export_warehouse"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
         }
     }
 }

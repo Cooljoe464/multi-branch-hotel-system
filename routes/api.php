@@ -10,6 +10,7 @@ use App\Http\Controllers\ChannelWebhookController;
 use App\Http\Controllers\PaystackWebhookController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\RevenueReportController;
+use App\Http\Controllers\WarehouseController as WarehouseApiController;
 use App\Http\Middleware\RequireIdempotencyKey;
 use Illuminate\Support\Facades\Route;
 
@@ -67,4 +68,8 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'branch.scope'])->group(functio
     Route::post('/webhooks/replay', [WebhookController::class, 'replay'])
         ->middleware(['ability:webhooks.replay', RequireIdempotencyKey::class])
         ->name('api.v1.webhooks.replay');
+
+    Route::get('/warehouse/manifests', [WarehouseApiController::class, 'manifests'])
+        ->middleware('ability:analytics.export_warehouse')
+        ->name('api.v1.warehouse.manifests');
 });

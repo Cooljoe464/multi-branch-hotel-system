@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountingExportController;
 use App\Http\Controllers\Admin\BranchWizardController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SystemController;
@@ -90,6 +91,7 @@ use App\Http\Controllers\TrialBalanceController;
 use App\Http\Controllers\UpsellAcceptanceController;
 use App\Http\Controllers\UpsellOfferController;
 use App\Http\Controllers\VoidRefundController;
+use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\YieldRuleController;
 use Illuminate\Support\Facades\Route;
@@ -304,6 +306,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('branches/{branch}/trial-balance/close', [TrialBalanceController::class, 'close'])
         ->middleware('permission:accounting.close_period')
         ->name('trial-balance.close');
+
+    // Accounting exports (external ledgers)
+    Route::get('branches/{branch}/accounting', [AccountingExportController::class, 'index'])
+        ->middleware('permission:accounting_export.view')
+        ->name('accounting.index');
+    Route::post('branches/{branch}/accounting/links', [AccountingExportController::class, 'storeLink'])
+        ->middleware('permission:accounting_export.manage')
+        ->name('accounting.links.store');
+    Route::put('branches/{branch}/accounting/links/{link}', [AccountingExportController::class, 'storeMap'])
+        ->middleware('permission:accounting_export.manage')
+        ->name('accounting.links.map');
+    Route::post('branches/{branch}/accounting/exports', [AccountingExportController::class, 'export'])
+        ->middleware('permission:accounting_export.manage')
+        ->name('accounting.exports.store');
+    Route::post('branches/{branch}/accounting/exports/{export}/retry', [AccountingExportController::class, 'retry'])
+        ->middleware('permission:accounting_export.retry')
+        ->name('accounting.exports.retry');
 
     // Commissions (accrual inbox, payout builder, disputes)
     Route::get('branches/{branch}/commissions', [CommissionController::class, 'index'])
@@ -564,6 +583,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('analytics', [AnalyticsController::class, 'index'])
         ->middleware('permission:analytics.view')
         ->name('analytics.index');
+
+    // Warehouse feed (R2 snapshots + manifests)
+    Route::get('analytics/warehouse', [WarehouseController::class, 'index'])
+        ->middleware('permission:analytics.view')
+        ->name('warehouse.index');
+    Route::post('analytics/warehouse/exports', [WarehouseController::class, 'export'])
+        ->middleware('permission:analytics.export_warehouse')
+        ->name('warehouse.exports.store');
+    Route::post('analytics/warehouse/manifests/{manifest}/verify', [WarehouseController::class, 'verify'])
+        ->middleware('permission:analytics.export_warehouse')
+        ->name('warehouse.manifests.verify');
 
     // Revenue analytics (ADR/RevPAR/pace/OTB vs budget)
     Route::get('branches/{branch}/revenue', [RevenueReportController::class, 'index'])

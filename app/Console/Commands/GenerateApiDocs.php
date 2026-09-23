@@ -96,6 +96,11 @@ class GenerateApiDocs extends Command
                 'abilities' => ['webhooks.replay'],
                 'parameters' => [$branchHeader, $idempotencyHeader],
             ],
+            'api.v1.warehouse.manifests' => [
+                'summary' => 'List warehouse manifests with files, row counts and checksums.',
+                'abilities' => ['analytics.export_warehouse'],
+                'parameters' => [$branchHeader],
+            ],
         ];
     }
 

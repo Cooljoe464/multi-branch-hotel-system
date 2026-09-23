@@ -27,6 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string $source
  * @property string $guest_name
  * @property string|null $guest_email
+ * @property string|null $guest_phone
  * @property string|null $guest_notes
  * @property int $adults
  * @property int $children
@@ -37,6 +38,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int $room_rate
  * @property int $total_amount
  * @property int $amount_paid
+ * @property string|null $currency_code
  * @property int $version
  * @property bool $overbooked
  * @property string $payment_status

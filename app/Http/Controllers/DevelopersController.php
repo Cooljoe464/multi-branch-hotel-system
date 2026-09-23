@@ -24,6 +24,7 @@ class DevelopersController extends Controller
         'folios.view',
         'rate_plans.view',
         'analytics.view',
+        'analytics.export_warehouse',
         'webhooks.replay',
     ];
 
