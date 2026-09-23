@@ -56,9 +56,12 @@ class CityLedgerController extends Controller
         $user = $request->user();
         abort_unless($user !== null, 401);
 
+        $currentBranch = $user->currentBranch;
+        abort_unless($currentBranch !== null, 422, 'No active property.');
+
         CityLedgerAccount::create([
             'branch_id' => $user->branch_id,
-            'currency_code' => $user->currentBranch->currency_code,
+            'currency_code' => $currentBranch->currency_code,
             'company_name' => $request->string('company_name')->value(),
             'contact_name' => $request->string('contact_name')->value(),
             'email' => $request->string('email')->value(),

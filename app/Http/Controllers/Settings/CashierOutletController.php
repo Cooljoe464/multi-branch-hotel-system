@@ -59,7 +59,9 @@ class CashierOutletController extends Controller
             'outlet_ids.*' => 'exists:outlets,id',
         ]);
 
-        $cashier->posOutlets()->sync($request->outlet_ids);
+        $outletIds = array_values(array_filter($request->array('outlet_ids'), is_int(...)));
+
+        $cashier->posOutlets()->sync($outletIds);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Cashier outlet access updated.']);
 

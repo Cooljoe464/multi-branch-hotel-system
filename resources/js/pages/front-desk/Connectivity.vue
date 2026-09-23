@@ -23,7 +23,7 @@ const props = defineProps<{
     confirmation: string;
 }>();
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'Front Desk', href: '/front-desk' }, { title: 'Connectivity', href: `/branches/${props.branch.id}/connectivity` }] } });
+defineOptions({ layout: { breadcrumbs: [{ title: 'Front Desk', href: '/front-desk' }, { title: 'Connectivity', href: '/front-desk' }] } });
 
 const confirmation = ref(props.confirmation);
 const deviceId = ref('');

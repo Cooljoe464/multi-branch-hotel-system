@@ -5,6 +5,7 @@ use App\Exceptions\StaleModelException;
 use App\Http\Middleware\ApiBranchScope;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ReadFromReplica;
 use App\Http\Middleware\RequireIdempotencyKey;
 use App\Http\Middleware\SetBranchContext;
 use Illuminate\Foundation\Application;
@@ -37,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'abilities' => CheckAbilities::class,
             'ability' => CheckForAnyAbility::class,
             'branch.scope' => ApiBranchScope::class,
+            'replica' => ReadFromReplica::class,
         ]);
 
         $middleware->web(append: [

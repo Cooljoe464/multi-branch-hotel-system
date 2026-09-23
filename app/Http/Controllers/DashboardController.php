@@ -24,8 +24,10 @@ class DashboardController extends Controller
         $daysInput = $request->input('days');
         $days = is_numeric($daysInput) ? (int) $daysInput : 30;
 
-        $startDate = $request->input('start_date');
-        $endDate = $request->input('end_date');
+        $startDateInput = $request->string('start_date')->value();
+        $endDateInput = $request->string('end_date')->value();
+        $startDate = $startDateInput !== '' ? $startDateInput : null;
+        $endDate = $endDateInput !== '' ? $endDateInput : null;
 
         if ($startDate && $endDate) {
             $days = (int) Carbon::parse($startDate)->diffInDays(Carbon::parse($endDate));

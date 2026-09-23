@@ -53,10 +53,22 @@ class CurrencyController extends Controller
         ]);
 
         if ($request->filled('branch_currencies')) {
-            foreach ($request->input('branch_currencies') as $branchCurrency) {
-                Branch::where('id', $branchCurrency['id'])->update([
-                    'currency_code' => $branchCurrency['currency_code'],
-                    'currency_symbol' => $branchCurrency['currency_symbol'],
+            foreach ($request->array('branch_currencies') as $branchCurrency) {
+                if (! is_array($branchCurrency)) {
+                    continue;
+                }
+
+                $id = $branchCurrency['id'] ?? null;
+                $code = $branchCurrency['currency_code'] ?? null;
+                $symbol = $branchCurrency['currency_symbol'] ?? null;
+
+                if (! is_int($id) || ! is_string($code) || ! is_string($symbol)) {
+                    continue;
+                }
+
+                Branch::where('id', $id)->update([
+                    'currency_code' => $code,
+                    'currency_symbol' => $symbol,
                 ]);
             }
         }

@@ -21,7 +21,7 @@ class InventoryController extends Controller
         $branchId = (int) $user->branch_id;
 
         $items = InventoryItem::forBranch($branchId)
-            ->when($request->filled('category') && $request->string('category') !== 'all', fn ($q) => $q->forCategory($request->string('category')->value()))
+            ->when($request->filled('category') && $request->string('category')->value() !== 'all', fn ($q) => $q->forCategory($request->string('category')->value()))
             ->when($request->filled('search'), fn ($q) => $q->where(fn ($q) => $q
                 ->where('name', 'ilike', '%'.$request->string('search').'%')
                 ->orWhere('supplier', 'ilike', '%'.$request->string('search').'%')
@@ -52,9 +52,12 @@ class InventoryController extends Controller
         $user = $request->user();
         abort_unless($user !== null, 401);
 
+        $currentBranch = $user->currentBranch;
+        abort_unless($currentBranch !== null, 422, 'No active property.');
+
         InventoryItem::create([
             'branch_id' => $user->branch_id,
-            'currency_code' => $user->currentBranch->currency_code,
+            'currency_code' => $currentBranch->currency_code,
             'name' => $request->string('name')->value(),
             'category' => $request->string('category')->value(),
             'unit' => $request->string('unit')->value(),

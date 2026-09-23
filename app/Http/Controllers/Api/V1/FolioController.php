@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\FolioResource;
+use App\Http\Resources\Api\V1\FolioResource;
 use App\Models\Branch;
 use App\Models\Folio;
 use Illuminate\Http\Request;

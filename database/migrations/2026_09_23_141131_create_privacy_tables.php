@@ -35,7 +35,17 @@ return new class extends Migration
         // Seed sane defaults; branches override via admin.
         $now = now();
 
-        foreach (config('gdpr.retention_defaults', []) as $class => $days) {
+        $defaults = config('gdpr.retention_defaults', []);
+
+        if (! is_array($defaults)) {
+            return;
+        }
+
+        foreach ($defaults as $class => $days) {
+            if (! is_string($class) || ! is_int($days)) {
+                continue;
+            }
+
             DB::table('retention_policies')->updateOrInsert(
                 ['data_class' => $class],
                 [

@@ -2,37 +2,47 @@
 
 namespace App\Http\Resources;
 
-use App\Models\Reservation;
+use App\Models\Branch;
+use App\Models\Folio;
+use App\Models\Guest;
+use App\Models\Room;
+use App\Models\RoomType;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Carbon;
 
 /**
- * Stable v1 reservation shape. Money stays integer minor units with
- * an explicit currency_code; new fields only ever append.
- *
  * @property int $id
  * @property string $confirmation_number
- * @property int $branch_id
  * @property string $status
+ * @property string $source
  * @property string $guest_name
  * @property string|null $guest_email
+ * @property string|null $guest_phone
  * @property int $adults
  * @property int $children
- * @property Carbon $check_in_date
- * @property Carbon $check_out_date
- * @property int $room_type_id
- * @property int|null $room_id
+ * @property Carbon|null $check_in_date
+ * @property Carbon|null $check_out_date
+ * @property int $nights
+ * @property Carbon|null $actual_check_in_at
+ * @property Carbon|null $actual_check_out_at
  * @property int $room_rate
  * @property int $total_amount
  * @property int $amount_paid
- * @property string|null $currency_code
- * @property string $source
  * @property string $payment_status
- * @property string $guarantee_status
- * @property Carbon|null $cancel_deadline_at
+ * @property bool $is_group_booking
+ * @property string|null $group_id
+ * @property array<string, mixed>|null $special_requests
+ * @property array<string, mixed>|null $metadata
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property Branch|null $branch
+ * @property Room|null $room
+ * @property RoomType|null $roomType
+ * @property Guest|null $guest
+ * @property Folio|null $folio
  *
- * @mixin Reservation
+ * @method bool relationLoaded(string $key)
  */
 class ReservationResource extends JsonResource
 {
@@ -44,24 +54,33 @@ class ReservationResource extends JsonResource
         return [
             'id' => $this->id,
             'confirmation_number' => $this->confirmation_number,
-            'branch_id' => $this->branch_id,
             'status' => $this->status,
+            'source' => $this->source,
             'guest_name' => $this->guest_name,
             'guest_email' => $this->guest_email,
+            'guest_phone' => $this->guest_phone,
             'adults' => $this->adults,
             'children' => $this->children,
-            'check_in_date' => $this->check_in_date->toDateString(),
-            'check_out_date' => $this->check_out_date->toDateString(),
-            'room_type_id' => $this->room_type_id,
-            'room_id' => $this->room_id,
-            'room_rate_minor' => $this->room_rate,
-            'total_minor' => $this->total_amount,
-            'amount_paid_minor' => $this->amount_paid,
-            'currency_code' => $this->currency_code,
-            'source' => $this->source,
+            'check_in_date' => $this->check_in_date?->toDateString(),
+            'check_out_date' => $this->check_out_date?->toDateString(),
+            'nights' => $this->nights,
+            'actual_check_in_at' => $this->actual_check_in_at?->toIso8601String(),
+            'actual_check_out_at' => $this->actual_check_out_at?->toIso8601String(),
+            'room_rate' => $this->room_rate,
+            'total_amount' => $this->total_amount,
+            'amount_paid' => $this->amount_paid,
             'payment_status' => $this->payment_status,
-            'guarantee_status' => $this->guarantee_status,
-            'cancel_deadline_at' => $this->cancel_deadline_at?->toIso8601String(),
+            'is_group_booking' => $this->is_group_booking,
+            'group_id' => $this->group_id,
+            'special_requests' => $this->special_requests,
+            'metadata' => $this->metadata,
+            'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
+            'branch' => $this->relationLoaded('branch') ? BranchResource::make($this->branch) : null,
+            'room' => $this->relationLoaded('room') ? RoomResource::make($this->room) : null,
+            'room_type' => $this->relationLoaded('roomType') ? RoomTypeResource::make($this->roomType) : null,
+            'guest' => $this->relationLoaded('guest') ? GuestResource::make($this->guest) : null,
+            'folio' => $this->relationLoaded('folio') ? FolioResource::make($this->folio) : null,
         ];
     }
 }

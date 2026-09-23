@@ -51,7 +51,7 @@ defineOptions({
         breadcrumbs: [
             { title: 'Dashboard', href: '/dashboard' },
             { title: 'Guests', href: '#' },
-            { title: props.guest.email, href: '#' },
+            { title: 'Profile', href: '#' },
         ],
     },
 });

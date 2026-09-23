@@ -31,11 +31,11 @@ class FolioController extends Controller
             $query->search($request->string('search')->value());
         }
 
-        if ($request->filled('type') && $request->string('type') !== 'all') {
+        if ($request->filled('type') && $request->string('type')->value() !== 'all') {
             $query->where('type', $request->string('type')->value());
         }
 
-        if ($request->filled('status') && $request->string('status') !== 'all') {
+        if ($request->filled('status') && $request->string('status')->value() !== 'all') {
             $query->where('status', $request->string('status')->value());
         }
 

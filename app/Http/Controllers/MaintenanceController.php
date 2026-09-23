@@ -98,9 +98,12 @@ class MaintenanceController extends Controller
         $user = $request->user();
         abort_unless($user !== null, 401);
 
+        $currentBranch = $user->currentBranch;
+        abort_unless($currentBranch !== null, 422, 'No active property.');
+
         $ticket = MaintenanceTicket::create([
             'branch_id' => $user->branch_id,
-            'currency_code' => $user->currentBranch->currency_code,
+            'currency_code' => $currentBranch->currency_code,
             'room_id' => $request->filled('room_id') ? $request->integer('room_id') : null,
             'reported_by' => $user->id,
             'category' => $request->string('category')->value(),

@@ -25,9 +25,13 @@ return new class extends Migration
             ->get();
 
         foreach ($subjects as $subject) {
+            $rawTitle = $subject->title ?? null;
+            $fullTitle = is_scalar($rawTitle) ? (string) $rawTitle : '';
+            $name = substr($fullTitle, 0, 128);
+
             $assetId = DB::table('assets')->insertGetId([
                 'branch_id' => $subject->branch_id,
-                'name' => substr((string) $subject->title, 0, 128),
+                'name' => $name,
                 'category' => 'other',
                 'room_id' => $subject->room_id,
                 'created_at' => now(),
@@ -36,7 +40,7 @@ return new class extends Migration
 
             DB::table('maintenance_tickets')
                 ->where('branch_id', $subject->branch_id)
-                ->where('title', $subject->title)
+                ->where('title', $fullTitle)
                 ->where('room_id', $subject->room_id)
                 ->update(['asset_id' => $assetId]);
         }
@@ -46,9 +50,12 @@ return new class extends Migration
         $orphans = DB::table('maintenance_tickets')->whereNull('asset_id')->get(['id', 'branch_id', 'title']);
 
         foreach ($orphans as $ticket) {
+            $rawOrphanTitle = $ticket->title ?? null;
+            $orphanName = is_scalar($rawOrphanTitle) ? substr((string) $rawOrphanTitle, 0, 128) : '';
+
             $assetId = DB::table('assets')
                 ->where('branch_id', $ticket->branch_id)
-                ->where('name', substr((string) $ticket->title, 0, 128))
+                ->where('name', $orphanName)
                 ->value('id');
 
             if ($assetId) {

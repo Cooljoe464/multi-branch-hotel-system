@@ -69,7 +69,9 @@ class YieldRuleController extends Controller
 
     public function update(Request $request, YieldRule $yieldRule): RedirectResponse
     {
-        $this->ensureSameBranchAccess($yieldRule->branch_id, (int) $request->user()->branch_id);
+        $actor = $request->user();
+        abort_unless($actor !== null, 401);
+        $this->ensureSameBranchAccess($yieldRule->branch_id, (int) $actor->branch_id);
 
         $request->validate([
             'room_type_id' => 'nullable|exists:room_types,id',
@@ -115,7 +117,9 @@ class YieldRuleController extends Controller
 
     public function destroy(YieldRule $yieldRule): RedirectResponse
     {
-        $this->ensureSameBranchAccess($yieldRule->branch_id, (int) request()->user()->branch_id);
+        $actor = request()->user();
+        abort_unless($actor !== null, 401);
+        $this->ensureSameBranchAccess($yieldRule->branch_id, (int) $actor->branch_id);
 
         $yieldRule->delete();
 

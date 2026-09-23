@@ -26,7 +26,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Dashboard', href: '/dashboard' },
-            { title: 'Costing', href: `/branches/${props.branch.id}/costing` },
+            { title: 'Costing', href: '/inventory' },
             { title: 'Variance', href: '#' },
         ],
     },

@@ -19,7 +19,7 @@ const props = defineProps<{
     providers: string[];
 }>();
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Accounting Export', href: `/branches/${props.branch.id}/accounting` }] } });
+defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Accounting Export', href: '/branches' }] } });
 
 const exportForm = ref({ provider: 'fake', business_date: '' });
 const mapForm = ref<Record<number, Record<string, string>>>({});

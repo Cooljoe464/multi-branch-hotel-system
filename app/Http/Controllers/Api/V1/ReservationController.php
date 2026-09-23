@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ReservationResource;
+use App\Http\Resources\Api\V1\ReservationResource;
 use App\Models\Branch;
 use App\Models\RatePlan;
 use App\Models\Reservation;

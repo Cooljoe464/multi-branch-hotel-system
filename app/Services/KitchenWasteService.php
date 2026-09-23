@@ -19,7 +19,7 @@ class KitchenWasteService
     ): KitchenWasteLog {
         return KitchenWasteLog::create([
             'branch_id' => $branchId,
-            'currency_code' => Branch::find($branchId)?->currency_code ?? 'NGN',
+            'currency_code' => Branch::where('id', $branchId)->value('currency_code') ?? 'NGN',
             'menu_item_id' => $menuItemId,
             'kot_item_id' => $kotItemId,
             'reason' => $reason,

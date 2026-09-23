@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $branch_id
+ * @property string|null $currency_code
  * @property string $company_name
  * @property string $contact_name
  * @property string $email

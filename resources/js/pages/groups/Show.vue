@@ -57,8 +57,8 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Dashboard', href: '/dashboard' },
-            { title: 'Groups', href: `/branches/${props.branch.id}/groups` },
-            { title: props.block.code, href: '#' },
+            { title: 'Groups', href: '/groups' },
+            { title: 'Block', href: '#' },
         ],
     },
 });

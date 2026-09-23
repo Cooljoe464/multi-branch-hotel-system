@@ -47,9 +47,12 @@ class MenuItemController extends Controller
         $user = $request->user();
         abort_unless($user !== null, 401);
 
+        $currentBranch = $user->currentBranch;
+        abort_unless($currentBranch !== null, 422, 'No active property.');
+
         MenuItem::create([
             'branch_id' => $user->branch_id,
-            'currency_code' => $user->currentBranch->currency_code,
+            'currency_code' => $currentBranch->currency_code,
             'category' => $request->string('category')->value(),
             'name' => $request->string('name')->value(),
             'description' => $request->string('description')->value() ?: null,

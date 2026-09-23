@@ -14,7 +14,7 @@ const props = defineProps<{
     drill_fresh: boolean;
 }>();
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Database', href: '/admin/database' }] } });
+defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Database', href: '/admin/system-health' }] } });
 
 const runDrill = () => router.post('/admin/database/drill');
 </script>

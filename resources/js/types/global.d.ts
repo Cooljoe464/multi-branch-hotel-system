@@ -18,6 +18,16 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            branch: {
+                current: {
+                    id: number;
+                    name: string;
+                    currency_code: string;
+                    currency_symbol: string;
+                } | null;
+                available: { id: number; name: string }[];
+                can_switch: boolean;
+            } | null;
             sidebarOpen: boolean;
             [key: string]: unknown;
         };

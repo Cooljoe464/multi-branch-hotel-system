@@ -52,7 +52,7 @@ class PaymentGuardService
     ): PosCharge {
         return PosCharge::create([
             'branch_id' => $branchId,
-            'currency_code' => Branch::find($branchId)?->currency_code ?? 'NGN',
+            'currency_code' => Branch::where('id', $branchId)->value('currency_code') ?? 'NGN',
             'reservation_id' => $reservationId,
             'folio_id' => $folioId,
             'outlet' => $outlet,

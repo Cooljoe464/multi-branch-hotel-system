@@ -19,10 +19,13 @@ return new class extends Migration
         // never auto-merged.
         DB::table('guests')->orderBy('id')->chunkById(500, function ($guests) {
             foreach ($guests as $guest) {
+                $first = $guest->first_name ?? null;
+                $last = $guest->last_name ?? null;
+
                 DB::table('guests')->where('id', $guest->id)->update([
                     'dedup_hash' => GuestDedupService::hashFor(
-                        (string) ($guest->first_name ?? ''),
-                        (string) ($guest->last_name ?? ''),
+                        is_scalar($first) ? (string) $first : '',
+                        is_scalar($last) ? (string) $last : '',
                         $guest->phone,
                         $guest->date_of_birth,
                     ),

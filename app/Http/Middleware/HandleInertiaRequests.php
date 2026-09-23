@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Branch;
 use App\Models\Branding;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -93,9 +94,13 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
-        $currentBranch = $request->get('_branch') ?? $user->currentBranch;
+        $currentBranch = $request->get('_branch');
 
-        if (! $currentBranch) {
+        if (! $currentBranch instanceof Branch) {
+            $currentBranch = $user->currentBranch;
+        }
+
+        if (! $currentBranch instanceof Branch) {
             return null;
         }
 

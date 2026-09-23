@@ -55,6 +55,8 @@ class RateOverrideController extends Controller
         abort_unless($user !== null, 401);
 
         $branchId = (int) $user->branch_id;
+        $currentBranch = $user->currentBranch;
+        abort_unless($currentBranch !== null, 422, 'No active property.');
         $startDate = $request->string('start_date')->value();
         $endDate = $request->string('end_date')->value();
         $roomTypeId = $request->filled('room_type_id') ? $request->integer('room_type_id') : null;
@@ -71,7 +73,7 @@ class RateOverrideController extends Controller
 
         RateOverride::create([
             'branch_id' => $branchId,
-            'currency_code' => $user->currentBranch->currency_code,
+            'currency_code' => $currentBranch->currency_code,
             'room_type_id' => $roomTypeId,
             'start_date' => $startDate,
             'end_date' => $endDate,
@@ -88,7 +90,9 @@ class RateOverrideController extends Controller
 
     public function update(Request $request, RateOverride $rateOverride): RedirectResponse
     {
-        $this->ensureSameBranchAccess($rateOverride->branch_id, (int) $request->user()->branch_id);
+        $actor = $request->user();
+        abort_unless($actor !== null, 401);
+        $this->ensureSameBranchAccess($rateOverride->branch_id, (int) $actor->branch_id);
 
         $request->validate([
             'room_type_id' => 'nullable|exists:room_types,id',
@@ -138,7 +142,9 @@ class RateOverrideController extends Controller
 
     public function destroy(RateOverride $rateOverride): RedirectResponse
     {
-        $this->ensureSameBranchAccess($rateOverride->branch_id, (int) request()->user()->branch_id);
+        $actor = request()->user();
+        abort_unless($actor !== null, 401);
+        $this->ensureSameBranchAccess($rateOverride->branch_id, (int) $actor->branch_id);
 
         $rateOverride->delete();
 

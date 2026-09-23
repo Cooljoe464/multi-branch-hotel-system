@@ -22,6 +22,7 @@ class GdprController extends Controller
 
         // Verify the guest has reservations in the user's branch
         $user = $request->user();
+        abort_unless($user !== null, 401);
         if (! $user->is_global_admin) {
             $hasAccess = $guest->reservations()
                 ->where('branch_id', $user->branch_id)

@@ -18,7 +18,7 @@ interface Manifest {
 
 const props = defineProps<{ manifests: Manifest[] }>();
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Warehouse', href: '/analytics/warehouse' }] } });
+defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Warehouse', href: '/analytics' }] } });
 
 const businessDate = ref('');
 

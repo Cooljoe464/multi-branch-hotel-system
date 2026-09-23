@@ -23,7 +23,9 @@ return new class extends Migration
             ->get();
 
         foreach ($groups as $group) {
-            $code = substr((string) $group->group_id, 0, 32);
+            $rawGroupId = $group->group_id ?? null;
+            $groupId = is_scalar($rawGroupId) ? (string) $rawGroupId : '';
+            $code = substr($groupId, 0, 32);
 
             $blockId = DB::table('group_blocks')
                 ->where('branch_id', $group->branch_id)
@@ -33,7 +35,7 @@ return new class extends Migration
             if (! $blockId) {
                 $blockId = DB::table('group_blocks')->insertGetId([
                     'branch_id' => $group->branch_id,
-                    'name' => "Legacy group {$group->group_id}",
+                    'name' => "Legacy group {$groupId}",
                     'code' => $code,
                     'cutoff_date' => $group->first_in,
                     'attrition_pct' => 0,
@@ -45,7 +47,7 @@ return new class extends Migration
 
             DB::table('reservations')
                 ->where('branch_id', $group->branch_id)
-                ->where('group_id', $group->group_id)
+                ->where('group_id', $groupId)
                 ->update(['group_block_id' => $blockId]);
         }
     }
