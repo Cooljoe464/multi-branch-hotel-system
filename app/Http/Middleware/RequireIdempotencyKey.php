@@ -67,10 +67,12 @@ class RequireIdempotencyKey
 
         if ($record->isCompleted()) {
             if ($request->expectsJson()) {
-                return response()->json(array_merge(
-                    ['replayed' => true],
-                    is_array($record->response) ? $record->response : ['response' => $record->response],
-                ))->header('Idempotent-Replayed', 'true');
+                $stored = is_array($record->response) ? $record->response : [];
+                $status = is_int($stored['status'] ?? null) ? $stored['status'] : 200;
+                $body = is_array($stored['body'] ?? null) ? $stored['body'] : [];
+
+                return response()->json(array_merge(['replayed' => true], $body), $status)
+                    ->header('Idempotent-Replayed', 'true');
             }
 
             throw new ConflictHttpException('This request was already processed and will not be executed again.');

@@ -2,7 +2,7 @@
 
 namespace App\Http\Resources;
 
-use App\Models\Reservation;
+use App\Models\Folio;
 use App\Models\Transaction;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
@@ -10,22 +10,19 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Carbon;
 
 /**
+ * Stable v1 folio shape with live transaction lines.
+ *
  * @property int $id
  * @property string $folio_number
- * @property string $type
+ * @property int $branch_id
+ * @property int|null $reservation_id
  * @property string $status
- * @property string|null $description
  * @property int $balance
- * @property int $debits_total
- * @property int $credits_total
- * @property int $outstanding_balance
- * @property bool $is_settled
- * @property Carbon|null $closed_at
+ * @property string|null $currency_code
  * @property Carbon|null $created_at
- * @property Reservation|null $reservation
  * @property Collection<int, Transaction> $transactions
  *
- * @method bool relationLoaded(string $key)
+ * @mixin Folio
  */
 class FolioResource extends JsonResource
 {
@@ -37,18 +34,23 @@ class FolioResource extends JsonResource
         return [
             'id' => $this->id,
             'folio_number' => $this->folio_number,
-            'type' => $this->type,
+            'branch_id' => $this->branch_id,
+            'reservation_id' => $this->reservation_id,
             'status' => $this->status,
-            'description' => $this->description,
-            'balance' => $this->balance,
-            'debits_total' => $this->debits_total,
-            'credits_total' => $this->credits_total,
-            'outstanding_balance' => $this->outstanding_balance,
-            'is_settled' => $this->is_settled,
-            'closed_at' => $this->closed_at?->toIso8601String(),
-            'created_at' => $this->created_at?->toIso8601String(),
-            'reservation' => $this->relationLoaded('reservation') ? ReservationResource::make($this->reservation) : null,
-            'transactions' => TransactionResource::collection($this->whenLoaded('transactions')),
+            'balance_minor' => $this->balance,
+            'currency_code' => $this->currency_code,
+            'transactions' => $this->transactions
+                ->where('is_voided', false)
+                ->values()
+                ->map(fn (Transaction $t) => [
+                    'id' => $t->id,
+                    'type' => $t->type,
+                    'category' => $t->category,
+                    'description' => $t->description,
+                    'amount_minor' => $t->amount,
+                    'posted_at' => $t->created_at?->toIso8601String(),
+                ])
+                ->all(),
         ];
     }
 }

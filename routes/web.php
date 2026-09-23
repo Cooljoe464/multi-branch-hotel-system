@@ -24,6 +24,7 @@ use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CrsController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DevelopersController;
 use App\Http\Controllers\DiningTableController;
 use App\Http\Controllers\DoNotRentController;
 use App\Http\Controllers\DsarController;
@@ -878,6 +879,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('crs', [CrsController::class, 'index'])
         ->middleware('permission:crs.view')
         ->name('crs.index');
+
+    // Developers: API consumers, scopes, webhook secrets + delivery log
+    Route::get('developers', [DevelopersController::class, 'index'])
+        ->middleware('permission:api.view')
+        ->name('developers.index');
+    Route::post('developers/consumers', [DevelopersController::class, 'store'])
+        ->middleware('permission:api.manage_consumers')
+        ->name('developers.store');
+    Route::post('developers/consumers/{consumer}/tokens', [DevelopersController::class, 'issueToken'])
+        ->middleware('permission:api.manage_consumers')
+        ->name('developers.tokens.store');
+    Route::post('developers/consumers/{consumer}/rotate', [DevelopersController::class, 'rotate'])
+        ->middleware('permission:api.manage_consumers')
+        ->name('developers.rotate');
+    Route::post('developers/consumers/{consumer}/toggle', [DevelopersController::class, 'toggle'])
+        ->middleware('permission:api.manage_consumers')
+        ->name('developers.toggle');
+    Route::post('developers/deliveries/{delivery}/replay', [DevelopersController::class, 'replay'])
+        ->middleware('permission:api.manage_consumers')
+        ->name('developers.deliveries.replay');
     Route::post('crs', [CrsController::class, 'store'])
         ->middleware('permission:crs.manage')
         ->name('crs.store');

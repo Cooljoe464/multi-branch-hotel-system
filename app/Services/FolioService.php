@@ -224,6 +224,16 @@ class FolioService
 
         event(new PaymentReceived($folio, $transaction));
 
+        (new WebhookDispatcher)->dispatch('folio.payment', [
+            'folio_id' => $folio->id,
+            'folio_number' => $folio->folio_number,
+            'reservation_id' => $folio->reservation_id,
+            'transaction_id' => $transaction->id,
+            'amount_minor' => $amount,
+            'method' => $method,
+            'currency_code' => $folio->currency_code,
+        ], $folio->branch_id);
+
         if ($folio->reservation) {
             $folio->reservation->syncPaymentStatus();
         }

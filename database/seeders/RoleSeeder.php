@@ -69,6 +69,7 @@ class RoleSeeder extends Seeder
             'rate_seasons' => ['view', 'manage'],
             'promo_codes' => ['view', 'manage'],
             'corporate_accounts' => ['view', 'manage'],
+            'api' => ['view', 'manage_consumers'],
         ];
 
         foreach ($groups as $group => $actions) {
@@ -106,6 +107,7 @@ class RoleSeeder extends Seeder
             'folios.view',
             'analytics.view',
             'analytics.manage',
+            'api.view',
             'reports.view',
             'reports.export',
             'settings.view',
@@ -228,6 +230,7 @@ class RoleSeeder extends Seeder
             'payments.refund',
             'analytics.view',
             'analytics.manage',
+            'api.view',
             'reports.view',
             'reports.export',
             'settings.view',
@@ -380,6 +383,7 @@ class RoleSeeder extends Seeder
             'reports.export',
             'analytics.view',
             'analytics.manage',
+            'api.view',
             'settings.view',
             'settings.update',
             'settings.manage',

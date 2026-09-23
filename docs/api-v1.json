@@ -1,0 +1,516 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Hotel PMS Partner API",
+        "version": "1"
+    },
+    "servers": [
+        {
+            "url": "/api"
+        }
+    ],
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "description": "Sanctum consumer token."
+            }
+        }
+    },
+    "paths": {
+        "/api/v1/reports/revenue": {
+            "get": {
+                "operationId": "api.v1.revenue",
+                "summary": "Revenue KPIs (ADR/RevPAR/pace/budgets) for a date range.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "analytics.view"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
+        "/api/v1/availability": {
+            "get": {
+                "operationId": "api.v1.availability",
+                "summary": "Quote availability for a room type and stay window.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "availability.view"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "room_type_id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "check_in",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "check_out",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
+        "/api/v1/reservations": {
+            "post": {
+                "operationId": "api.v1.reservations.store",
+                "summary": "Create a confirmed reservation at the token property.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "reservations.create"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "X-Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Write key. Replays return the stored response with Idempotent-Replayed.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
+        "/api/v1/reservations/{id}": {
+            "get": {
+                "operationId": "api.v1.reservations.show",
+                "summary": "Fetch one reservation at the token property.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "reservations.view"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
+        "/api/v1/reservations/{id}/cancel": {
+            "post": {
+                "operationId": "api.v1.reservations.cancel",
+                "summary": "Cancel a reservation, posting any penalty to the folio.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "reservations.cancel"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "X-Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Write key. Replays return the stored response with Idempotent-Replayed.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
+        "/api/v1/folios/{id}": {
+            "get": {
+                "operationId": "api.v1.folios.show",
+                "summary": "Fetch a folio with live transaction lines.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "folios.view"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
+        "/api/v1/rates": {
+            "get": {
+                "operationId": "api.v1.rates",
+                "summary": "List active rate plans, optionally quoted for a stay.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "rate_plans.view"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "room_type_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "check_in",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "check_out",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
+        "/api/v1/webhooks/deliveries": {
+            "get": {
+                "operationId": "api.v1.webhooks.deliveries",
+                "summary": "List recent webhook deliveries for this consumer.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "webhooks.replay"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
+        "/api/v1/webhooks/replay": {
+            "post": {
+                "operationId": "api.v1.webhooks.replay",
+                "summary": "Requeue a delivery; the frozen payload re-signs identically.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "webhooks.replay"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "X-Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Write key. Replays return the stored response with Idempotent-Replayed.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        }
+    }
+}
