@@ -7,6 +7,7 @@ use App\Models\DailyLedger;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Support\BranchTime;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
@@ -36,7 +37,7 @@ class AnalyticsService
     public function getAverageDailyRate(Carbon|string|null $date = null): int
     {
         $branch = $this->requireBranch();
-        $date = $date instanceof Carbon ? $date : Carbon::parse($date ?? now());
+        $date = $date instanceof Carbon ? $date : BranchTime::parse($branch, is_string($date) ? $date : BranchTime::today($branch));
 
         $ledger = DailyLedger::forBranch($branch->id)
             ->forDate($date->toDateString())
@@ -59,7 +60,7 @@ class AnalyticsService
     public function getRevPAR(Carbon|string|null $date = null): int
     {
         $branch = $this->requireBranch();
-        $date = $date instanceof Carbon ? $date : Carbon::parse($date ?? now());
+        $date = $date instanceof Carbon ? $date : BranchTime::parse($branch, is_string($date) ? $date : BranchTime::today($branch));
 
         $totalRooms = Room::forBranch($branch->id)
             ->where('is_active', true)
@@ -88,8 +89,8 @@ class AnalyticsService
     public function getRevenueSummary(int $days = 30, ?string $startDate = null, ?string $endDate = null): array
     {
         $branch = $this->requireBranch();
-        $start = $startDate ? Carbon::parse($startDate)->startOfDay() : now()->subDays($days)->startOfDay();
-        $end = $endDate ? Carbon::parse($endDate)->endOfDay() : now()->endOfDay();
+        $start = $startDate ? Carbon::parse($startDate)->startOfDay() : BranchTime::now($branch)->subDays($days)->startOfDay();
+        $end = $endDate ? Carbon::parse($endDate)->endOfDay() : BranchTime::now($branch)->endOfDay();
 
         $ledgers = DailyLedger::forBranch($branch->id)
             ->completed()
@@ -133,8 +134,8 @@ class AnalyticsService
     public function getOccupancyTrend(int $days = 30, ?string $startDate = null, ?string $endDate = null): Collection
     {
         $branch = $this->requireBranch();
-        $start = $startDate ? Carbon::parse($startDate)->startOfDay() : now()->subDays($days)->startOfDay();
-        $end = $endDate ? Carbon::parse($endDate)->endOfDay() : now()->endOfDay();
+        $start = $startDate ? Carbon::parse($startDate)->startOfDay() : BranchTime::now($branch)->subDays($days)->startOfDay();
+        $end = $endDate ? Carbon::parse($endDate)->endOfDay() : BranchTime::now($branch)->endOfDay();
 
         $totalRooms = Room::forBranch($branch->id)
             ->where('is_active', true)
@@ -182,7 +183,7 @@ class AnalyticsService
     public function getRoomTypePerformance(int $days = 30, ?string $startDate = null, ?string $endDate = null): Collection
     {
         $branch = $this->requireBranch();
-        $start = $startDate ?? now()->subDays($days)->toDateString();
+        $start = $startDate ?? BranchTime::now($branch)->subDays($days)->toDateString();
 
         $roomTypes = RoomType::forBranch($branch->id)
             ->active()
@@ -228,7 +229,7 @@ class AnalyticsService
     public function getKpiSummary(Carbon|string|null $date = null, int $days = 30, ?string $startDate = null, ?string $endDate = null): array
     {
         $branch = $this->requireBranch();
-        $date = $date instanceof Carbon ? $date : Carbon::parse($date ?? now());
+        $date = $date instanceof Carbon ? $date : BranchTime::parse($branch, is_string($date) ? $date : BranchTime::today($branch));
         $cacheKey = "kpi_summary_{$branch->id}_{$date->toDateString()}_{$days}_{$startDate}_{$endDate}";
 
         return Cache::remember($cacheKey, now()->addMinutes(15), function () use ($date, $days, $startDate, $endDate) {

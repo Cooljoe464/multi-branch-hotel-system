@@ -11,6 +11,7 @@ use App\Models\ReservationNight;
 use App\Models\RevenueSnapshot;
 use App\Models\Room;
 use App\Services\AvailabilityService;
+use App\Support\BranchTime;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
@@ -39,15 +40,14 @@ class SnapshotRevenueJob implements ShouldQueue
      */
     public function handle(): array
     {
-        $today = Carbon::today()->toDateString();
-        $from = Carbon::today()->subDays(30)->toDateString();
-        $to = Carbon::today()->addDays(90)->toDateString();
-
         $branches = 0;
         $rows = 0;
 
-        Branch::where('is_active', true)->orderBy('id')->chunkById(50, function ($chunk) use ($today, $from, $to, &$branches, &$rows) {
+        Branch::where('is_active', true)->orderBy('id')->chunkById(50, function ($chunk) use (&$branches, &$rows) {
             foreach ($chunk as $branch) {
+                $today = BranchTime::today($branch);
+                $from = Carbon::parse($today)->subDays(30)->toDateString();
+                $to = Carbon::parse($today)->addDays(90)->toDateString();
                 $rows += $this->snapshotBranch($branch, $today, $from, $to);
                 $branches++;
 
@@ -100,7 +100,7 @@ class SnapshotRevenueJob implements ShouldQueue
 
             RevenueSnapshot::updateOrCreate(
                 ['branch_id' => $branch->id, 'stay_date' => $date, 'snapshot_date' => $today],
-                $row,
+                array_merge($row, ['currency_code' => $branch->currency_code]),
             );
             $count++;
         }

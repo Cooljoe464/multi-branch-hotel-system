@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $branch_id
+ * @property string|null $currency_code
  * @property Carbon $stay_date
  * @property Carbon $snapshot_date
  * @property int $rooms_available
@@ -30,6 +31,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'branch_id',
+    'currency_code',
     'stay_date',
     'snapshot_date',
     'rooms_available',

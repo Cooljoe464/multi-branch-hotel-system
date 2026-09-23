@@ -11,6 +11,7 @@ use App\Models\CommissionPayout;
 use App\Models\CommissionRule;
 use App\Models\Reservation;
 use App\Models\User;
+use App\Support\BranchTime;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -256,7 +257,7 @@ class CommissionService
         Reservation::forBranch($branch->id)
             ->checkedOut()
             ->where('source', '!=', 'direct')
-            ->where('check_out_date', '>=', Carbon::today()->subDays($days)->toDateString())
+            ->where('check_out_date', '>=', Carbon::parse(BranchTime::today($branch))->subDays($days)->toDateString())
             ->orderBy('id')
             ->chunkById(100, function ($stays) use (&$accrued, &$skipped) {
                 foreach ($stays as $stay) {

@@ -15,6 +15,7 @@ use App\Models\NightAuditRun;
 use App\Models\Reservation;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\BranchTime;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use LogicException;
@@ -207,7 +208,7 @@ class NightAuditService
             throw new LogicException('Branch must be set.');
         }
 
-        $date = $date ?? now()->subDay();
+        $date = $date ?? BranchTime::now($branch)->subDay();
 
         return DailyLedger::forBranch($branch->id)
             ->forDate($date->toDateString())

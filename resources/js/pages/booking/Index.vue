@@ -24,6 +24,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import LocaleSwitcher from '@/components/LocaleSwitcher.vue';
+import { t } from '@/lib/locale';
 import { newIdempotencyKey } from '@/lib/idempotency';
 import {
     ArrowLeft,
@@ -208,7 +210,7 @@ const getAmenityIcon = (amenity: string) => {
 </script>
 
 <template>
-    <Head title="Book a Room" />
+    <Head :title="t('booking.title')" />
 
     <div class="bg-muted/30 min-h-screen">
         <!-- Header -->
@@ -226,13 +228,14 @@ const getAmenityIcon = (amenity: string) => {
                         <h1
                             class="text-foreground text-2xl font-bold tracking-tight"
                         >
-                            Book Your Stay
+                            {{ t('booking.heading') }}
                         </h1>
                         <p class="text-muted-foreground text-xs">
-                            Find and reserve luxury rooms across our properties
+                            {{ t('booking.tagline') }}
                         </p>
                     </div>
                 </div>
+                <LocaleSwitcher />
             </div>
         </header>
 
@@ -266,25 +269,25 @@ const getAmenityIcon = (amenity: string) => {
                         :class="
                             step >= 1 ? 'text-foreground font-semibold' : ''
                         "
-                        >Dates</span
+                        >{{ t('booking.steps.dates') }}</span
                     >
                     <span
                         :class="
                             step >= 2 ? 'text-foreground font-semibold' : ''
                         "
-                        >Room</span
+                        >{{ t('booking.steps.room') }}</span
                     >
                     <span
                         :class="
                             step >= 3 ? 'text-foreground font-semibold' : ''
                         "
-                        >Guest</span
+                        >{{ t('booking.steps.guest') }}</span
                     >
                     <span
                         :class="
                             step >= 4 ? 'text-foreground font-semibold' : ''
                         "
-                        >Confirm</span
+                        >{{ t('booking.steps.confirm') }}</span
                     >
                 </div>
             </div>
@@ -301,10 +304,10 @@ const getAmenityIcon = (amenity: string) => {
                         <CheckCircle2 class="h-10 w-10" />
                     </div>
                     <h2 class="text-foreground mb-2 text-2xl font-bold">
-                        Booking Confirmed!
+                        {{ t('booking.confirmed_title') }}
                     </h2>
                     <p class="text-muted-foreground mb-4 text-sm">
-                        Your confirmation number is:
+                        {{ t('booking.confirmed_body') }}
                     </p>
                     <div
                         class="bg-muted border-border text-foreground mb-6 inline-block rounded-lg border px-4 py-2 font-mono text-2xl font-bold tracking-widest"
@@ -312,14 +315,14 @@ const getAmenityIcon = (amenity: string) => {
                         {{ confirmationNumber }}
                     </div>
                     <p class="text-muted-foreground mb-8 text-sm">
-                        A confirmation details summary has been saved for
+                        {{ t('booking.confirmed_saved') }}
                         <span class="text-foreground font-medium">{{
                             guestInfo.email
                         }}</span>
                     </p>
                     <Button as-child class="w-full">
                         <Link :href="`/guest/folio/${confirmationNumber}`">
-                            View Your Folio
+                            {{ t('common.view_your_folio') }}
                         </Link>
                     </Button>
                 </CardContent>
@@ -330,24 +333,23 @@ const getAmenityIcon = (amenity: string) => {
                 <Card class="border-border shadow-sm">
                     <CardHeader>
                         <CardTitle class="text-xl"
-                            >Select Property & Dates</CardTitle
+                            >{{ t('booking.select_title') }}</CardTitle
                         >
                         <CardDescription
-                            >Choose your destination hotel and check-in
-                            duration</CardDescription
+                            >{{ t('booking.select_description') }}</CardDescription
                         >
                     </CardHeader>
 
                     <CardContent class="space-y-5">
                         <div class="space-y-2">
-                            <Label>Property</Label>
+                            <Label>{{ t('booking.property') }}</Label>
                             <Select
                                 v-model="selectedBranch"
-                                aria-label="Select a property"
+                                :aria-label="t('booking.property_aria')"
                             >
                                 <SelectTrigger class="w-full">
                                     <SelectValue
-                                        placeholder="Select a property"
+                                        :placeholder="t('booking.property_placeholder')"
                                     />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -365,7 +367,7 @@ const getAmenityIcon = (amenity: string) => {
 
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div class="space-y-2">
-                                <Label for="check_in">Check-in Date</Label>
+                                <Label for="check_in">{{ t('booking.check_in') }}</Label>
                                 <DatePicker
                                     id="check_in"
                                     v-model="checkIn"
@@ -373,7 +375,7 @@ const getAmenityIcon = (amenity: string) => {
                                 />
                             </div>
                             <div class="space-y-2">
-                                <Label for="check_out">Check-out Date</Label>
+                                <Label for="check_out">{{ t('booking.check_out') }}</Label>
                                 <DatePicker
                                     id="check_out"
                                     v-model="checkOut"
@@ -384,10 +386,10 @@ const getAmenityIcon = (amenity: string) => {
 
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-2">
-                                <Label>Adults</Label>
+                                <Label>{{ t('booking.adults') }}</Label>
                                 <Select
                                     v-model="adults"
-                                    aria-label="Number of adults"
+                                    :aria-label="t('booking.adults_aria')"
                                 >
                                     <SelectTrigger class="w-full">
                                         <SelectValue />
@@ -397,18 +399,16 @@ const getAmenityIcon = (amenity: string) => {
                                             v-for="n in 10"
                                             :key="n"
                                             :value="n"
-                                            >{{ n }} Adult{{
-                                                n > 1 ? 's' : ''
-                                            }}</SelectItem
+                                            >{{ t('common.adult_count', { n }) }}</SelectItem
                                         >
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div class="space-y-2">
-                                <Label>Children</Label>
+                                <Label>{{ t('booking.children') }}</Label>
                                 <Select
                                     v-model="children"
-                                    aria-label="Number of children"
+                                    :aria-label="t('booking.children_aria')"
                                 >
                                     <SelectTrigger class="w-full">
                                         <SelectValue />
@@ -418,7 +418,7 @@ const getAmenityIcon = (amenity: string) => {
                                             v-for="n in 6"
                                             :key="n"
                                             :value="n - 1"
-                                            >{{ n - 1 }} Children</SelectItem
+                                            >{{ t('common.children_count', { n: n - 1 }) }}</SelectItem
                                         >
                                     </SelectContent>
                                 </Select>
@@ -432,7 +432,7 @@ const getAmenityIcon = (amenity: string) => {
                             class="w-full sm:w-auto"
                             @click="searchAvailability"
                         >
-                            Search Availability
+                            {{ t('booking.search') }}
                         </Button>
                     </CardFooter>
                 </Card>
@@ -447,10 +447,10 @@ const getAmenityIcon = (amenity: string) => {
                         @click="goBack"
                         class="text-muted-foreground hover:text-foreground gap-1"
                     >
-                        <ArrowLeft class="size-4" /> Back
+                        <ArrowLeft class="size-4" /> {{ t('common.back') }}
                     </Button>
                     <h2 class="text-foreground text-xl font-semibold">
-                        Available Rooms ({{ searchResults?.nights }} nights)
+                        {{ t('booking.rooms_title', { nights: searchResults?.nights ?? 0 }) }}
                     </h2>
                 </div>
 
@@ -477,7 +477,7 @@ const getAmenityIcon = (amenity: string) => {
                                             class="border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400"
                                         >
                                             {{ roomType.available_count }}
-                                            available
+                                            {{ t('common.available') }}
                                         </Badge>
                                     </div>
                                     <p
@@ -493,19 +493,13 @@ const getAmenityIcon = (amenity: string) => {
                                             class="inline-flex items-center gap-1"
                                         >
                                             <BedDouble class="size-3.5" />
-                                            {{ roomType.bed_count }}
-                                            {{ roomType.bed_type }} bed{{
-                                                roomType.bed_count > 1
-                                                    ? 's'
-                                                    : ''
-                                            }}
+                                            {{ t('common.beds', { count: roomType.bed_count, type: roomType.bed_type }) }}
                                         </span>
                                         <span
                                             class="inline-flex items-center gap-1"
                                         >
                                             <Users class="size-3.5" />
-                                            Max
-                                            {{ roomType.max_occupancy }} guests
+                                            {{ t('common.max_guests', { count: roomType.max_occupancy }) }}
                                         </span>
                                     </div>
 
@@ -538,12 +532,12 @@ const getAmenityIcon = (amenity: string) => {
                                         <div
                                             class="text-muted-foreground text-xs"
                                         >
-                                            per night
+                                            {{ t('common.per_night') }}
                                         </div>
                                         <div
                                             class="text-foreground mt-2 text-sm font-semibold"
                                         >
-                                            Total:
+                                            {{ t('booking.total_label') }}
                                             {{
                                                 formatCurrency(
                                                     roomType.total_rate || 0,
@@ -555,7 +549,7 @@ const getAmenityIcon = (amenity: string) => {
                                         class="mt-4 w-full md:w-auto"
                                         @click.stop="selectRoomType(roomType)"
                                     >
-                                        Select Room
+                                        {{ t('booking.select_room') }}
                                     </Button>
                                 </div>
                             </div>
@@ -573,28 +567,27 @@ const getAmenityIcon = (amenity: string) => {
                         @click="goBack"
                         class="text-muted-foreground hover:text-foreground gap-1"
                     >
-                        <ArrowLeft class="size-4" /> Back
+                        <ArrowLeft class="size-4" /> {{ t('common.back') }}
                     </Button>
                     <h2 class="text-foreground text-xl font-semibold">
-                        Guest Details
+                        {{ t('booking.guest_title') }}
                     </h2>
                 </div>
 
                 <Card class="border-border shadow-sm">
                     <CardHeader>
                         <CardTitle class="text-lg"
-                            >Contact Information</CardTitle
+                            >{{ t('booking.contact_title') }}</CardTitle
                         >
                         <CardDescription
-                            >Enter primary guest details for reservation
-                            processing</CardDescription
+                            >{{ t('booking.contact_description') }}</CardDescription
                         >
                     </CardHeader>
 
                     <CardContent class="space-y-4">
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div class="space-y-2">
-                                <Label for="first_name">First Name *</Label>
+                                <Label for="first_name">{{ t('booking.first_name') }}</Label>
                                 <Input
                                     id="first_name"
                                     v-model="guestInfo.first_name"
@@ -604,7 +597,7 @@ const getAmenityIcon = (amenity: string) => {
                                 />
                             </div>
                             <div class="space-y-2">
-                                <Label for="last_name">Last Name *</Label>
+                                <Label for="last_name">{{ t('booking.last_name') }}</Label>
                                 <Input
                                     id="last_name"
                                     v-model="guestInfo.last_name"
@@ -616,7 +609,7 @@ const getAmenityIcon = (amenity: string) => {
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="email">Email Address *</Label>
+                            <Label for="email">{{ t('booking.email_label') }}</Label>
                             <Input
                                 id="email"
                                 v-model="guestInfo.email"
@@ -627,7 +620,7 @@ const getAmenityIcon = (amenity: string) => {
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="phone">Phone Number</Label>
+                            <Label for="phone">{{ t('booking.phone_label') }}</Label>
                             <Input
                                 id="phone"
                                 v-model="guestInfo.phone"
@@ -643,7 +636,7 @@ const getAmenityIcon = (amenity: string) => {
                             class="w-full sm:w-auto"
                             @click="step = 4"
                         >
-                            Review Booking
+                            {{ t('booking.review') }}
                         </Button>
                     </CardFooter>
                 </Card>
@@ -658,21 +651,20 @@ const getAmenityIcon = (amenity: string) => {
                         @click="goBack"
                         class="text-muted-foreground hover:text-foreground gap-1"
                     >
-                        <ArrowLeft class="size-4" /> Back
+                        <ArrowLeft class="size-4" /> {{ t('common.back') }}
                     </Button>
                     <h2 class="text-foreground text-xl font-semibold">
-                        Confirm Your Reservation
+                        {{ t('booking.confirm_title') }}
                     </h2>
                 </div>
 
                 <Card class="border-border shadow-sm">
                     <CardHeader>
                         <CardTitle class="text-lg"
-                            >Reservation Summary</CardTitle
+                            >{{ t('booking.summary_title') }}</CardTitle
                         >
                         <CardDescription
-                            >Please double check your details before
-                            finalizing</CardDescription
+                            >{{ t('booking.summary_description') }}</CardDescription
                         >
                     </CardHeader>
 
@@ -680,7 +672,7 @@ const getAmenityIcon = (amenity: string) => {
                         <div class="divide-border divide-y text-sm">
                             <div class="flex justify-between py-3">
                                 <span class="text-muted-foreground"
-                                    >Property</span
+                                    >{{ t('booking.property_row') }}</span
                                 >
                                 <span class="text-foreground font-semibold">{{
                                     selectedBranchObj?.name
@@ -688,7 +680,7 @@ const getAmenityIcon = (amenity: string) => {
                             </div>
                             <div class="flex justify-between py-3">
                                 <span class="text-muted-foreground"
-                                    >Room Type</span
+                                    >{{ t('booking.room_type_row') }}</span
                                 >
                                 <span class="text-foreground font-semibold">{{
                                     selectedRoomType?.name
@@ -696,7 +688,7 @@ const getAmenityIcon = (amenity: string) => {
                             </div>
                             <div class="flex justify-between py-3">
                                 <span class="text-muted-foreground"
-                                    >Check-in</span
+                                    >{{ t('booking.check_in_row') }}</span
                                 >
                                 <span class="text-foreground font-semibold">{{
                                     checkIn
@@ -704,7 +696,7 @@ const getAmenityIcon = (amenity: string) => {
                             </div>
                             <div class="flex justify-between py-3">
                                 <span class="text-muted-foreground"
-                                    >Check-out</span
+                                    >{{ t('booking.check_out_row') }}</span
                                 >
                                 <span class="text-foreground font-semibold">{{
                                     checkOut
@@ -712,16 +704,15 @@ const getAmenityIcon = (amenity: string) => {
                             </div>
                             <div class="flex justify-between py-3">
                                 <span class="text-muted-foreground"
-                                    >Guests</span
+                                    >{{ t('booking.guests_row') }}</span
                                 >
                                 <span class="text-foreground font-semibold"
-                                    >{{ adults }} adults,
-                                    {{ children }} children</span
+                                    >{{ t('portal.guests_value', { adults, children }) }}</span
                                 >
                             </div>
                             <div class="flex justify-between py-3">
                                 <span class="text-muted-foreground"
-                                    >Guest Name</span
+                                    >{{ t('booking.guest_name_row') }}</span
                                 >
                                 <span class="text-foreground font-semibold"
                                     >{{ guestInfo.first_name }}
@@ -729,7 +720,7 @@ const getAmenityIcon = (amenity: string) => {
                                 >
                             </div>
                             <div class="flex justify-between py-3">
-                                <span class="text-muted-foreground">Email</span>
+                                <span class="text-muted-foreground">{{ t('booking.email_row') }}</span>
                                 <span class="text-foreground font-semibold">{{
                                     guestInfo.email
                                 }}</span>
@@ -738,7 +729,7 @@ const getAmenityIcon = (amenity: string) => {
                                 class="bg-muted/50 -mx-6 flex justify-between rounded-b-lg px-6 py-4 text-base"
                             >
                                 <span class="text-foreground font-bold"
-                                    >Total Charge</span
+                                    >{{ t('booking.total_charge') }}</span
                                 >
                                 <span
                                     class="text-foreground text-lg font-extrabold"
@@ -763,9 +754,7 @@ const getAmenityIcon = (amenity: string) => {
                                 for="terms"
                                 class="text-muted-foreground cursor-pointer text-xs leading-normal select-none"
                             >
-                                I agree to the booking terms and conditions. I
-                                understand that payment will be processed at
-                                check-in.
+                                {{ t('booking.terms') }}
                             </Label>
                         </div>
                     </CardContent>
@@ -782,8 +771,8 @@ const getAmenityIcon = (amenity: string) => {
                             />
                             {{
                                 isSubmitting
-                                    ? 'Processing...'
-                                    : 'Complete Booking'
+                                    ? t('booking.processing')
+                                    : t('booking.complete')
                             }}
                         </Button>
                     </CardFooter>

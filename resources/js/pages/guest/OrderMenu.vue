@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import LocaleSwitcher from '@/components/LocaleSwitcher.vue';
+import { t } from '@/lib/locale';
 
 interface Reservation {
     id: number;
@@ -108,32 +110,35 @@ const typeIcon: Record<string, string> = { restaurant: '\uD83C\uDF7D\uFE0F', bar
 </script>
 
 <template>
-<Head :title="`${outlet.name} - Order`" />
+<Head :title="`${outlet.name} - ${t('portal.order_title')}`" />
 
 <div class="min-h-screen bg-background">
     <div class="bg-card border-b border-border px-4 py-3 sm:px-6">
         <div class="mx-auto max-w-2xl">
             <div class="flex items-center justify-between">
                 <div>
-                    <Link :href="`/guest/order/${reservation.confirmation_number}`" class="text-xs text-muted-foreground hover:text-foreground">&larr; All Outlets</Link>
+                    <Link :href="`/guest/order/${reservation.confirmation_number}`" class="text-xs text-muted-foreground hover:text-foreground">&larr; {{ t('portal.all_outlets') }}</Link>
                     <h1 class="text-lg font-bold text-foreground">{{ typeIcon[outlet.type] || '' }} {{ outlet.name }}</h1>
                 </div>
-                <button
-                    @click="showCart = !showCart"
-                    class="relative rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-                >
-                    Cart
-                    <span v-if="cartCount > 0" class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                        {{ cartCount }}
-                    </span>
-                </button>
+                <div class="flex items-center gap-2">
+                    <LocaleSwitcher />
+                    <button
+                        @click="showCart = !showCart"
+                        class="relative rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                    >
+                        {{ t('portal.cart') }}
+                        <span v-if="cartCount > 0" class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                            {{ cartCount }}
+                        </span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <div class="mx-auto max-w-2xl px-4 py-4 sm:px-6">
         <div v-if="menuItems.length === 0" class="rounded-lg border border-border bg-card p-8 text-center">
-            <p class="text-muted-foreground">No items available at this outlet right now.</p>
+            <p class="text-muted-foreground">{{ t('portal.no_items') }}</p>
         </div>
 
         <template v-else>
@@ -154,7 +159,7 @@ const typeIcon: Record<string, string> = { restaurant: '\uD83C\uDF7D\uFE0F', bar
                             @click="addToCart(item)"
                             class="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                         >
-                            Add
+                            {{ t('portal.add') }}
                         </button>
                     </div>
                 </div>
@@ -169,12 +174,12 @@ const typeIcon: Record<string, string> = { restaurant: '\uD83C\uDF7D\uFE0F', bar
     >
         <div class="w-full max-w-lg rounded-t-2xl bg-card border border-border p-4 sm:rounded-2xl max-h-[80vh] overflow-y-auto">
             <div class="mb-4 flex items-center justify-between">
-                <h2 class="text-lg font-bold text-foreground">Your Order</h2>
+                <h2 class="text-lg font-bold text-foreground">{{ t('portal.your_order') }}</h2>
                 <button @click="showCart = false" class="text-muted-foreground hover:text-foreground">&times;</button>
             </div>
 
             <div v-if="cart.length === 0" class="py-6 text-center text-sm text-muted-foreground">
-                Your cart is empty. Add items from the menu.
+                {{ t('portal.cart_empty') }}
             </div>
 
             <template v-else>
@@ -182,7 +187,7 @@ const typeIcon: Record<string, string> = { restaurant: '\uD83C\uDF7D\uFE0F', bar
                     <div v-for="item in cart" :key="item.menu_item_id" class="flex items-center gap-3">
                         <div class="flex-1">
                             <div class="text-sm font-medium text-foreground">{{ item.name }}</div>
-                            <div class="text-xs text-muted-foreground">{{ formatPrice(item.price) }} each</div>
+                            <div class="text-xs text-muted-foreground">{{ formatPrice(item.price) }} {{ t('portal.each') }}</div>
                         </div>
                         <div class="flex items-center gap-2">
                             <button @click="updateQuantity(item.menu_item_id, -1)" class="h-7 w-7 rounded border border-border text-sm font-medium hover:bg-muted">-</button>
@@ -196,10 +201,10 @@ const typeIcon: Record<string, string> = { restaurant: '\uD83C\uDF7D\uFE0F', bar
 
                 <div class="border-t border-border pt-3 mb-4">
                     <div class="flex justify-between text-base font-bold">
-                        <span class="text-foreground">Total</span>
+                        <span class="text-foreground">{{ t('common.total') }}</span>
                         <span class="text-foreground">{{ formatPrice(cartTotal) }}</span>
                     </div>
-                    <p class="mt-1 text-xs text-muted-foreground">Charged to your room</p>
+                    <p class="mt-1 text-xs text-muted-foreground">{{ t('portal.charged_to_room') }}</p>
                 </div>
 
                 <button
@@ -207,7 +212,7 @@ const typeIcon: Record<string, string> = { restaurant: '\uD83C\uDF7D\uFE0F', bar
                     :disabled="isSubmitting"
                     class="w-full rounded-lg bg-primary py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 >
-                    {{ isSubmitting ? 'Placing Order...' : 'Place Order & Charge to Room' }}
+                    {{ isSubmitting ? t('portal.placing') : t('portal.place_order') }}
                 </button>
             </template>
         </div>

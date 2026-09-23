@@ -9,6 +9,7 @@ use App\Models\PromoCode;
 use App\Models\RatePlan;
 use App\Models\RateSeason;
 use App\Models\RoomType;
+use App\Support\BranchTime;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 
@@ -57,7 +58,7 @@ class RateEngine
         }
 
         $nights = (new AvailabilityService)->nights($checkIn, $checkOut);
-        $bookingDate ??= Carbon::today()->toDateString();
+        $bookingDate ??= BranchTime::today($branch);
 
         $this->guardPromo($promo, $branch, $bookingDate, count($nights));
         $this->guardCorporate($corporate, $branch);

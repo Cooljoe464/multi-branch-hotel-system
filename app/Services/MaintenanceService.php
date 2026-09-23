@@ -13,6 +13,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\MaintenanceTicket;
 use App\Models\User;
+use App\Support\BranchTime;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -213,7 +214,7 @@ class MaintenanceService
     public function schedulePm(Branch $branch): array
     {
         $generated = 0;
-        $today = Carbon::today()->toDateString();
+        $today = BranchTime::today($branch);
 
         foreach (Asset::forBranch($branch->id)->orderBy('id')->get() as $asset) {
             $every = $asset->pmEveryDays();

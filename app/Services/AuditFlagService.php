@@ -6,6 +6,7 @@ use App\Models\AuditFlag;
 use App\Models\Branch;
 use App\Models\Transaction;
 use App\Models\YieldRule;
+use App\Support\BranchTime;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -18,7 +19,7 @@ class AuditFlagService
      */
     public function generate(Branch $branch, null|string|Carbon $businessDate = null): array
     {
-        $date = $businessDate instanceof Carbon ? $businessDate->toDateString() : ($businessDate ?? now()->toDateString());
+        $date = $businessDate instanceof Carbon ? $businessDate->toDateString() : ($businessDate ?? BranchTime::today($branch));
 
         $flags = [];
         $flags = array_merge($flags, $this->checkRateOverrides($branch, $date));

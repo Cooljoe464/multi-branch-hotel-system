@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\ChannelProviderModel;
 use App\Services\ChannelService;
+use App\Support\BranchTime;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
@@ -25,15 +26,17 @@ class NightlyReconciliationJob implements ShouldQueue
      */
     public function handle(): array
     {
-        $from = Carbon::tomorrow()->toDateString();
-        $to = Carbon::tomorrow()->addDays(14)->toDateString();
-
         $providers = 0;
         $drifted = 0;
 
-        ChannelProviderModel::where('is_active', true)->orderBy('id')->chunkById(50, function ($chunk) use ($from, $to, &$providers, &$drifted) {
+        ChannelProviderModel::where('is_active', true)->orderBy('id')->chunkById(50, function ($chunk) use (&$providers, &$drifted) {
             foreach ($chunk as $provider) {
-                $result = (new ChannelService)->reconcile($provider, $from, $to);
+                $tomorrow = BranchTime::now($provider->branch)->addDay()->toDateString();
+                $result = (new ChannelService)->reconcile(
+                    $provider,
+                    $tomorrow,
+                    Carbon::parse($tomorrow)->addDays(14)->toDateString()
+                );
                 $providers++;
                 $drifted += $result['drifted'];
             }

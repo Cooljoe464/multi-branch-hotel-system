@@ -6,11 +6,13 @@ use App\Events\DepositOverdue;
 use App\Events\HoldReleased;
 use App\Events\NoShowPenaltyPosted;
 use App\Exceptions\AvailabilityException;
+use App\Models\Branch;
 use App\Models\Folio;
 use App\Models\GuaranteePolicy;
 use App\Models\Reservation;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\BranchTime;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -57,14 +59,15 @@ class GuaranteeService
         }
 
         $depositDue = $this->depositDue($policy, $reservation->total_amount);
-        $checkIn = Carbon::parse($reservation->check_in_date->toDateString());
+        $branch = Branch::findOrFail($reservation->branch_id);
 
         $reservation->update([
             'guarantee_status' => $this->initialStatus($policy, $depositDue),
             'deposit_due_minor' => $depositDue,
             'deposit_paid_minor' => 0,
-            'cancel_deadline_at' => $checkIn->copy()->subHours($policy->ruleInt('cancel_free_until_hours', 24)),
-            'hold_expires_at' => now()->addHours($policy->ruleInt('hold_hours', 24)),
+            'cancel_deadline_at' => BranchTime::parse($branch, $reservation->check_in_date->toDateString())
+                ->subHours($policy->ruleInt('cancel_free_until_hours', 24)),
+            'hold_expires_at' => BranchTime::now($branch)->addHours($policy->ruleInt('hold_hours', 24)),
             'metadata' => array_merge($reservation->metadata ?? [], [
                 'guarantee_policy_id' => $policy->id,
                 'guarantee_kind' => $policy->kind,
@@ -239,18 +242,26 @@ class GuaranteeService
      */
     public function releaseExpiredHolds(): array
     {
-        $now = now();
         $released = 0;
         $overdue = 0;
 
+        // Expiry compares against each hold's own branch clock; the DB
+        // pass only narrows to live holds, never to a timestamp.
         Reservation::where('guarantee_status', 'hold')
-            ->where('hold_expires_at', '<', $now)
             ->whereIn('status', ['pending', 'confirmed', 'reserved'])
+            ->with('branch')
             ->orderBy('id')
             ->chunkById(100, function ($holds) use (&$released) {
                 foreach ($holds as $hold) {
-                    $this->cancelReservation($hold, null);
-                    $released++;
+                    /** @var Reservation $hold */
+                    if ($hold->hold_expires_at === null) {
+                        continue;
+                    }
+
+                    if (BranchTime::now($hold->branch)->greaterThan($hold->hold_expires_at)) {
+                        $this->cancelReservation($hold, null);
+                        $released++;
+                    }
                 }
             });
 
@@ -301,7 +312,10 @@ class GuaranteeService
             return null;
         }
 
-        return Carbon::parse($reservation->check_in_date->toDateString())->subHours($hours);
+        return BranchTime::parse(
+            Branch::findOrFail($reservation->branch_id),
+            $reservation->check_in_date->toDateString()
+        )->subHours($hours);
     }
 
     private function initialStatus(GuaranteePolicy $policy, int $depositDue): string
@@ -321,7 +335,7 @@ class GuaranteeService
             return 0;
         }
 
-        if ($reservation->cancel_deadline_at && now()->lessThanOrEqualTo($reservation->cancel_deadline_at)) {
+        if ($reservation->cancel_deadline_at && BranchTime::now(Branch::findOrFail($reservation->branch_id))->lessThanOrEqualTo($reservation->cancel_deadline_at)) {
             return 0;
         }
 

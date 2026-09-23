@@ -181,3 +181,12 @@ it('reports OTB vs budget variance with the correct sign', function () {
         ->and($budget['revenue_otb_minor'])->toBe(20000)
         ->and($budget['revenue_variance_minor'])->toBe(-4980000);
 });
+
+it('denominates snapshots in the branch currency at snapshot time', function () {
+    (new SnapshotRevenueJob)->handle();
+
+    $rows = RevenueSnapshot::forBranch($this->branch->id)->get();
+
+    expect($rows)->not->toBeEmpty()
+        ->and($rows->pluck('currency_code')->unique()->all())->toBe([$this->branch->currency_code]);
+});

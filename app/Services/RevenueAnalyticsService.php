@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Branch;
 use App\Models\Budget;
 use App\Models\RevenueSnapshot;
+use App\Support\BranchTime;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -37,7 +38,8 @@ class RevenueAnalyticsService
      */
     private function compute(Branch $branch, string $from, string $to): array
     {
-        $rows = $this->latestRows($branch->id, $from, $to, Carbon::today()->toDateString());
+        $today = BranchTime::today($branch);
+        $rows = $this->latestRows($branch->id, $from, $to, $today);
 
         $available = 0;
         $sold = 0;
@@ -95,8 +97,8 @@ class RevenueAnalyticsService
             'room_revenue_minor' => $roomRevenue,
             'total_revenue_minor' => $totalRevenue,
             'gop_expense_minor' => $gopExpense,
-            'pace' => $this->pace($branch->id, $from, $to),
-            'budgets' => $this->budgets($branch->id, $from, $to),
+            'pace' => $this->pace($branch->id, $from, $to, $today),
+            'budgets' => $this->budgets($branch->id, $from, $to, $today),
             'calendar' => $calendar,
             'by_segment' => $bySegment,
             'by_source' => $bySource,
@@ -125,10 +127,9 @@ class RevenueAnalyticsService
      *
      * @return list<array{stay_date: string, sold_now: int, sold_then: int, pickup: int, revenue_now_minor: int, revenue_then_minor: int}>
      */
-    private function pace(int $branchId, string $from, string $to): array
+    private function pace(int $branchId, string $from, string $to, string $today): array
     {
-        $today = Carbon::today()->toDateString();
-        $then = Carbon::today()->subDays(7)->toDateString();
+        $then = Carbon::parse($today)->subDays(7)->toDateString();
 
         $now = $this->latestRows($branchId, $from, $to, $today)->keyBy(fn (RevenueSnapshot $r) => $r->stay_date->toDateString());
         $past = $this->latestRows($branchId, $from, $to, $then)->keyBy(fn (RevenueSnapshot $r) => $r->stay_date->toDateString());
@@ -162,9 +163,9 @@ class RevenueAnalyticsService
      *
      * @return list<array{month: string, room_nights_target: int, room_nights_otb: int, nights_variance: int, revenue_target_minor: int, revenue_otb_minor: int, revenue_variance_minor: int}>
      */
-    private function budgets(int $branchId, string $from, string $to): array
+    private function budgets(int $branchId, string $from, string $to, string $today): array
     {
-        $rows = $this->latestRows($branchId, $from, $to, Carbon::today()->toDateString());
+        $rows = $this->latestRows($branchId, $from, $to, $today);
 
         $otbNights = [];
         $otbRevenue = [];

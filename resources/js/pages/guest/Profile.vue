@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft } from '@lucide/vue';
 import { formatDate } from '@/lib/dates';
+import LocaleSwitcher from '@/components/LocaleSwitcher.vue';
+import { t } from '@/lib/locale';
 
 interface Guest {
     id: number;
@@ -75,7 +77,7 @@ const goBack = () => {
 </script>
 
 <template>
-    <Head :title="`${guest.full_name ?? guest.first_name + ' ' + guest.last_name} - Guest Profile`" />
+    <Head :title="`${guest.full_name ?? guest.first_name + ' ' + guest.last_name} - ${t('portal.profile_title')}`" />
 
     <div class="min-h-screen bg-background">
         <header class="bg-card shadow">
@@ -83,20 +85,23 @@ const goBack = () => {
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <Button variant="ghost" size="sm" @click="goBack()" class="gap-1 text-muted-foreground hover:text-foreground">
-                            <ArrowLeft class="size-4" /> Back
+                            <ArrowLeft class="size-4" /> {{ t('common.back') }}
                         </Button>
                         <div>
                             <h1 class="text-2xl font-bold text-foreground">{{ guest.first_name }} {{ guest.last_name }}</h1>
                             <p class="text-muted-foreground">{{ guest.email }}</p>
                         </div>
                     </div>
-                    <Badge
-                        v-if="guest.vip_status !== 'none'"
-                        class="text-sm px-4 py-2"
-                        :class="getVipBadgeClass(guest.vip_status)"
-                    >
-                        {{ guest.vip_status.toUpperCase() }} VIP
-                    </Badge>
+                    <div class="flex items-center gap-3">
+                        <LocaleSwitcher />
+                        <Badge
+                            v-if="guest.vip_status !== 'none'"
+                            class="text-sm px-4 py-2"
+                            :class="getVipBadgeClass(guest.vip_status)"
+                        >
+                            {{ guest.vip_status.toUpperCase() }} {{ t('portal.vip_suffix') }}
+                        </Badge>
+                    </div>
                 </div>
             </div>
         </header>
@@ -106,24 +111,24 @@ const goBack = () => {
             <div class="grid grid-cols-3 gap-4 mb-6">
                 <div class="bg-card rounded-lg shadow p-6 text-center">
                     <p class="text-3xl font-bold text-foreground">{{ guest.total_stays }}</p>
-                    <p class="text-muted-foreground">Total Stays</p>
+                    <p class="text-muted-foreground">{{ t('portal.total_stays') }}</p>
                 </div>
                 <div class="bg-card rounded-lg shadow p-6 text-center">
                     <p class="text-3xl font-bold text-foreground">{{ guest.total_nights }}</p>
-                    <p class="text-muted-foreground">Total Nights</p>
+                    <p class="text-muted-foreground">{{ t('portal.total_nights_stat') }}</p>
                 </div>
                 <div class="bg-card rounded-lg shadow p-6 text-center">
                     <p class="text-3xl font-bold text-foreground">{{ formatCurrency(guest.total_spent) }}</p>
-                    <p class="text-muted-foreground">Total Spent</p>
+                    <p class="text-muted-foreground">{{ t('portal.total_spent') }}</p>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Preferences -->
                 <div class="bg-card rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-4">Preferences</h2>
+                    <h2 class="text-lg font-semibold mb-4">{{ t('portal.preferences') }}</h2>
                     <div v-if="Object.keys(groupedPreferences).length === 0" class="text-muted-foreground">
-                        No preferences recorded yet.
+                        {{ t('portal.no_preferences') }}
                     </div>
                     <div v-else class="space-y-4">
                         <div v-for="(prefs, category) in groupedPreferences" :key="category">
@@ -140,9 +145,9 @@ const goBack = () => {
 
                 <!-- Stay History -->
                 <div class="bg-card rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-4">Stay History</h2>
+                    <h2 class="text-lg font-semibold mb-4">{{ t('portal.stay_history') }}</h2>
                     <div v-if="reservations.length === 0" class="text-muted-foreground">
-                        No stays recorded yet.
+                        {{ t('portal.no_stays') }}
                     </div>
                     <div v-else class="space-y-3">
                         <div

@@ -15,7 +15,7 @@ use App\Models\Reservation;
 use App\Models\RoomType;
 use App\Models\Transaction;
 use App\Models\User;
-use Illuminate\Support\Carbon;
+use App\Support\BranchTime;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -45,8 +45,8 @@ class GroupBlockService
             $block = GroupBlock::create([
                 'branch_id' => $branch->id,
                 'name' => is_string($name) ? $name : 'Unnamed block',
-                'code' => is_string($code) && $code !== '' ? $code : 'BLK-'.strtoupper(Carbon::now()->format('ymd-His')),
-                'cutoff_date' => is_string($cutoff) ? $cutoff : Carbon::today()->toDateString(),
+                'code' => is_string($code) && $code !== '' ? $code : 'BLK-'.strtoupper(BranchTime::now($branch)->format('ymd-His')),
+                'cutoff_date' => is_string($cutoff) ? $cutoff : BranchTime::today($branch),
                 'attrition_pct' => is_int($attrition) ? $attrition : 0,
                 'status' => is_string($status) ? $status : GroupBlock::STATUS_TENTATIVE,
             ]);
@@ -225,7 +225,9 @@ class GroupBlockService
      */
     public function cutoffRelease(GroupBlock $block): int
     {
-        if (Carbon::today()->lessThanOrEqualTo($block->cutoff_date)) {
+        $today = BranchTime::today(Branch::findOrFail($block->branch_id));
+
+        if ($today <= $block->cutoff_date->toDateString()) {
             return 0;
         }
 

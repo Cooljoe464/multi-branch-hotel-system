@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft } from '@lucide/vue';
 import { formatDate, formatDateTime } from '@/lib/dates';
+import LocaleSwitcher from '@/components/LocaleSwitcher.vue';
+import { t } from '@/lib/locale';
 
 interface Guest {
     id: number;
@@ -117,22 +120,23 @@ const getVipBadgeClass = (status: string) => {
     return classes[status] || '';
 };
 
+const categoryLabels = computed<Record<string, string>>(() => ({
+    room_rate: t('portal.category_room_rate'),
+    tax: t('portal.category_tax'),
+    minibar: t('portal.category_minibar'),
+    restaurant: t('portal.category_restaurant'),
+    laundry: t('portal.category_laundry'),
+    spa: t('portal.category_spa'),
+    parking: t('portal.category_parking'),
+    misc: t('portal.category_misc'),
+    payment: t('portal.category_payment'),
+    refund: t('portal.category_refund'),
+    adjustment: t('portal.category_adjustment'),
+    transfer: t('portal.category_transfer'),
+}));
+
 const getCategoryLabel = (category: string) => {
-    const labels: Record<string, string> = {
-        room_rate: 'Room Rate',
-        tax: 'Tax',
-        minibar: 'Minibar',
-        restaurant: 'Restaurant',
-        laundry: 'Laundry',
-        spa: 'Spa',
-        parking: 'Parking',
-        misc: 'Miscellaneous',
-        payment: 'Payment',
-        refund: 'Refund',
-        adjustment: 'Adjustment',
-        transfer: 'Transfer',
-    };
-    return labels[category] || category;
+    return categoryLabels.value[category] || category;
 };
 
 const debits = () => props.transactions.filter((t) => t.type === 'debit' && !t.is_voided);
@@ -146,7 +150,7 @@ const goBack = () => {
 </script>
 
 <template>
-    <Head :title="`Folio - ${reservation.confirmation_number}`" />
+    <Head :title="`${t('portal.folio_title')} - ${reservation.confirmation_number}`" />
 
     <div class="min-h-screen bg-background">
         <!-- Header -->
@@ -155,19 +159,22 @@ const goBack = () => {
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <Button variant="ghost" size="sm" @click="goBack()" class="gap-1 text-muted-foreground hover:text-foreground">
-                            <ArrowLeft class="size-4" /> Back
+                            <ArrowLeft class="size-4" /> {{ t('common.back') }}
                         </Button>
                         <div>
                             <h1 class="text-2xl font-bold text-foreground">{{ reservation.branch.name }}</h1>
                             <p class="text-muted-foreground">{{ reservation.branch.city }}</p>
                         </div>
                     </div>
-                    <div class="text-right">
-                        <p class="text-sm text-muted-foreground">Confirmation</p>
-                        <p class="font-mono font-bold text-lg text-foreground">{{ reservation.confirmation_number }}</p>
-                        <Link v-if="reservation.status === 'checked_in'" :href="`/guest/order/${reservation.confirmation_number}`" class="mt-1 inline-block text-xs text-primary hover:underline">
-                            Order Food &amp; Services &rarr;
-                        </Link>
+                    <div class="flex items-start gap-3">
+                        <LocaleSwitcher />
+                        <div class="text-right">
+                            <p class="text-sm text-muted-foreground">{{ t('common.confirmation') }}</p>
+                            <p class="font-mono font-bold text-lg text-foreground">{{ reservation.confirmation_number }}</p>
+                            <Link v-if="reservation.status === 'checked_in'" :href="`/guest/order/${reservation.confirmation_number}`" class="mt-1 inline-block text-xs text-primary hover:underline">
+                                {{ t('portal.order_services') }}
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -186,11 +193,11 @@ const goBack = () => {
                             {{ reservation.status.replace('_', ' ').toUpperCase() }}
                         </Badge>
                         <Badge v-if="guest && guest.vip_status !== 'none'" class="ml-2" :class="getVipBadgeClass(guest.vip_status)">
-                            {{ guest.vip_status.toUpperCase() }} VIP
+                            {{ guest.vip_status.toUpperCase() }} {{ t('portal.vip_suffix') }}
                         </Badge>
                     </div>
                     <div class="text-right">
-                        <p class="text-sm text-muted-foreground">Guest</p>
+                        <p class="text-sm text-muted-foreground">{{ t('common.guest') }}</p>
                         <p class="font-medium text-foreground">{{ reservation.guest_name }}</p>
                     </div>
                 </div>
@@ -199,57 +206,57 @@ const goBack = () => {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Stay Details -->
                 <div class="bg-card rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-4 text-foreground">Stay Details</h2>
+                    <h2 class="text-lg font-semibold mb-4 text-foreground">{{ t('portal.stay_details') }}</h2>
                     <dl class="space-y-3">
                         <div class="flex justify-between">
-                            <dt class="text-muted-foreground">Room Type</dt>
+                            <dt class="text-muted-foreground">{{ t('common.room_type') }}</dt>
                             <dd class="font-medium text-foreground">{{ reservation.room_type.name }}</dd>
                         </div>
                         <div v-if="reservation.room" class="flex justify-between">
-                            <dt class="text-muted-foreground">Room Number</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.room_number') }}</dt>
                             <dd class="font-medium text-foreground">{{ reservation.room.number }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-muted-foreground">Check-in</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.check_in') }}</dt>
                             <dd class="text-foreground">{{ formatDate(reservation.check_in_date) }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-muted-foreground">Check-out</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.check_out') }}</dt>
                             <dd class="text-foreground">{{ formatDate(reservation.check_out_date) }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-muted-foreground">Nights</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.nights') }}</dt>
                             <dd class="text-foreground">{{ reservation.nights }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-muted-foreground">Guests</dt>
-                            <dd class="text-foreground">{{ reservation.adults }} adults, {{ reservation.children }} children</dd>
+                            <dt class="text-muted-foreground">{{ t('portal.guests') }}</dt>
+                            <dd class="text-foreground">{{ t('portal.guests_value', { adults: reservation.adults, children: reservation.children }) }}</dd>
                         </div>
                     </dl>
                 </div>
 
                 <!-- Contact Info -->
                 <div class="bg-card rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-4 text-foreground">Contact Information</h2>
+                    <h2 class="text-lg font-semibold mb-4 text-foreground">{{ t('portal.contact_info') }}</h2>
                     <dl class="space-y-3">
                         <div class="flex justify-between">
-                            <dt class="text-muted-foreground">Email</dt>
+                            <dt class="text-muted-foreground">{{ t('common.email') }}</dt>
                             <dd class="text-foreground">{{ reservation.guest_email || '-' }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-muted-foreground">Phone</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.phone') }}</dt>
                             <dd class="text-foreground">{{ reservation.guest_phone || '-' }}</dd>
                         </div>
                         <div v-if="reservation.branch.phone" class="flex justify-between">
-                            <dt class="text-muted-foreground">Property Phone</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.property_phone') }}</dt>
                             <dd class="text-foreground">{{ reservation.branch.phone }}</dd>
                         </div>
                         <div v-if="reservation.branch.email" class="flex justify-between">
-                            <dt class="text-muted-foreground">Property Email</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.property_email') }}</dt>
                             <dd class="text-foreground">{{ reservation.branch.email }}</dd>
                         </div>
                         <div v-if="reservation.branch.address" class="flex justify-between">
-                            <dt class="text-muted-foreground">Address</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.address') }}</dt>
                             <dd class="text-right text-foreground">{{ reservation.branch.address }}</dd>
                         </div>
                     </dl>
@@ -258,7 +265,7 @@ const goBack = () => {
                 <!-- Folio Transactions -->
                 <div class="bg-card rounded-lg shadow p-6 md:col-span-2">
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-lg font-semibold text-foreground">Folio</h2>
+                        <h2 class="text-lg font-semibold text-foreground">{{ t('portal.folio_title') }}</h2>
                         <Badge v-if="folio" variant="outline" class="bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">
                             {{ folio.folio_number }}
                         </Badge>
@@ -268,10 +275,10 @@ const goBack = () => {
                         <table class="min-w-full divide-y divide-border mb-4">
                             <thead class="bg-muted/50">
                                 <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Description</th>
-                                    <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Debit</th>
-                                    <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Credit</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">{{ t('portal.table_date') }}</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">{{ t('portal.table_description') }}</th>
+                                    <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">{{ t('portal.table_debit') }}</th>
+                                    <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">{{ t('portal.table_credit') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-border">
@@ -296,15 +303,15 @@ const goBack = () => {
                         <!-- Summary -->
                         <div class="border-t border-border pt-3 space-y-2">
                             <div class="flex justify-between text-sm">
-                                <span class="text-muted-foreground">Total Charges</span>
+                                <span class="text-muted-foreground">{{ t('portal.total_charges') }}</span>
                                 <span class="font-medium text-red-600 dark:text-red-400">{{ formatCurrency(debitsTotal()) }}</span>
                             </div>
                             <div class="flex justify-between text-sm">
-                                <span class="text-muted-foreground">Total Payments</span>
+                                <span class="text-muted-foreground">{{ t('portal.total_payments') }}</span>
                                 <span class="font-medium text-green-600 dark:text-green-400">{{ formatCurrency(creditsTotal()) }}</span>
                             </div>
                             <div class="flex justify-between text-lg font-semibold pt-2 border-t border-border">
-                                <span class="text-foreground">Balance Due</span>
+                                <span class="text-foreground">{{ t('portal.balance_due') }}</span>
                                 <span :class="folio && folio.balance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'">
                                     {{ formatCurrency(folio ? folio.balance : 0) }}
                                 </span>
@@ -314,39 +321,39 @@ const goBack = () => {
                                     :href="`/guest/folio/${reservation.confirmation_number}/pay?amount=${folio.balance}`"
                                     class="block w-full rounded-lg bg-primary py-3 text-center text-sm font-medium text-primary-foreground hover:bg-primary/90"
                                 >
-                                    Pay Now via QR Code
+                                    {{ t('portal.pay_now_qr') }}
                                 </a>
                             </div>
                         </div>
                     </div>
 
                     <div v-else class="text-center py-8 text-muted-foreground">
-                        <p>No transactions on this folio yet.</p>
+                        <p>{{ t('portal.no_transactions') }}</p>
                     </div>
                 </div>
 
                 <!-- Financial Summary -->
                 <div class="bg-card rounded-lg shadow p-6 md:col-span-2">
-                    <h2 class="text-lg font-semibold mb-4 text-foreground">Financial Summary</h2>
+                    <h2 class="text-lg font-semibold mb-4 text-foreground">{{ t('portal.financial_summary') }}</h2>
                     <dl class="space-y-3">
                         <div class="flex justify-between">
-                            <dt class="text-muted-foreground">Room Rate</dt>
-                            <dd class="text-foreground">{{ formatCurrency(reservation.room_rate) }} / night</dd>
+                            <dt class="text-muted-foreground">{{ t('portal.room_rate') }}</dt>
+                            <dd class="text-foreground">{{ formatCurrency(reservation.room_rate) }}{{ t('portal.night_suffix') }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-muted-foreground">Subtotal ({{ reservation.nights }} nights)</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.subtotal_nights', { nights: reservation.nights }) }}</dt>
                             <dd class="text-foreground">{{ formatCurrency(reservation.room_rate * reservation.nights) }}</dd>
                         </div>
                         <div class="flex justify-between text-lg font-semibold pt-3 border-t border-border">
-                            <dt class="text-foreground">Total</dt>
+                            <dt class="text-foreground">{{ t('portal.total_row') }}</dt>
                             <dd class="text-foreground">{{ formatCurrency(reservation.total_amount) }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-muted-foreground">Amount Paid</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.amount_paid') }}</dt>
                             <dd class="text-green-600 dark:text-green-400">{{ formatCurrency(reservation.amount_paid) }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-muted-foreground">Balance Due</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.balance_due') }}</dt>
                             <dd class="font-medium text-foreground">{{ formatCurrency(reservation.total_amount - reservation.amount_paid) }}</dd>
                         </div>
                     </dl>
@@ -354,18 +361,18 @@ const goBack = () => {
 
                 <!-- Timeline -->
                 <div class="bg-card rounded-lg shadow p-6 md:col-span-2">
-                    <h2 class="text-lg font-semibold mb-4 text-foreground">Timeline</h2>
+                    <h2 class="text-lg font-semibold mb-4 text-foreground">{{ t('portal.timeline') }}</h2>
                     <dl class="space-y-3">
                         <div class="flex justify-between">
-                            <dt class="text-muted-foreground">Booked On</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.booked_on') }}</dt>
                             <dd class="text-foreground">{{ formatDateTime(reservation.created_at) }}</dd>
                         </div>
                         <div v-if="reservation.actual_check_in_at" class="flex justify-between">
-                            <dt class="text-muted-foreground">Actual Check-in</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.actual_check_in') }}</dt>
                             <dd class="text-foreground">{{ formatDateTime(reservation.actual_check_in_at) }}</dd>
                         </div>
                         <div v-if="reservation.actual_check_out_at" class="flex justify-between">
-                            <dt class="text-muted-foreground">Actual Check-out</dt>
+                            <dt class="text-muted-foreground">{{ t('portal.actual_check_out') }}</dt>
                             <dd class="text-foreground">{{ formatDateTime(reservation.actual_check_out_at) }}</dd>
                         </div>
                     </dl>
@@ -373,19 +380,19 @@ const goBack = () => {
 
                 <!-- Guest Profile (if linked) -->
                 <div v-if="guest && guest.total_stays > 0" class="bg-card rounded-lg shadow p-6 md:col-span-2">
-                    <h2 class="text-lg font-semibold mb-4 text-foreground">Guest Profile</h2>
+                    <h2 class="text-lg font-semibold mb-4 text-foreground">{{ t('portal.guest_profile') }}</h2>
                     <div class="grid grid-cols-3 gap-4 text-center">
                         <div>
                             <p class="text-2xl font-bold text-foreground">{{ guest.total_stays }}</p>
-                            <p class="text-sm text-muted-foreground">Total Stays</p>
+                            <p class="text-sm text-muted-foreground">{{ t('portal.total_stays') }}</p>
                         </div>
                         <div>
                             <p class="text-2xl font-bold text-foreground">{{ guest.total_nights }}</p>
-                            <p class="text-sm text-muted-foreground">Total Nights</p>
+                            <p class="text-sm text-muted-foreground">{{ t('portal.total_nights_stat') }}</p>
                         </div>
                         <div>
                             <p class="text-2xl font-bold text-foreground">{{ formatCurrency(guest.total_spent) }}</p>
-                            <p class="text-sm text-muted-foreground">Total Spent</p>
+                            <p class="text-sm text-muted-foreground">{{ t('portal.total_spent') }}</p>
                         </div>
                     </div>
                 </div>
