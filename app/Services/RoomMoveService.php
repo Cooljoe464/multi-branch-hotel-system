@@ -126,6 +126,10 @@ class RoomMoveService
 
             $move->update(['key_reissued' => true]);
 
+            // Mobile credentials are room-agnostic; only the window
+            // follows the stay. No vendor call, no rollback risk.
+            (new MobileKeyService)->extendForMove($locked->fresh() ?? $locked);
+
             event(new GuestMoved($locked->fresh() ?? $locked, $move->fresh() ?? $move));
             event(new KeyReissued($locked->fresh() ?? $locked, $target));
 

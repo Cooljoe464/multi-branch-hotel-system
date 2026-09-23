@@ -20,6 +20,7 @@ use App\Services\CommissionService;
 use App\Services\DoorLock\DoorLockService;
 use App\Services\GuaranteeService;
 use App\Services\LoyaltyService;
+use App\Services\MobileKeyService;
 use App\Services\PricingService;
 use App\Services\RateEngine;
 use App\Services\TabletService;
@@ -541,6 +542,16 @@ class ReservationController extends Controller
             $lockService->forBranch($reservation->branch)->revokeKey($reservation);
         } catch (\Throwable $e) {
             Log::warning('Door lock key revocation failed', [
+                'reservation' => $reservation->confirmation_number,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Revoke mobile keys (best-effort; plastic fallback already active)
+        try {
+            (new MobileKeyService)->revokeForReservation($reservation);
+        } catch (\Throwable $e) {
+            Log::warning('Mobile key revocation failed', [
                 'reservation' => $reservation->confirmation_number,
                 'error' => $e->getMessage(),
             ]);

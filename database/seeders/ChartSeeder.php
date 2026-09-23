@@ -83,6 +83,7 @@ class ChartSeeder extends Seeder
             ['inventory.received', '1400', '2400'],
             ['maintenance.parts', '5200', '1400'],
             ['loyalty.redeemed', 'REVENUE', 'GUEST_LEDGER'],
+            ['telecom.call', 'GUEST_LEDGER', '4200'],
         ];
     }
 }

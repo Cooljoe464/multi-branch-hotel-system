@@ -63,6 +63,7 @@ use App\Http\Controllers\LoyaltyController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\MenuItemController;
 use App\Http\Controllers\MinibarController;
+use App\Http\Controllers\MobileKeyController;
 use App\Http\Controllers\NightAuditController;
 use App\Http\Controllers\OutletController;
 use App\Http\Controllers\PosModifierController;
@@ -87,6 +88,7 @@ use App\Http\Controllers\TabletOrderController;
 use App\Http\Controllers\TabletSessionController;
 use App\Http\Controllers\TapeChartController;
 use App\Http\Controllers\TaxProfileController;
+use App\Http\Controllers\TelecomController;
 use App\Http\Controllers\TransferController;
 use App\Http\Controllers\TrialBalanceController;
 use App\Http\Controllers\UpsellAcceptanceController;
@@ -139,6 +141,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('front-desk', FrontDeskDashboardController::class)
         ->middleware('permission:rooms.view')
         ->name('front-desk.dashboard');
+
+    // Keys, Wi-Fi, telecom (front desk)
+    Route::get('branches/{branch}/connectivity', [TelecomController::class, 'index'])
+        ->middleware('permission:telecom.view')
+        ->name('connectivity.index');
+    Route::post('branches/{branch}/mobile-keys', [MobileKeyController::class, 'store'])
+        ->middleware('permission:door_lock.issue_mobile_key')
+        ->name('mobile-keys.store');
+    Route::delete('branches/{branch}/mobile-keys/{key}', [MobileKeyController::class, 'destroy'])
+        ->middleware('permission:door_lock.issue_mobile_key')
+        ->name('mobile-keys.destroy');
+    Route::post('branches/{branch}/telecom/rates', [TelecomController::class, 'storeRate'])
+        ->middleware('permission:telecom.manage_rates')
+        ->name('telecom.rates.store');
+    Route::post('branches/{branch}/telecom/secret', [TelecomController::class, 'storeSecret'])
+        ->middleware('permission:telecom.manage_rates')
+        ->name('telecom.secret.store');
+    Route::post('branches/{branch}/wifi/vouchers', [TelecomController::class, 'issueVoucher'])
+        ->middleware('permission:telecom.view')
+        ->name('wifi.vouchers.store');
+    Route::post('branches/{branch}/wifi/vouchers/{session}/revoke', [TelecomController::class, 'revokeVoucher'])
+        ->middleware('permission:telecom.view')
+        ->name('wifi.vouchers.revoke');
 
     Route::post('branch/switch', [BranchController::class, 'switch'])->name('branch.switch');
 

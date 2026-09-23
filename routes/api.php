@@ -6,11 +6,13 @@ use App\Http\Controllers\Api\V1\RatesController;
 use App\Http\Controllers\Api\V1\ReservationController;
 use App\Http\Controllers\Api\V1\RevenueController;
 use App\Http\Controllers\Api\V1\WebhookController;
+use App\Http\Controllers\CdrController;
 use App\Http\Controllers\ChannelWebhookController;
 use App\Http\Controllers\PaystackWebhookController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\RevenueReportController;
 use App\Http\Controllers\WarehouseController as WarehouseApiController;
+use App\Http\Controllers\WifiPortalController;
 use App\Http\Middleware\RequireIdempotencyKey;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +22,14 @@ Route::post('/pos/charge', [PosController::class, 'charge'])
 
 Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle'])
     ->name('api.webhooks.paystack');
+
+Route::post('/cdr/{branch}', [CdrController::class, 'store'])
+    ->middleware('throttle:60,1')
+    ->name('api.cdr.store');
+
+Route::post('/wifi/validate', [WifiPortalController::class, 'validate'])
+    ->middleware('throttle:60,1')
+    ->name('api.wifi.validate');
 
 Route::post('/webhooks/channels/{channelProvider}', [ChannelWebhookController::class, 'store'])
     ->name('api.webhooks.channels');
