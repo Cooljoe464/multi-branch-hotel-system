@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvailabilityException;
 use App\Models\Branch;
 use App\Models\Guest;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Services\GuestDedupService;
 use App\Services\PricingService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -116,6 +118,13 @@ class BookingEngineController extends Controller
         }
 
         return DB::transaction(function () use ($branch, $roomType, $pricing, $checkIn, $checkOut, $adults, $children, $email, $firstName, $lastName, $phone, $specialRequests) {
+            // Silent reject: no reason leaks to the public engine.
+            try {
+                (new GuestDedupService)->assertRentable($branch, null, $email);
+            } catch (AvailabilityException) {
+                return back()->withErrors(['email' => 'Unable to complete this booking. Please contact the property directly.']);
+            }
+
             $hasOverlap = Reservation::where('branch_id', $branch->id)
                 ->where('room_type_id', $roomType->id)
                 ->whereIn('status', ['confirmed', 'reserved', 'checked_in'])

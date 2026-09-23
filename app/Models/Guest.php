@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use App\Services\GuestDedupService;
 use Database\Factories\GuestFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -38,6 +42,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string|null $internal_notes
  * @property array<string, mixed>|null $metadata
  * @property Carbon|null $last_stayed_at
+ * @property int|null $master_guest_id
+ * @property string|null $dedup_hash
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -45,6 +51,9 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property-read HasMany<GuestPreference, $this> $preferences
  * @property-read HasMany<Reservation, $this> $reservations
  * @property-read HasMany<Reservation, $this> $allReservations
+ * @property-read BelongsTo<Guest, $this> $master
+ * @property-read Collection<int, GuestIdentityDocument> $identityDocuments
+ * @property-read LoyaltyAccount|null $loyaltyAccount
  */
 #[Fillable([
     'first_name',
@@ -69,6 +78,8 @@ use Spatie\Activitylog\Support\LogOptions;
     'internal_notes',
     'metadata',
     'last_stayed_at',
+    'master_guest_id',
+    'dedup_hash',
 ])]
 class Guest extends Model
 {
@@ -79,6 +90,22 @@ class Guest extends Model
     use Notifiable;
     use SoftDeletes;
 
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        // Dedup hash follows every profile write; merges read it,
+        // never compute-then-compare races.
+        static::saving(function (Guest $guest) {
+            $guest->dedup_hash = GuestDedupService::hashFor(
+                $guest->first_name ?? '',
+                $guest->last_name ?? '',
+                $guest->phone,
+                $guest->date_of_birth,
+            );
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -88,6 +115,7 @@ class Guest extends Model
             'total_spent' => 'integer',
             'metadata' => 'array',
             'last_stayed_at' => 'datetime',
+            'id_number' => 'encrypted',
         ];
     }
 
@@ -100,6 +128,24 @@ class Guest extends Model
     }
 
     // --- Relationships ---
+
+    /** @return BelongsTo<Guest, $this> */
+    public function master(): BelongsTo
+    {
+        return $this->belongsTo(Guest::class, 'master_guest_id');
+    }
+
+    /** @return HasMany<GuestIdentityDocument, $this> */
+    public function identityDocuments(): HasMany
+    {
+        return $this->hasMany(GuestIdentityDocument::class);
+    }
+
+    /** @return HasOne<LoyaltyAccount, $this> */
+    public function loyaltyAccount(): HasOne
+    {
+        return $this->hasOne(LoyaltyAccount::class);
+    }
 
     /** @return HasMany<GuestPreference, $this> */
     public function preferences(): HasMany

@@ -21,9 +21,12 @@ use App\Http\Controllers\ChartAccountController;
 use App\Http\Controllers\CityLedgerController;
 use App\Http\Controllers\CommercialController;
 use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CrsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DiningTableController;
+use App\Http\Controllers\DoNotRentController;
+use App\Http\Controllers\DsarController;
 use App\Http\Controllers\FolioController;
 use App\Http\Controllers\FolioDisputeController;
 use App\Http\Controllers\FolioWindowController;
@@ -34,14 +37,17 @@ use App\Http\Controllers\GoodsReceiptController;
 use App\Http\Controllers\GroupBlockController;
 use App\Http\Controllers\GroupLedgerController;
 use App\Http\Controllers\GuaranteePolicyController;
+use App\Http\Controllers\GuestMergeController;
 use App\Http\Controllers\GuestOrderController;
 use App\Http\Controllers\GuestPaymentController;
 use App\Http\Controllers\GuestPortalController;
+use App\Http\Controllers\GuestProfileController;
 use App\Http\Controllers\HappyHourController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\HousekeepingController;
 use App\Http\Controllers\HousekeepingTaskController;
 use App\Http\Controllers\IdempotencyController;
+use App\Http\Controllers\IdentityDocumentController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\ImportTemplateController;
 use App\Http\Controllers\InventoryController;
@@ -50,6 +56,7 @@ use App\Http\Controllers\KdsController;
 use App\Http\Controllers\KitchenWasteController;
 use App\Http\Controllers\LaundryController;
 use App\Http\Controllers\LostFoundController;
+use App\Http\Controllers\LoyaltyController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\MenuItemController;
 use App\Http\Controllers\MinibarController;
@@ -66,9 +73,12 @@ use App\Http\Controllers\RegistrationCardController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReservationMoveController;
+use App\Http\Controllers\RetentionPolicyController;
 use App\Http\Controllers\RevenueReportController;
 use App\Http\Controllers\RoomController;
+use App\Http\Controllers\StatutoryReportController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\TabletMenuController;
 use App\Http\Controllers\TabletOrderController;
 use App\Http\Controllers\TabletSessionController;
@@ -76,6 +86,8 @@ use App\Http\Controllers\TapeChartController;
 use App\Http\Controllers\TaxProfileController;
 use App\Http\Controllers\TransferController;
 use App\Http\Controllers\TrialBalanceController;
+use App\Http\Controllers\UpsellAcceptanceController;
+use App\Http\Controllers\UpsellOfferController;
 use App\Http\Controllers\VoidRefundController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\YieldRuleController;
@@ -109,6 +121,10 @@ Route::get('guest/order/{confirmationNumber}', [GuestOrderController::class, 'ou
 Route::get('guest/order/{confirmationNumber}/{outletCode}', [GuestOrderController::class, 'menu'])->name('guest.order.menu');
 Route::post('guest/order/{confirmationNumber}', [GuestOrderController::class, 'store'])->name('guest.order.store');
 Route::get('guest/order/{confirmationNumber}/track/{orderId}', [GuestOrderController::class, 'track'])->name('guest.order.track');
+
+// Public routes - Post-stay surveys (guest link, no account needed)
+Route::get('surveys/{reservation}', [SurveyController::class, 'show'])->name('surveys.show');
+Route::post('surveys/{reservation}', [SurveyController::class, 'store'])->name('surveys.store');
 
 // Guest Payment
 Route::post('guest/folio/{confirmationNumber}/pay', [GuestPaymentController::class, 'initiate'])->name('guest.payment.initiate');
@@ -910,6 +926,103 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('reservations/{reservation}/registration-card', [RegistrationCardController::class, 'store'])
         ->middleware('permission:reservations.update')
         ->name('reservations.registration-card.store');
+
+    // Privacy (DSAR + retention)
+    Route::get('branches/{branch}/privacy/dsar', [DsarController::class, 'index'])
+        ->middleware('permission:privacy.view')
+        ->name('dsar.index');
+    Route::post('branches/{branch}/privacy/dsar', [DsarController::class, 'store'])
+        ->middleware('permission:privacy.view')
+        ->name('dsar.store');
+    Route::post('branches/{branch}/privacy/dsar/{dsar}/fulfill', [DsarController::class, 'fulfill'])
+        ->middleware('permission:privacy.fulfill')
+        ->name('dsar.fulfill');
+    Route::post('branches/{branch}/privacy/dsar/{dsar}/reject', [DsarController::class, 'reject'])
+        ->middleware('permission:privacy.fulfill')
+        ->name('dsar.reject');
+    Route::get('branches/{branch}/privacy/dsar/{dsar}/download', [DsarController::class, 'download'])
+        ->middleware('permission:privacy.fulfill')
+        ->name('dsar.download');
+    Route::post('branches/{branch}/privacy/retention', [RetentionPolicyController::class, 'store'])
+        ->middleware('permission:privacy.set_retention')
+        ->name('retention.store');
+
+    // Upsells
+    Route::get('branches/{branch}/upsells', [UpsellOfferController::class, 'index'])
+        ->middleware('permission:upsell.view')
+        ->name('upsells.index');
+    Route::post('branches/{branch}/upsells', [UpsellOfferController::class, 'store'])
+        ->middleware('permission:upsell.manage')
+        ->name('upsells.store');
+    Route::put('branches/{branch}/upsells/{offer}', [UpsellOfferController::class, 'update'])
+        ->middleware('permission:upsell.manage')
+        ->name('upsells.update');
+    Route::get('reservations/{reservation}/upsells/quote', [UpsellAcceptanceController::class, 'quote'])
+        ->middleware('permission:upsell.view')
+        ->name('upsells.quote');
+    Route::post('reservations/{reservation}/upsells/accept', [UpsellAcceptanceController::class, 'accept'])
+        ->middleware('permission:upsell.view')
+        ->name('upsells.accept');
+
+    // CRM: loyalty, consent, surveys
+    Route::get('branches/{branch}/crm', [LoyaltyController::class, 'index'])
+        ->middleware('permission:crm.view')
+        ->name('crm.index');
+    Route::post('branches/{branch}/crm/enroll', [LoyaltyController::class, 'enroll'])
+        ->middleware('permission:crm.manage')
+        ->name('crm.enroll');
+    Route::post('branches/{branch}/crm/redeem', [LoyaltyController::class, 'redeem'])
+        ->middleware('permission:crm.redeem')
+        ->name('crm.redeem');
+    Route::post('guests/{guest}/consents', [ConsentController::class, 'store'])
+        ->middleware('permission:crm.manage')
+        ->name('consents.store');
+
+    // Statutory reporting
+    Route::get('branches/{branch}/compliance/statutory', [StatutoryReportController::class, 'index'])
+        ->middleware('permission:statutory.view')
+        ->name('statutory.index');
+    Route::post('branches/{branch}/compliance/statutory', [StatutoryReportController::class, 'store'])
+        ->middleware('permission:statutory.generate')
+        ->name('statutory.store');
+    Route::get('branches/{branch}/compliance/statutory/{report}/download', [StatutoryReportController::class, 'download'])
+        ->middleware('permission:statutory.view')
+        ->name('statutory.download');
+    Route::post('branches/{branch}/compliance/statutory/{report}/resubmit', [StatutoryReportController::class, 'resubmit'])
+        ->middleware('permission:statutory.generate')
+        ->name('statutory.resubmit');
+
+    // Guest profiles, merges, DNR, identity
+    Route::get('guests/{guest}', [GuestProfileController::class, 'show'])
+        ->middleware('permission:guests.view')
+        ->name('guests.profile');
+    Route::get('branches/{branch}/guests/merges', [GuestMergeController::class, 'index'])
+        ->middleware('permission:guests.merge')
+        ->name('guests.merges.index');
+    Route::post('guests/merges', [GuestMergeController::class, 'store'])
+        ->middleware('permission:guests.merge')
+        ->name('guests.merges.store');
+    Route::get('guests/{guest}/merge-suggestions', [GuestMergeController::class, 'suggest'])
+        ->middleware('permission:guests.merge')
+        ->name('guests.merges.suggest');
+    Route::get('branches/{branch}/dnr', [DoNotRentController::class, 'index'])
+        ->middleware('permission:guests.manage_dnr')
+        ->name('dnr.index');
+    Route::post('branches/{branch}/dnr', [DoNotRentController::class, 'store'])
+        ->middleware('permission:guests.manage_dnr')
+        ->name('dnr.store');
+    Route::delete('branches/{branch}/dnr/{entry}', [DoNotRentController::class, 'destroy'])
+        ->middleware('permission:guests.manage_dnr')
+        ->name('dnr.destroy');
+    Route::post('guests/{guest}/identity-documents', [IdentityDocumentController::class, 'store'])
+        ->middleware('permission:guests.update')
+        ->name('identity.store');
+    Route::get('identity-documents/{document}/download', [IdentityDocumentController::class, 'download'])
+        ->middleware('permission:guests.view')
+        ->name('identity.download');
+    Route::get('identity-documents/{document}/reveal', [IdentityDocumentController::class, 'reveal'])
+        ->middleware('permission:guests.view')
+        ->name('identity.reveal');
 
     // Admin — Branch Wizard
     Route::get('admin/branches/create', [BranchWizardController::class, 'index'])

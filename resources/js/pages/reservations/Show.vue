@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import MoveDialog from '@/components/MoveDialog.vue';
+import UpsellPanel from '@/components/UpsellPanel.vue';
 import { ArrowLeft } from '@lucide/vue';
 import { formatDate, formatDateTime } from '@/lib/dates';
 import { formatCurrency as formatCurrencyRaw } from '@/lib/format';
@@ -23,6 +24,14 @@ interface RoomType {
 interface Branch {
     id: number;
     name: string;
+}
+
+interface UpsellQuote {
+    offer_id: number;
+    kind: string;
+    fee_minor: number;
+    eligible: boolean;
+    reason: string | null;
 }
 
 interface Reservation {
@@ -50,9 +59,14 @@ interface Reservation {
     created_at: string;
 }
 
-const props = defineProps<{
-    reservation: Reservation;
-}>();
+const props = withDefaults(
+    defineProps<{
+        reservation: Reservation;
+        upsells?: UpsellQuote[];
+        can_grant_free_upsell?: boolean;
+    }>(),
+    { upsells: () => [], can_grant_free_upsell: false },
+);
 
 defineOptions({
     layout: {
@@ -363,6 +377,14 @@ const showMove = ref(false);
                     </ul>
                 </div>
             </div>
+        </div>
+
+        <div class="mt-6">
+            <UpsellPanel
+                :reservation-id="reservation.id"
+                :quotes="upsells"
+                :can-grant-free="can_grant_free_upsell"
+            />
         </div>
     </div>
 </template>

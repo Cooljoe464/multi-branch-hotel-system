@@ -5,6 +5,7 @@ use App\Jobs\MonitorStuckQueuesJob;
 use App\Jobs\NightlyReconciliationJob;
 use App\Jobs\PmSchedulerJob;
 use App\Jobs\ReleaseHoldsJob;
+use App\Jobs\RetentionRunJob;
 use App\Jobs\SnapshotRevenueJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -34,6 +35,9 @@ Schedule::job(new SnapshotRevenueJob)->dailyAt('02:45');
 
 // ── Maintenance ─────────────────────────────────
 Schedule::job(new PmSchedulerJob)->dailyAt('05:00');
+
+// ── Privacy ─────────────────────────────────────
+Schedule::job(new RetentionRunJob)->dailyAt('03:15');
 
 // ── Backups ───────────────────────────────────
 Schedule::command('backup:clean')->daily()->at('03:00');

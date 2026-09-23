@@ -99,6 +99,8 @@ class AvailabilityService
         ?string $restrictionReason = null,
         ?array $rateQuote = null,
         ?PromoCode $promo = null,
+        ?User $dnrOverrider = null,
+        ?string $dnrReason = null,
     ): Reservation {
         if ($idempotencyKey !== null) {
             $existing = Reservation::where('branch_id', $branch->id)
@@ -110,7 +112,7 @@ class AvailabilityService
             }
         }
 
-        return DB::transaction(function () use ($branch, $roomType, $checkIn, $checkOut, $attributes, $roomId, $idempotencyKey, $overbookedBy, $overbookReason, $ratePlan, $restrictionOverrider, $restrictionReason, $rateQuote, $promo) {
+        return DB::transaction(function () use ($branch, $roomType, $checkIn, $checkOut, $attributes, $roomId, $idempotencyKey, $overbookedBy, $overbookReason, $ratePlan, $restrictionOverrider, $restrictionReason, $rateQuote, $promo, $dnrOverrider, $dnrReason) {
             if ($idempotencyKey !== null) {
                 $existing = Reservation::where('branch_id', $branch->id)
                     ->where('idempotency_key', $idempotencyKey)
@@ -161,6 +163,17 @@ class AvailabilityService
             if ($rateQuote !== null && $promo !== null) {
                 (new RateEngine)->consumePromo($promo);
             }
+
+            $guestId = $attributes['guest_id'] ?? null;
+            $guestEmail = $attributes['guest_email'] ?? null;
+
+            (new GuestDedupService)->assertRentable(
+                $branch,
+                is_int($guestId) ? $guestId : null,
+                is_string($guestEmail) ? $guestEmail : null,
+                $dnrOverrider,
+                $dnrReason,
+            );
 
             if ($room !== null) {
                 $this->claimRoom($room, $nights);

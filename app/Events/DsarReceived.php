@@ -1,0 +1,43 @@
+<?php
+
+namespace App\Events;
+
+use App\Models\DsarRequest;
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class DsarReceived implements ShouldBroadcast
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public function __construct(
+        public DsarRequest $request,
+    ) {}
+
+    public function broadcastOn(): array
+    {
+        return [
+            new PrivateChannel('privacy.dsar'),
+        ];
+    }
+
+    public function broadcastAs(): string
+    {
+        return 'dsar.received';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'request_id' => $this->request->id,
+            'kind' => $this->request->kind,
+            'at' => now()->toISOString(),
+        ];
+    }
+}

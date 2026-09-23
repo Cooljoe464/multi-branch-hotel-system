@@ -82,6 +82,7 @@ class ChartSeeder extends Seeder
             ['cogs.recognized', '5000', '1400'],
             ['inventory.received', '1400', '2400'],
             ['maintenance.parts', '5200', '1400'],
+            ['loyalty.redeemed', 'REVENUE', 'GUEST_LEDGER'],
         ];
     }
 }

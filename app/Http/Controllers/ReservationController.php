@@ -6,6 +6,7 @@ use App\Exceptions\AvailabilityException;
 use App\Models\Branch;
 use App\Models\CorporateAccount;
 use App\Models\Guest;
+use App\Models\PostStaySurvey;
 use App\Models\PromoCode;
 use App\Models\RatePlan;
 use App\Models\Reservation;
@@ -18,9 +19,11 @@ use App\Services\AvailabilityService;
 use App\Services\CommissionService;
 use App\Services\DoorLock\DoorLockService;
 use App\Services\GuaranteeService;
+use App\Services\LoyaltyService;
 use App\Services\PricingService;
 use App\Services\RateEngine;
 use App\Services\TabletService;
+use App\Services\UpsellService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
@@ -279,6 +282,8 @@ class ReservationController extends Controller
             restrictionReason: $overbookReason !== '' ? $overbookReason : null,
             rateQuote: $quote,
             promo: $promo,
+            dnrOverrider: $request->string('dnr_override_reason')->value() !== '' ? $user : null,
+            dnrReason: $request->string('dnr_override_reason')->value() !== '' ? $request->string('dnr_override_reason')->value() : null,
         );
 
         if ($roomId !== null) {
@@ -305,6 +310,8 @@ class ReservationController extends Controller
                 'policy' => (new GuaranteeService)->policyFor($reservation->branch_id, $reservation->rate_plan_id),
                 'can_waive_penalty' => $request->user()?->can('reservations.waive_penalty') ?? false,
             ],
+            'upsells' => (new UpsellService)->quote($reservation->branch, $reservation),
+            'can_grant_free_upsell' => $request->user()?->can('upsell.grant_free') ?? false,
         ]);
     }
 
@@ -586,6 +593,17 @@ class ReservationController extends Controller
             (new CommissionService)->accrue($reservation->fresh() ?? $reservation);
         } catch (\Throwable $e) {
             Log::warning('Commission accrual failed', [
+                'reservation' => $reservation->confirmation_number,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Loyalty earn (idempotent per stay) + post-stay survey shell.
+        try {
+            (new LoyaltyService)->earn($reservation->fresh() ?? $reservation);
+            PostStaySurvey::firstOrCreate(['reservation_id' => $reservation->id]);
+        } catch (\Throwable $e) {
+            Log::warning('Loyalty earn failed', [
                 'reservation' => $reservation->confirmation_number,
                 'error' => $e->getMessage(),
             ]);
