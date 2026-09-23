@@ -68,7 +68,7 @@ test('global admin can access all gated modules', function () {
     }
 });
 
-test('housekeeper is denied analytics, reports, pricing, reservations, folios and maintenance', function () {
+test('housekeeper is denied analytics, reports, pricing, reservations and folios', function () {
     $denied = [
         '/analytics',
         '/reports',
@@ -76,13 +76,16 @@ test('housekeeper is denied analytics, reports, pricing, reservations, folios an
         '/rate-overrides',
         '/reservations',
         '/folios',
-        '/maintenance',
         '/tape-chart',
     ];
 
     foreach ($denied as $page) {
         $this->actingAs($this->housekeeper)->get($page)->assertForbidden($page);
     }
+});
+
+test('housekeeper can access the maintenance index view', function () {
+    $this->actingAs($this->housekeeper)->get('/maintenance')->assertOk();
 });
 
 test('housekeeper can access the housekeeping index view', function () {

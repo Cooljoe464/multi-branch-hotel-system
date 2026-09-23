@@ -20,12 +20,17 @@ use Illuminate\Support\Carbon;
  * @property int $folio_id
  * @property int|null $transaction_id
  * @property string $outlet
- * @property array<int, array{name: string, quantity?: int, price?: int}> $items
+ * @property array<int, array<string, mixed>> $items
  * @property int $subtotal
  * @property int $tax_amount
  * @property int $total
  * @property int $version
  * @property string $status
+ * @property int|null $dining_table_id
+ * @property string $course
+ * @property Carbon|null $fired_at
+ * @property string|null $offline_nonce
+ * @property int|null $parent_split_id
  * @property Carbon|null $posted_at
  * @property array<string, mixed>|null $metadata
  * @property Carbon|null $created_at
@@ -35,6 +40,9 @@ use Illuminate\Support\Carbon;
  * @property-read Folio $folio
  * @property-read Transaction|null $transaction
  * @property-read Collection<int, KotItem> $kotItems
+ * @property-read DiningTable|null $diningTable
+ * @property-read PosCharge|null $parentSplit
+ * @property-read Collection<int, PosCharge> $splitChildren
  */
 #[Fillable([
     'branch_id',
@@ -53,6 +61,11 @@ use Illuminate\Support\Carbon;
     'posted_at',
     'metadata',
     'version',
+    'dining_table_id',
+    'course',
+    'fired_at',
+    'offline_nonce',
+    'parent_split_id',
 ])]
 class PosCharge extends Model
 {
@@ -69,6 +82,7 @@ class PosCharge extends Model
             'tax_amount' => 'integer',
             'total' => 'integer',
             'posted_at' => 'datetime',
+            'fired_at' => 'datetime',
             'business_date' => 'date',
             'version' => 'integer',
             'metadata' => 'array',
@@ -103,6 +117,24 @@ class PosCharge extends Model
     public function kotItems(): HasMany
     {
         return $this->hasMany(KotItem::class);
+    }
+
+    /** @return BelongsTo<DiningTable, $this> */
+    public function diningTable(): BelongsTo
+    {
+        return $this->belongsTo(DiningTable::class);
+    }
+
+    /** @return BelongsTo<PosCharge, $this> */
+    public function parentSplit(): BelongsTo
+    {
+        return $this->belongsTo(PosCharge::class, 'parent_split_id');
+    }
+
+    /** @return HasMany<PosCharge, $this> */
+    public function splitChildren(): HasMany
+    {
+        return $this->hasMany(PosCharge::class, 'parent_split_id');
     }
 
     /**

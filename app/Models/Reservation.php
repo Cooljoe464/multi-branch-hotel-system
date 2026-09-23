@@ -47,6 +47,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int|null $rate_plan_id
  * @property int|null $promo_code_id
  * @property int|null $corporate_account_id
+ * @property int|null $group_block_id
  * @property array<string, mixed>|null $rate_snapshot
  * @property string $guarantee_status
  * @property int $deposit_due_minor
@@ -63,6 +64,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property-read RatePlan|null $ratePlan
  * @property-read PromoCode|null $promoCode
  * @property-read CorporateAccount|null $corporateAccount
+ * @property-read GroupBlock|null $groupBlock
  */
 #[Fillable([
     'branch_id',
@@ -100,6 +102,7 @@ use Spatie\Activitylog\Support\LogOptions;
     'rate_plan_id',
     'promo_code_id',
     'corporate_account_id',
+    'group_block_id',
     'rate_snapshot',
     'guarantee_status',
     'deposit_due_minor',
@@ -211,6 +214,12 @@ class Reservation extends Model
     public function corporateAccount(): BelongsTo
     {
         return $this->belongsTo(CorporateAccount::class);
+    }
+
+    /** @return BelongsTo<GroupBlock, $this> */
+    public function groupBlock(): BelongsTo
+    {
+        return $this->belongsTo(GroupBlock::class);
     }
 
     /** @return HasOne<Folio, $this> */

@@ -28,6 +28,8 @@ test('roles are created with correct permissions', function () {
         'rooms.update_status',
         'housekeeping.view',
         'housekeeping.manage',
+        'maintenance.view',
+        'maintenance.manage',
     ]);
 });
 

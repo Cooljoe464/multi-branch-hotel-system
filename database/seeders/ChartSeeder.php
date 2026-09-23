@@ -79,6 +79,9 @@ class ChartSeeder extends Seeder
             ['deposit.received', 'CASH', '2300'],
             ['commission.accrued', '5100', '2000'],
             ['commission.paid', '2000', '1100'],
+            ['cogs.recognized', '5000', '1400'],
+            ['inventory.received', '1400', '2400'],
+            ['maintenance.parts', '5200', '1400'],
         ];
     }
 }

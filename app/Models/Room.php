@@ -27,6 +27,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string|null $wing
  * @property string $status
  * @property int $version
+ * @property string $condition
+ * @property string|null $condition_reason
  * @property bool $is_accessible
  * @property bool $is_smoking
  * @property bool $is_active
@@ -50,6 +52,8 @@ use Spatie\Activitylog\Support\LogOptions;
     'is_accessible',
     'is_smoking',
     'is_active',
+    'condition',
+    'condition_reason',
     'notes',
     'metadata',
     'version',

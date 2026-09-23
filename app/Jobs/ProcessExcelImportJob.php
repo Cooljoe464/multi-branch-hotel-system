@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Imports\GuestImport;
 use App\Imports\ReservationImport;
 use App\Imports\RoomImport;
+use App\Imports\RoomingListImport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -68,8 +69,15 @@ class ProcessExcelImportJob implements ShouldQueue
         Storage::disk('local')->delete($this->filePath);
     }
 
-    private function resolveImport(): GuestImport|ReservationImport|RoomImport
+    private function resolveImport(): GuestImport|ReservationImport|RoomImport|RoomingListImport
     {
+        // Rooming lists carry their block: type rooming:{blockId}.
+        if (str_starts_with($this->importType, 'rooming:')) {
+            $blockId = (int) substr($this->importType, strlen('rooming:'));
+
+            return new RoomingListImport($this->branchId, $blockId);
+        }
+
         return match ($this->importType) {
             'rooms' => new RoomImport($this->branchId),
             'guests' => new GuestImport,

@@ -308,6 +308,53 @@ class AvailabilityService
     }
 
     /**
+     * Adjust the physical room count for one night (OOO handling).
+     * Negative deltas floor at zero; a cap (physical count) prevents
+     * double-restore from inflating past reality.
+     */
+    public function adjustTotalRooms(Branch $branch, RoomType $roomType, string $date, int $delta, ?int $cap = null): void
+    {
+        if ($delta === 0) {
+            return;
+        }
+
+        DB::transaction(function () use ($branch, $roomType, $date, $delta, $cap) {
+            $row = $this->lockedRow($branch, $roomType, $date);
+            $total = (int) $row->total_rooms + $delta;
+            $total = max(0, $total);
+
+            if ($cap !== null) {
+                $total = min($cap, $total);
+            }
+
+            $row->update(['total_rooms' => $total]);
+        }, 3);
+    }
+
+    /**
+     * Adjust the group-block hold count for one night. Positive deltas
+     * hold inventory (reducing sellable); negative deltas release.
+     * Releases clamp at zero so a double-release can never inflate
+     * sellable past physical rooms.
+     */
+    public function addBlock(Branch $branch, RoomType $roomType, string $date, int $delta): void
+    {
+        if ($delta === 0) {
+            return;
+        }
+
+        DB::transaction(function () use ($branch, $roomType, $date, $delta) {
+            $row = $this->lockedRow($branch, $roomType, $date);
+
+            if ($delta > 0) {
+                $row->increment('blocked', $delta);
+            } else {
+                $row->decrement('blocked', min(-$delta, (int) $row->blocked));
+            }
+        }, 3);
+    }
+
+    /**
      * Branch default rate plan (best available rate) for restriction
      * evaluation on plan-less bookings.
      */

@@ -5,9 +5,11 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SystemController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AuditFlagController;
 use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\BankProfileController;
+use App\Http\Controllers\BeoController;
 use App\Http\Controllers\BookingEngineController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BusinessDateController;
@@ -21,18 +23,24 @@ use App\Http\Controllers\CommercialController;
 use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\CrsController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DiningTableController;
 use App\Http\Controllers\FolioController;
 use App\Http\Controllers\FolioDisputeController;
 use App\Http\Controllers\FolioWindowController;
 use App\Http\Controllers\FrontDeskDashboardController;
+use App\Http\Controllers\FunctionSpaceController;
 use App\Http\Controllers\GdprController;
+use App\Http\Controllers\GoodsReceiptController;
+use App\Http\Controllers\GroupBlockController;
 use App\Http\Controllers\GroupLedgerController;
 use App\Http\Controllers\GuaranteePolicyController;
 use App\Http\Controllers\GuestOrderController;
 use App\Http\Controllers\GuestPaymentController;
 use App\Http\Controllers\GuestPortalController;
+use App\Http\Controllers\HappyHourController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\HousekeepingController;
+use App\Http\Controllers\HousekeepingTaskController;
 use App\Http\Controllers\IdempotencyController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\ImportTemplateController;
@@ -41,19 +49,26 @@ use App\Http\Controllers\JournalController;
 use App\Http\Controllers\KdsController;
 use App\Http\Controllers\KitchenWasteController;
 use App\Http\Controllers\LaundryController;
+use App\Http\Controllers\LostFoundController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\MenuItemController;
+use App\Http\Controllers\MinibarController;
 use App\Http\Controllers\NightAuditController;
 use App\Http\Controllers\OutletController;
+use App\Http\Controllers\PosModifierController;
+use App\Http\Controllers\PosTabController;
 use App\Http\Controllers\PosTerminalController;
+use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RateOverrideController;
 use App\Http\Controllers\RatePlanController;
 use App\Http\Controllers\RateRestrictionController;
 use App\Http\Controllers\RegistrationCardController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReservationController;
+use App\Http\Controllers\ReservationMoveController;
 use App\Http\Controllers\RevenueReportController;
 use App\Http\Controllers\RoomController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TabletMenuController;
 use App\Http\Controllers\TabletOrderController;
 use App\Http\Controllers\TabletSessionController;
@@ -62,6 +77,7 @@ use App\Http\Controllers\TaxProfileController;
 use App\Http\Controllers\TransferController;
 use App\Http\Controllers\TrialBalanceController;
 use App\Http\Controllers\VoidRefundController;
+use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\YieldRuleController;
 use Illuminate\Support\Facades\Route;
 
@@ -152,6 +168,82 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('branches/{branch}/guarantees/{policy}', [GuaranteePolicyController::class, 'destroy'])
         ->middleware('permission:rate_plans.manage')
         ->name('guarantees.destroy');
+
+    // Group blocks + BEOs
+    Route::get('branches/{branch}/groups', [GroupBlockController::class, 'index'])
+        ->middleware('permission:groups.view')
+        ->name('groups.index');
+    Route::post('branches/{branch}/groups', [GroupBlockController::class, 'store'])
+        ->middleware('permission:groups.manage')
+        ->name('groups.store');
+    Route::get('branches/{branch}/groups/{block}', [GroupBlockController::class, 'show'])
+        ->middleware('permission:groups.view')
+        ->name('groups.show');
+    Route::post('branches/{branch}/groups/{block}/pickup', [GroupBlockController::class, 'pickup'])
+        ->middleware('permission:groups.manage')
+        ->name('groups.pickup');
+    Route::post('branches/{branch}/groups/{block}/release', [GroupBlockController::class, 'release'])
+        ->middleware('permission:groups.manage')
+        ->name('groups.release');
+    Route::post('branches/{branch}/groups/{block}/rooming-list', [GroupBlockController::class, 'importRoomingList'])
+        ->middleware('permission:groups.manage')
+        ->name('groups.rooming-list');
+    Route::post('branches/{branch}/groups/{block}/beos', [BeoController::class, 'store'])
+        ->middleware('permission:groups.manage_beo')
+        ->name('groups.beos.store');
+    Route::put('branches/{branch}/groups/beos/{beo}', [BeoController::class, 'update'])
+        ->middleware('permission:groups.manage_beo')
+        ->name('groups.beos.update');
+    Route::post('branches/{branch}/groups/beos/{beo}/post', [BeoController::class, 'post'])
+        ->middleware('permission:groups.manage_beo')
+        ->name('groups.beos.post');
+    Route::post('branches/{branch}/function-spaces', [FunctionSpaceController::class, 'store'])
+        ->middleware('permission:groups.manage')
+        ->name('function-spaces.store');
+    Route::delete('branches/{branch}/function-spaces/{space}', [FunctionSpaceController::class, 'destroy'])
+        ->middleware('permission:groups.manage')
+        ->name('function-spaces.destroy');
+
+    // Housekeeping depth (tasks, conditions, OOO, minibar, lost & found)
+    Route::get('branches/{branch}/housekeeping/board', [HousekeepingTaskController::class, 'index'])
+        ->middleware('permission:housekeeping.view')
+        ->name('hk.board');
+    Route::post('branches/{branch}/housekeeping/tasks', [HousekeepingTaskController::class, 'store'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('hk.tasks.store');
+    Route::post('branches/{branch}/housekeeping/tasks/{task}/assign', [HousekeepingTaskController::class, 'assign'])
+        ->middleware('permission:housekeeping.assign')
+        ->name('hk.tasks.assign');
+    Route::post('branches/{branch}/housekeeping/auto-allocate', [HousekeepingTaskController::class, 'autoAllocate'])
+        ->middleware('permission:housekeeping.assign')
+        ->name('hk.auto-allocate');
+    Route::post('branches/{branch}/housekeeping/tasks/{task}/complete', [HousekeepingTaskController::class, 'complete'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('hk.tasks.complete');
+    Route::post('branches/{branch}/housekeeping/rooms/{room}/condition', [HousekeepingTaskController::class, 'setCondition'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('hk.rooms.condition');
+    Route::post('branches/{branch}/housekeeping/rooms/{room}/out-of-order', [HousekeepingTaskController::class, 'storeOutOfOrder'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('hk.rooms.ooo.store');
+    Route::delete('branches/{branch}/housekeeping/out-of-order/{out}', [HousekeepingTaskController::class, 'clearOutOfOrder'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('hk.rooms.ooo.destroy');
+    Route::post('branches/{branch}/housekeeping/rooms/{room}/minibar', [MinibarController::class, 'store'])
+        ->middleware('role_or_permission:housekeeping.manage|housekeeping.assign')
+        ->name('hk.minibar.store');
+    Route::get('branches/{branch}/housekeeping/lost-found', [LostFoundController::class, 'index'])
+        ->middleware('permission:housekeeping.view')
+        ->name('hk.lost-found.index');
+    Route::post('branches/{branch}/housekeeping/lost-found', [LostFoundController::class, 'store'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('hk.lost-found.store');
+    Route::post('branches/{branch}/housekeeping/lost-found/{item}/claim', [LostFoundController::class, 'claim'])
+        ->middleware('permission:housekeeping.manage_lost_found')
+        ->name('hk.lost-found.claim');
+    Route::post('branches/{branch}/housekeeping/lost-found/{item}/dispose', [LostFoundController::class, 'dispose'])
+        ->middleware('permission:housekeeping.manage_lost_found')
+        ->name('hk.lost-found.dispose');
 
     // Business Date
     Route::get('branches/{branch}/business-date', [BusinessDateController::class, 'show'])
@@ -316,6 +408,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])
         ->middleware('permission:reservations.cancel')
         ->name('reservations.cancel');
+    Route::post('reservations/{reservation}/move', [ReservationMoveController::class, 'store'])
+        ->middleware('permission:reservations.move_room')
+        ->name('reservations.move');
     Route::post('reservations/{reservation}/deposit', [ReservationController::class, 'collectDeposit'])
         ->middleware('permission:payments.charge')
         ->name('reservations.deposit');
@@ -378,6 +473,32 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('maintenance/{ticket}', [MaintenanceController::class, 'destroy'])
         ->middleware('permission:maintenance.manage')
         ->name('maintenance.destroy');
+
+    // Assets + SLA work orders
+    Route::get('branches/{branch}/maintenance/assets', [AssetController::class, 'index'])
+        ->middleware('permission:maintenance.view')
+        ->name('assets.index');
+    Route::post('branches/{branch}/maintenance/assets', [AssetController::class, 'store'])
+        ->middleware('permission:maintenance.manage_assets')
+        ->name('assets.store');
+    Route::put('branches/{branch}/maintenance/assets/{asset}', [AssetController::class, 'update'])
+        ->middleware('permission:maintenance.manage_assets')
+        ->name('assets.update');
+    Route::delete('branches/{branch}/maintenance/assets/{asset}', [AssetController::class, 'destroy'])
+        ->middleware('permission:maintenance.manage_assets')
+        ->name('assets.destroy');
+    Route::post('branches/{branch}/maintenance/work-orders', [WorkOrderController::class, 'store'])
+        ->middleware('permission:maintenance.manage')
+        ->name('work-orders.store');
+    Route::post('branches/{branch}/maintenance/work-orders/{ticket}/assign', [WorkOrderController::class, 'assign'])
+        ->middleware('permission:maintenance.manage_sla')
+        ->name('work-orders.assign');
+    Route::post('branches/{branch}/maintenance/work-orders/{ticket}/resolve', [WorkOrderController::class, 'resolve'])
+        ->middleware('permission:maintenance.manage')
+        ->name('work-orders.resolve');
+    Route::post('branches/{branch}/maintenance/work-orders/{ticket}/sla-check', [WorkOrderController::class, 'slaCheck'])
+        ->middleware('permission:maintenance.manage_sla')
+        ->name('work-orders.sla-check');
 
     // Folios
     Route::middleware('throttle:folio')->group(function () {
@@ -533,6 +654,32 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:inventory.manage')
         ->name('inventory.destroy');
 
+    // F&B costing (suppliers, POs, GRNs)
+    Route::get('branches/{branch}/costing', [PurchaseOrderController::class, 'index'])
+        ->middleware('permission:inventory.view_costing')
+        ->name('costing.index');
+    Route::post('branches/{branch}/suppliers', [SupplierController::class, 'store'])
+        ->middleware('permission:inventory.manage_suppliers')
+        ->name('suppliers.store');
+    Route::delete('branches/{branch}/suppliers/{supplier}', [SupplierController::class, 'destroy'])
+        ->middleware('permission:inventory.manage_suppliers')
+        ->name('suppliers.destroy');
+    Route::post('branches/{branch}/purchase-orders', [PurchaseOrderController::class, 'store'])
+        ->middleware('permission:inventory.manage_po_grn')
+        ->name('purchase-orders.store');
+    Route::post('branches/{branch}/purchase-orders/{order}/send', [PurchaseOrderController::class, 'send'])
+        ->middleware('permission:inventory.manage_po_grn')
+        ->name('purchase-orders.send');
+    Route::post('branches/{branch}/purchase-orders/{order}/cancel', [PurchaseOrderController::class, 'cancel'])
+        ->middleware('permission:inventory.manage_po_grn')
+        ->name('purchase-orders.cancel');
+    Route::post('branches/{branch}/purchase-orders/{order}/receive', [GoodsReceiptController::class, 'store'])
+        ->middleware('permission:inventory.manage_po_grn')
+        ->name('goods-receipts.store');
+    Route::get('branches/{branch}/costing/variance', [PurchaseOrderController::class, 'variance'])
+        ->middleware('permission:inventory.view_costing')
+        ->name('costing.variance');
+
     // Transfers
     Route::get('transfers', [TransferController::class, 'index'])
         ->middleware('permission:transfers.view')
@@ -624,6 +771,47 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('pos/{outlet}/charge', [PosTerminalController::class, 'charge'])
         ->middleware('permission:pos.manage')
         ->name('pos.charge');
+
+    // POS completeness (floor, tabs, splits, offline replay)
+    Route::get('pos/{outlet}/floor', [PosTabController::class, 'index'])
+        ->middleware('permission:pos.view')
+        ->name('pos.floor');
+    Route::post('pos/{outlet}/tabs', [PosTabController::class, 'open'])
+        ->middleware('permission:pos.manage')
+        ->name('pos.tabs.open');
+    Route::post('pos/tabs/{charge}/items', [PosTabController::class, 'addItems'])
+        ->middleware('permission:pos.manage')
+        ->name('pos.tabs.items');
+    Route::post('pos/tabs/{charge}/fire', [PosTabController::class, 'fire'])
+        ->middleware('permission:pos.manage')
+        ->name('pos.tabs.fire');
+    Route::post('pos/tabs/{charge}/split', [PosTabController::class, 'split'])
+        ->middleware('permission:pos.manage')
+        ->name('pos.tabs.split');
+    Route::post('pos/tabs/{charge}/post', [PosTabController::class, 'post'])
+        ->middleware('permission:pos.manage')
+        ->name('pos.tabs.post');
+    Route::post('pos/{outlet}/offline-replay', [PosTabController::class, 'replayOffline'])
+        ->middleware('permission:pos.manage')
+        ->name('pos.offline.replay');
+    Route::post('pos/{outlet}/tables', [DiningTableController::class, 'store'])
+        ->middleware('permission:pos.manage_floor')
+        ->name('pos.tables.store');
+    Route::delete('pos/{outlet}/tables/{table}', [DiningTableController::class, 'destroy'])
+        ->middleware('permission:pos.manage_floor')
+        ->name('pos.tables.destroy');
+    Route::post('pos/{outlet}/happy-hours', [HappyHourController::class, 'store'])
+        ->middleware('permission:pos.manage_pricing')
+        ->name('pos.happy-hours.store');
+    Route::delete('pos/{outlet}/happy-hours/{happyHour}', [HappyHourController::class, 'destroy'])
+        ->middleware('permission:pos.manage_pricing')
+        ->name('pos.happy-hours.destroy');
+    Route::post('branches/{branch}/modifiers', [PosModifierController::class, 'store'])
+        ->middleware('permission:pos.manage_pricing')
+        ->name('pos.modifiers.store');
+    Route::delete('branches/{branch}/modifiers/{modifier}', [PosModifierController::class, 'destroy'])
+        ->middleware('permission:pos.manage_pricing')
+        ->name('pos.modifiers.destroy');
 
     // Laundry
     Route::get('laundry', [LaundryController::class, 'index'])

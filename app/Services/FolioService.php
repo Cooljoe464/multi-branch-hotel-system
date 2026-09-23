@@ -699,6 +699,7 @@ class FolioService
     {
         $itemCount = count($posCharge->items);
         $firstItem = $posCharge->items[0]['name'] ?? 'POS Charge';
+        $firstItem = is_string($firstItem) ? $firstItem : 'POS Charge';
 
         if ($itemCount === 1) {
             return "{$posCharge->outlet}: {$firstItem}";

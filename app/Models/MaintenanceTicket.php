@@ -27,6 +27,10 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string $description
  * @property string|null $resolution_notes
  * @property bool $is_room_locked
+ * @property int|null $asset_id
+ * @property Carbon|null $sla_due_at
+ * @property Carbon|null $responded_at
+ * @property Carbon|null $resolved_at
  * @property Carbon|null $started_at
  * @property Carbon|null $completed_at
  * @property int|null $estimated_cost
@@ -37,6 +41,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property Carbon|null $deleted_at
  * @property-read Branch $branch
  * @property-read Room|null $room
+ * @property-read Asset|null $asset
  * @property-read User $reporter
  * @property-read User|null $assignee
  */
@@ -54,6 +59,10 @@ use Spatie\Activitylog\Support\LogOptions;
     'description',
     'resolution_notes',
     'is_room_locked',
+    'asset_id',
+    'sla_due_at',
+    'responded_at',
+    'resolved_at',
     'estimated_cost',
     'actual_cost',
     'metadata',
@@ -70,6 +79,9 @@ class MaintenanceTicket extends Model
     {
         return [
             'is_room_locked' => 'boolean',
+            'sla_due_at' => 'datetime',
+            'responded_at' => 'datetime',
+            'resolved_at' => 'datetime',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'estimated_cost' => 'integer',
@@ -116,6 +128,12 @@ class MaintenanceTicket extends Model
     public function room(): BelongsTo
     {
         return $this->belongsTo(Room::class);
+    }
+
+    /** @return BelongsTo<Asset, $this> */
+    public function asset(): BelongsTo
+    {
+        return $this->belongsTo(Asset::class);
     }
 
     /** @return BelongsTo<User, $this> */

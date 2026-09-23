@@ -1,7 +1,9 @@
 <?php
 
+use App\Jobs\CutoffJob;
 use App\Jobs\MonitorStuckQueuesJob;
 use App\Jobs\NightlyReconciliationJob;
+use App\Jobs\PmSchedulerJob;
 use App\Jobs\ReleaseHoldsJob;
 use App\Jobs\SnapshotRevenueJob;
 use Illuminate\Foundation\Inspiring;
@@ -21,11 +23,17 @@ Schedule::job(new MonitorStuckQueuesJob)->everyFiveMinutes();
 // ── Guarantees ──────────────────────────────────
 Schedule::job(new ReleaseHoldsJob)->everyTenMinutes();
 
+// ── Groups ──────────────────────────────────────
+Schedule::job(new CutoffJob)->dailyAt('01:30');
+
 // ── Channels ────────────────────────────────────
 Schedule::job(new NightlyReconciliationJob)->dailyAt('02:30');
 
 // ── Revenue ─────────────────────────────────────
 Schedule::job(new SnapshotRevenueJob)->dailyAt('02:45');
+
+// ── Maintenance ─────────────────────────────────
+Schedule::job(new PmSchedulerJob)->dailyAt('05:00');
 
 // ── Backups ───────────────────────────────────
 Schedule::command('backup:clean')->daily()->at('03:00');

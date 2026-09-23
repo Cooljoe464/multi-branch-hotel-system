@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property float $current_quantity
  * @property float $reorder_point
  * @property int $cost_per_unit
+ * @property string $valuation_method
  * @property string|null $supplier
  * @property array<string, mixed>|null $metadata
  * @property Carbon|null $created_at
@@ -40,6 +41,7 @@ use Illuminate\Support\Carbon;
     'current_quantity',
     'reorder_point',
     'cost_per_unit',
+    'valuation_method',
     'supplier',
     'metadata',
 ])]

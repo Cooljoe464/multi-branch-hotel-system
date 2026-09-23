@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property int $quantity
  * @property int $version
  * @property string $status
+ * @property string $course
  * @property string|null $notes
  * @property string $priority
  * @property Carbon|null $prepared_at
@@ -37,6 +38,7 @@ use Illuminate\Support\Carbon;
     'item_name',
     'quantity',
     'status',
+    'course',
     'notes',
     'priority',
     'prepared_at',
