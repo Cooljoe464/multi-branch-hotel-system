@@ -112,14 +112,14 @@ class RevenueAnalyticsService
      */
     private function latestRows(int $branchId, string $from, string $to, string $asOf): Collection
     {
-        $ids = RevenueSnapshot::forBranch($branchId)
+        $ids = RevenueSnapshot::on(ReadRouter::connection())->forBranch($branchId)
             ->whereBetween('stay_date', [$from, $to])
             ->where('snapshot_date', '<=', $asOf)
             ->selectRaw('MAX(id) as id')
             ->groupBy('stay_date')
             ->pluck('id');
 
-        return RevenueSnapshot::whereIn('id', $ids)->orderBy('stay_date')->get();
+        return RevenueSnapshot::on(ReadRouter::connection())->whereIn('id', $ids)->orderBy('stay_date')->get();
     }
 
     /**
@@ -176,7 +176,7 @@ class RevenueAnalyticsService
         }
 
         $result = [];
-        foreach (Budget::forBranch($branchId)->orderBy('month')->get() as $budget) {
+        foreach (Budget::on(ReadRouter::connection())->forBranch($branchId)->orderBy('month')->get() as $budget) {
             $month = $budget->month->toDateString();
             $nights = $otbNights[$month] ?? 0;
             $revenue = $otbRevenue[$month] ?? 0;

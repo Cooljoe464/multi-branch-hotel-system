@@ -52,7 +52,7 @@ class RoleSeeder extends Seeder
             'business_date' => ['view', 'close'],
             'idempotency' => ['view'],
             'journal' => ['view', 'export'],
-            'system_health' => ['view'],
+            'system_health' => ['view', 'run_dr_drill'],
             'availability' => ['view', 'override_overbook'],
             'tax' => ['view', 'manage'],
             'fiscal' => ['view', 'retry'],

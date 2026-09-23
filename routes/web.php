@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountingExportController;
 use App\Http\Controllers\Admin\BranchWizardController;
+use App\Http\Controllers\Admin\DatabaseController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SystemController;
 use App\Http\Controllers\Admin\UserController;
@@ -581,12 +582,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Analytics
     Route::get('analytics', [AnalyticsController::class, 'index'])
-        ->middleware('permission:analytics.view')
+        ->middleware(['permission:analytics.view', 'replica'])
         ->name('analytics.index');
 
     // Warehouse feed (R2 snapshots + manifests)
     Route::get('analytics/warehouse', [WarehouseController::class, 'index'])
-        ->middleware('permission:analytics.view')
+        ->middleware(['permission:analytics.view', 'replica'])
         ->name('warehouse.index');
     Route::post('analytics/warehouse/exports', [WarehouseController::class, 'export'])
         ->middleware('permission:analytics.export_warehouse')
@@ -597,7 +598,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Revenue analytics (ADR/RevPAR/pace/OTB vs budget)
     Route::get('branches/{branch}/revenue', [RevenueReportController::class, 'index'])
-        ->middleware('permission:analytics.view')
+        ->middleware(['permission:analytics.view', 'replica'])
         ->name('revenue.index');
     Route::post('branches/{branch}/revenue/budgets', [RevenueReportController::class, 'storeBudget'])
         ->middleware('permission:analytics.manage')
@@ -605,7 +606,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Reports
     Route::get('reports', [ReportController::class, 'index'])
-        ->middleware('permission:reports.view')
+        ->middleware(['permission:reports.view', 'replica'])
         ->name('reports.index');
     Route::get('reports/night-audit/export', [ReportController::class, 'nightAuditExport'])
         ->middleware('permission:reports.export')
@@ -1138,6 +1139,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('admin/system-health', [SystemController::class, 'health'])
         ->middleware('permission:system_health.view')
         ->name('admin.system-health');
+    Route::get('admin/database', [DatabaseController::class, 'index'])
+        ->middleware('permission:system_health.view')
+        ->name('admin.database.index');
+    Route::post('admin/database/drill', [DatabaseController::class, 'drill'])
+        ->middleware('permission:system_health.run_dr_drill')
+        ->name('admin.database.drill');
 
     // Night audit (idempotent, resumable)
     Route::get('branches/{branch}/night-audit', [NightAuditController::class, 'index'])

@@ -133,7 +133,7 @@ class WarehouseExporter
     {
         $rows = [];
 
-        Reservation::orderBy('id')->chunk(500, function ($stays) use (&$rows) {
+        Reservation::on(ReadRouter::connection())->orderBy('id')->chunk(500, function ($stays) use (&$rows) {
             foreach ($stays as $stay) {
                 $rows[] = [
                     'id' => $stay->id,
@@ -168,7 +168,7 @@ class WarehouseExporter
     {
         $rows = [];
 
-        JournalEntry::orderBy('id')->chunk(500, function ($entries) use (&$rows) {
+        JournalEntry::on(ReadRouter::connection())->orderBy('id')->chunk(500, function ($entries) use (&$rows) {
             foreach ($entries as $entry) {
                 $rows[] = [
                     'id' => $entry->id,
@@ -194,7 +194,7 @@ class WarehouseExporter
     {
         $rows = [];
 
-        RevenueSnapshot::orderBy('id')->chunk(500, function ($snapshots) use (&$rows) {
+        RevenueSnapshot::on(ReadRouter::connection())->orderBy('id')->chunk(500, function ($snapshots) use (&$rows) {
             foreach ($snapshots as $snapshot) {
                 $rows[] = [
                     'id' => $snapshot->id,
@@ -220,7 +220,7 @@ class WarehouseExporter
     {
         $rows = [];
 
-        InventoryItem::orderBy('id')->chunk(500, function ($items) use (&$rows) {
+        InventoryItem::on(ReadRouter::connection())->orderBy('id')->chunk(500, function ($items) use (&$rows) {
             foreach ($items as $item) {
                 $rows[] = [
                     'id' => $item->id,

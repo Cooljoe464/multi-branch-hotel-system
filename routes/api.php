@@ -58,7 +58,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'branch.scope'])->group(functio
         ->name('api.v1.rates');
 
     Route::get('/reports/revenue', [RevenueController::class, 'show'])
-        ->middleware('ability:analytics.view')
+        ->middleware(['ability:analytics.view', 'replica'])
         ->name('api.v1.revenue');
 
     Route::get('/webhooks/deliveries', [WebhookController::class, 'index'])

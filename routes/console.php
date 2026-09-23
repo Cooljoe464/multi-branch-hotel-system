@@ -3,6 +3,7 @@
 use App\Jobs\CutoffJob;
 use App\Jobs\MonitorStuckQueuesJob;
 use App\Jobs\NightlyReconciliationJob;
+use App\Jobs\PartitionManagerJob;
 use App\Jobs\PmSchedulerJob;
 use App\Jobs\ReleaseHoldsJob;
 use App\Jobs\RetentionRunJob;
@@ -43,3 +44,6 @@ Schedule::job(new RetentionRunJob)->dailyAt('03:15');
 Schedule::command('backup:clean')->daily()->at('03:00');
 Schedule::command('backup:run --only-db')->daily()->at('03:30');
 Schedule::command('backup:run')->weekly()->sundays()->at('04:00');
+
+// ── Platform ──────────────────────────────────
+Schedule::job(new PartitionManagerJob)->monthly();
