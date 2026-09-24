@@ -629,6 +629,8 @@ class NightAuditService
         $fresh = $run->fresh() ?? $run;
         event(new NightAuditCompleted($fresh));
 
+        AnomalyService::dispatchPostAudit($ledger->branch_id, $ledger->business_date->toDateString());
+
         return $fresh;
     }
 

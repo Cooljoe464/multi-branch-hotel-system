@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SystemController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\AnomalyController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AuditFlagController;
 use App\Http\Controllers\AvailabilityController;
@@ -972,6 +973,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('audit/flags/{auditFlag}/suppress', [AuditFlagController::class, 'suppress'])
         ->middleware('permission:audit.manage')
         ->name('audit.flags.suppress');
+
+    // Anomaly findings inbox + rule tuner
+    Route::get('branches/{branch}/anomalies', [AnomalyController::class, 'index'])
+        ->middleware('permission:audit.view')
+        ->name('anomalies.index');
+    Route::post('branches/{branch}/anomalies/{finding}/confirm', [AnomalyController::class, 'confirm'])
+        ->middleware('permission:audit.confirm_anomaly')
+        ->name('anomalies.confirm');
+    Route::post('branches/{branch}/anomalies/{finding}/clear', [AnomalyController::class, 'clear'])
+        ->middleware('permission:audit.confirm_anomaly')
+        ->name('anomalies.clear');
+    Route::put('branches/{branch}/anomaly-rules/{rule}', [AnomalyController::class, 'tune'])
+        ->middleware('permission:audit.manage_anomaly_rules')
+        ->name('anomalies.rules.tune');
 
     // City Ledger
     Route::get('city-ledger', [CityLedgerController::class, 'index'])

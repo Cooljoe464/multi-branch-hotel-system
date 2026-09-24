@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\AnomalyScanJob;
 use App\Jobs\CutoffJob;
 use App\Jobs\MonitorStuckQueuesJob;
 use App\Jobs\NightlyReconciliationJob;
@@ -47,3 +48,6 @@ Schedule::command('backup:run')->weekly()->sundays()->at('04:00');
 
 // ── Platform ──────────────────────────────────
 Schedule::job(new PartitionManagerJob)->monthly();
+
+// ── Intelligence ──────────────────────────────
+Schedule::job(new AnomalyScanJob)->hourly();
