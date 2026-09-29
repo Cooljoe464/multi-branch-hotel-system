@@ -3,10 +3,12 @@
 use App\Jobs\AnomalyScanJob;
 use App\Jobs\CutoffJob;
 use App\Jobs\ForecastGenerateJob;
+use App\Jobs\HkScheduleJob;
 use App\Jobs\MonitorStuckQueuesJob;
 use App\Jobs\NightlyReconciliationJob;
 use App\Jobs\PartitionManagerJob;
 use App\Jobs\PmSchedulerJob;
+use App\Jobs\PredictiveMaintenanceJob;
 use App\Jobs\ReleaseHoldsJob;
 use App\Jobs\RetentionRunJob;
 use App\Jobs\SnapshotRevenueJob;
@@ -53,3 +55,5 @@ Schedule::job(new PartitionManagerJob)->monthly();
 // ── Intelligence ──────────────────────────────
 Schedule::job(new AnomalyScanJob)->hourly();
 Schedule::job(new ForecastGenerateJob)->dailyAt('01:00');
+Schedule::job(new PredictiveMaintenanceJob)->dailyAt('01:30');
+Schedule::job(new HkScheduleJob)->dailyAt('04:00');

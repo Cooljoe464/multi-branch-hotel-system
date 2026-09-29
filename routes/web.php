@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AnomalyController;
 use App\Http\Controllers\AssetController;
+use App\Http\Controllers\AssetHealthController;
 use App\Http\Controllers\AuditFlagController;
 use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\BankProfileController;
@@ -49,6 +50,7 @@ use App\Http\Controllers\GuestPortalController;
 use App\Http\Controllers\GuestProfileController;
 use App\Http\Controllers\HappyHourController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\HkScheduleController;
 use App\Http\Controllers\HousekeepingController;
 use App\Http\Controllers\HousekeepingTaskController;
 use App\Http\Controllers\IdempotencyController;
@@ -538,6 +540,34 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('maintenance/{ticket}', [MaintenanceController::class, 'destroy'])
         ->middleware('permission:maintenance.manage')
         ->name('maintenance.destroy');
+
+    // Predictive asset health + PM draft publishing
+    Route::get('branches/{branch}/maintenance/health', [AssetHealthController::class, 'index'])
+        ->middleware('permission:maintenance.manage_assets')
+        ->name('asset-health.index');
+    Route::post('branches/{branch}/maintenance/health/rescore', [AssetHealthController::class, 'rescore'])
+        ->middleware('permission:maintenance.manage_assets')
+        ->name('asset-health.rescore');
+    Route::post('branches/{branch}/maintenance/drafts/{ticket}/publish', [AssetHealthController::class, 'publish'])
+        ->middleware('permission:maintenance.manage_assets')
+        ->name('asset-health.publish');
+    Route::delete('branches/{branch}/maintenance/drafts/{ticket}', [AssetHealthController::class, 'destroy'])
+        ->middleware('permission:maintenance.manage_assets')
+        ->name('asset-health.destroy');
+
+    // Housekeeping schedules (plan/pin: assign perm; publish: Branch GM)
+    Route::get('branches/{branch}/housekeeping/schedule', [HkScheduleController::class, 'index'])
+        ->middleware('permission:housekeeping.assign')
+        ->name('hk-schedules.index');
+    Route::post('branches/{branch}/housekeeping/schedule/plan', [HkScheduleController::class, 'plan'])
+        ->middleware('permission:housekeeping.assign')
+        ->name('hk-schedules.plan');
+    Route::post('branches/{branch}/housekeeping/schedule/{schedule}/pin', [HkScheduleController::class, 'pin'])
+        ->middleware('permission:housekeeping.assign')
+        ->name('hk-schedules.pin');
+    Route::post('branches/{branch}/housekeeping/schedule/{schedule}/publish', [HkScheduleController::class, 'publish'])
+        ->middleware('permission:housekeeping.assign')
+        ->name('hk-schedules.publish');
 
     // Assets + SLA work orders
     Route::get('branches/{branch}/maintenance/assets', [AssetController::class, 'index'])

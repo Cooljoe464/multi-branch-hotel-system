@@ -82,6 +82,10 @@ class MaintenanceService
                 throw new AvailabilityException('WO_STATE', 'Completed tickets cannot be reassigned.');
             }
 
+            if ($locked->status === 'draft') {
+                throw new AvailabilityException('WO_DRAFT', 'Publish the draft before assigning it.');
+            }
+
             if ($locked->assigned_to !== null && $locked->assigned_to !== $assignee->id) {
                 throw new AvailabilityException('WO_TAKEN', 'This work order already has an assignee.');
             }
@@ -102,6 +106,30 @@ class MaintenanceService
     }
 
     /**
+     * Publish a predictive draft into the live queue. The SLA clock
+     * starts here — never while the draft sits unpublished.
+     */
+    public function publish(MaintenanceTicket $ticket): MaintenanceTicket
+    {
+        return DB::transaction(function () use ($ticket) {
+            $locked = MaintenanceTicket::where('id', $ticket->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->status !== 'draft') {
+                return $locked;
+            }
+
+            $branch = Branch::findOrFail($locked->branch_id);
+
+            $locked->update([
+                'status' => 'open',
+                'sla_due_at' => now()->addHours($this->slaHours($branch, $locked->category, $locked->priority)),
+            ]);
+
+            return $locked->fresh() ?? $locked;
+        });
+    }
+
+    /**
      * SLA breach check. First breach escalates (event + metadata flag);
      * re-checks are no-ops.
      */
@@ -110,7 +138,7 @@ class MaintenanceService
         return DB::transaction(function () use ($ticket) {
             $locked = MaintenanceTicket::where('id', $ticket->id)->lockForUpdate()->firstOrFail();
 
-            if (in_array($locked->status, ['completed'], true)) {
+            if (in_array($locked->status, ['completed', 'draft'], true)) {
                 return false;
             }
 
@@ -147,6 +175,10 @@ class MaintenanceService
 
             if ($locked->status === 'completed') {
                 return $locked;
+            }
+
+            if ($locked->status === 'draft') {
+                throw new AvailabilityException('WO_DRAFT', 'Publish the draft before resolving it.');
             }
 
             $branch = Branch::findOrFail($locked->branch_id);
