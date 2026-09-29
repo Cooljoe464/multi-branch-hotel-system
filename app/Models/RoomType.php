@@ -22,6 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string $code
  * @property string|null $description
  * @property int $base_rate
+ * @property int|null $floor_minor
  * @property int $max_occupancy
  * @property int $bed_count
  * @property string $bed_type
@@ -43,6 +44,7 @@ use Spatie\Activitylog\Support\LogOptions;
     'code',
     'description',
     'base_rate',
+    'floor_minor',
     'max_occupancy',
     'bed_count',
     'bed_type',

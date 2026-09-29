@@ -101,6 +101,15 @@ class GenerateApiDocs extends Command
                 'abilities' => ['analytics.export_warehouse'],
                 'parameters' => [$branchHeader],
             ],
+            'api.v1.forecasts' => [
+                'summary' => 'Read-only demand forecast feed for a date range.',
+                'abilities' => ['analytics.view'],
+                'parameters' => [
+                    $branchHeader,
+                    ['name' => 'from', 'in' => 'query', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'date']],
+                    ['name' => 'to', 'in' => 'query', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'date']],
+                ],
+            ],
         ];
     }
 

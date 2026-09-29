@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AvailabilityController;
 use App\Http\Controllers\Api\V1\FolioController;
+use App\Http\Controllers\Api\V1\ForecastController as ForecastApiController;
 use App\Http\Controllers\Api\V1\RatesController;
 use App\Http\Controllers\Api\V1\ReservationController;
 use App\Http\Controllers\Api\V1\RevenueController;
@@ -70,6 +71,10 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'branch.scope'])->group(functio
     Route::get('/reports/revenue', [RevenueController::class, 'show'])
         ->middleware(['ability:analytics.view', 'replica'])
         ->name('api.v1.revenue');
+
+    Route::get('/forecasts', [ForecastApiController::class, 'index'])
+        ->middleware(['ability:analytics.view', 'replica'])
+        ->name('api.v1.forecasts');
 
     Route::get('/webhooks/deliveries', [WebhookController::class, 'index'])
         ->middleware('ability:webhooks.replay')

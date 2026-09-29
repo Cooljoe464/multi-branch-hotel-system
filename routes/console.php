@@ -2,6 +2,7 @@
 
 use App\Jobs\AnomalyScanJob;
 use App\Jobs\CutoffJob;
+use App\Jobs\ForecastGenerateJob;
 use App\Jobs\MonitorStuckQueuesJob;
 use App\Jobs\NightlyReconciliationJob;
 use App\Jobs\PartitionManagerJob;
@@ -51,3 +52,4 @@ Schedule::job(new PartitionManagerJob)->monthly();
 
 // ── Intelligence ──────────────────────────────
 Schedule::job(new AnomalyScanJob)->hourly();
+Schedule::job(new ForecastGenerateJob)->dailyAt('01:00');

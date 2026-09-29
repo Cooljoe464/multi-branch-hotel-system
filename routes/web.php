@@ -34,6 +34,7 @@ use App\Http\Controllers\DsarController;
 use App\Http\Controllers\FolioController;
 use App\Http\Controllers\FolioDisputeController;
 use App\Http\Controllers\FolioWindowController;
+use App\Http\Controllers\ForecastController;
 use App\Http\Controllers\FrontDeskDashboardController;
 use App\Http\Controllers\FunctionSpaceController;
 use App\Http\Controllers\GdprController;
@@ -70,6 +71,7 @@ use App\Http\Controllers\OutletController;
 use App\Http\Controllers\PosModifierController;
 use App\Http\Controllers\PosTabController;
 use App\Http\Controllers\PosTerminalController;
+use App\Http\Controllers\PriceRecommendationController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RateOverrideController;
 use App\Http\Controllers\RatePlanController;
@@ -629,6 +631,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('branches/{branch}/revenue/budgets', [RevenueReportController::class, 'storeBudget'])
         ->middleware('permission:analytics.manage')
         ->name('revenue.budgets.store');
+
+    // Demand forecasting + AI price proposals
+    Route::get('branches/{branch}/forecast', [ForecastController::class, 'index'])
+        ->middleware(['permission:analytics.view', 'replica'])
+        ->name('forecast.index');
+    Route::post('branches/{branch}/price-recommendations/{recommendation}/approve', [PriceRecommendationController::class, 'approve'])
+        ->middleware('permission:yield_rules.approve_ai_price')
+        ->name('price-recommendations.approve');
+    Route::post('branches/{branch}/price-recommendations/{recommendation}/reject', [PriceRecommendationController::class, 'reject'])
+        ->middleware('permission:yield_rules.approve_ai_price')
+        ->name('price-recommendations.reject');
+    Route::post('branches/{branch}/price-recommendations/{recommendation}/apply', [PriceRecommendationController::class, 'apply'])
+        ->middleware('permission:yield_rules.approve_ai_price')
+        ->name('price-recommendations.apply');
 
     // Reports
     Route::get('reports', [ReportController::class, 'index'])
