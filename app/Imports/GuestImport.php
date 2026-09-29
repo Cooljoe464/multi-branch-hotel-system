@@ -30,7 +30,7 @@ class GuestImport implements ToModel, WithBatchInserts, WithHeadingRow, WithVali
             'first_name' => $row['first_name'],
             'last_name' => $row['last_name'],
             'email' => $row['email'] ?? null,
-            'phone' => isset($row['phone']) && is_string($row['phone']) ? $row['phone'] : null,
+            'phone' => isset($row['phone']) && is_scalar($row['phone']) ? (string) $row['phone'] : null,
             'date_of_birth' => $row['date_of_birth'] ?? null,
             'nationality' => $row['nationality'] ?? null,
             'id_type' => $row['id_type'] ?? null,
@@ -42,7 +42,7 @@ class GuestImport implements ToModel, WithBatchInserts, WithHeadingRow, WithVali
             'total_nights' => $row['total_nights'] ?? 0,
             'total_spent' => (int) ((is_numeric($row['total_spent'] ?? null) ? $row['total_spent'] : 0) * 100),
             'preferred_language' => $row['preferred_language'] ?? 'en',
-            'preferred_currency' => $row['preferred_currency'] ?? Branding::instance()->currency_code,
+            'preferred_currency' => $row['preferred_currency'] ?? Branding::instance()->currency_code ?? 'NGN',
             'special_notes' => $row['special_notes'] ?? null,
             'internal_notes' => $row['internal_notes'] ?? null,
         ]);

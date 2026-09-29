@@ -58,6 +58,11 @@ class CrossBranchTest extends TestCase
     {
         $roomType = RoomType::factory()->create(['branch_id' => $this->branch2->id]);
 
+        Room::factory()->count(2)->create([
+            'branch_id' => $this->branch2->id,
+            'room_type_id' => $roomType->id,
+        ]);
+
         $response = $this->actingAs($this->user)->post('/reservations', [
             'branch_id' => $this->branch2->id,
             'room_type_id' => $roomType->id,

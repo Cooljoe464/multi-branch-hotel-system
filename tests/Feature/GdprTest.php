@@ -33,6 +33,10 @@ class GdprTest extends TestCase
             'email' => 'john.doe@example.com',
         ]);
 
+        Reservation::factory()->forBranch($this->branch->id)->create([
+            'guest_id' => $guest->id,
+        ]);
+
         $response = $this->actingAs($this->user)->post('/admin/guest/anonymize', [
             'email' => 'john.doe@example.com',
         ]);
@@ -62,6 +66,10 @@ class GdprTest extends TestCase
     public function test_anonymize_logs_activity(): void
     {
         $guest = Guest::factory()->create(['email' => 'jane.doe@example.com']);
+
+        Reservation::factory()->forBranch($this->branch->id)->create([
+            'guest_id' => $guest->id,
+        ]);
 
         $this->actingAs($this->user)->post('/admin/guest/anonymize', [
             'email' => 'jane.doe@example.com',

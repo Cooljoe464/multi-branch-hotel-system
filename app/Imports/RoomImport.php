@@ -24,7 +24,7 @@ class RoomImport implements ToModel, WithBatchInserts, WithHeadingRow, WithValid
 
     public function model(array $row): ?Room
     {
-        $roomTypeCode = is_string($row['room_type_code'] ?? null) ? (string) $row['room_type_code'] : '';
+        $roomTypeCode = $this->cell($row, 'room_type_code');
         $roomType = RoomType::firstOrCreate(
             [
                 'branch_id' => $this->branchId,
@@ -41,8 +41,8 @@ class RoomImport implements ToModel, WithBatchInserts, WithHeadingRow, WithValid
         );
 
         // Skip if room number already exists for this branch
-        $roomNumber = is_string($row['number'] ?? null) ? (string) $row['number'] : '';
-        if (Room::where('branch_id', $this->branchId)->where('number', $roomNumber)->exists()) {
+        $roomNumber = $this->cell($row, 'number');
+        if ($roomNumber === '' || Room::where('branch_id', $this->branchId)->where('number', $roomNumber)->exists()) {
             $this->skipped++;
 
             return null;
@@ -54,13 +54,42 @@ class RoomImport implements ToModel, WithBatchInserts, WithHeadingRow, WithValid
             'branch_id' => $this->branchId,
             'room_type_id' => $roomType->id,
             'number' => $roomNumber,
-            'floor' => is_string($row['floor'] ?? null) ? (string) $row['floor'] : null,
+            'floor' => $this->cell($row, 'floor') !== '' ? $this->cell($row, 'floor') : null,
             'wing' => $row['wing'] ?? null,
             'status' => $row['status'] ?? 'available',
             'is_accessible' => ($row['is_accessible'] ?? 'no') === 'yes',
             'is_smoking' => ($row['is_smoking'] ?? 'no') === 'yes',
             'is_active' => true,
         ]);
+    }
+
+    /**
+     * Spreadsheet cells arrive typed: numeric room numbers and
+     * floors come through as ints. Normalize to string before
+     * validation and mapping so '101' never becomes ''.
+     *
+     * @param  array<mixed, mixed>  $row
+     */
+    private function cell(array $row, string $key): string
+    {
+        $value = $row[$key] ?? null;
+
+        return is_scalar($value) ? (string) $value : '';
+    }
+
+    /**
+     * @param  array<mixed, mixed>  $data
+     * @return array<mixed, mixed>
+     */
+    public function prepareForValidation(array $data, int|string $index): array
+    {
+        foreach (['number', 'room_type_code', 'room_type_name', 'floor', 'wing'] as $key) {
+            if (isset($data[$key]) && is_scalar($data[$key])) {
+                $data[$key] = (string) $data[$key];
+            }
+        }
+
+        return $data;
     }
 
     public function rules(): array

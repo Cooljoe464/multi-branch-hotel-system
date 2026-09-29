@@ -10,6 +10,7 @@ use App\Models\Reservation;
 use App\Models\RoomType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Tests\TestCase;
 
 class GuestPortalControllerTest extends TestCase
@@ -117,9 +118,13 @@ class GuestPortalControllerTest extends TestCase
     public function test_guest_profile_returns_null_for_unknown_email(): void
     {
         $controller = $this->app->make(GuestPortalController::class);
-        $response = $controller->guestProfile('unknown@example.com');
 
-        $this->assertNull($response);
+        try {
+            $controller->guestProfile('unknown@example.com');
+            $this->fail('Expected a 404 for an unknown guest email.');
+        } catch (NotFoundHttpException $e) {
+            $this->assertSame(404, $e->getStatusCode());
+        }
     }
 
     public function test_folio_includes_transactions_sorted_by_created_at(): void
