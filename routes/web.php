@@ -69,6 +69,7 @@ use App\Http\Controllers\MenuItemController;
 use App\Http\Controllers\MinibarController;
 use App\Http\Controllers\MobileKeyController;
 use App\Http\Controllers\NightAuditController;
+use App\Http\Controllers\NlReportController;
 use App\Http\Controllers\OutletController;
 use App\Http\Controllers\PosModifierController;
 use App\Http\Controllers\PosTabController;
@@ -653,6 +654,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('analytics/warehouse/manifests/{manifest}/verify', [WarehouseController::class, 'verify'])
         ->middleware('permission:analytics.export_warehouse')
         ->name('warehouse.manifests.verify');
+
+    // Natural-language reporting (governed SQL, replica only)
+    Route::get('branches/{branch}/reports/ask', [NlReportController::class, 'index'])
+        ->middleware(['permission:analytics.view', 'replica'])
+        ->name('nl-ask.index');
+    Route::post('branches/{branch}/reports/ask', [NlReportController::class, 'ask'])
+        ->middleware('permission:analytics.view')
+        ->name('nl-ask.ask');
+    Route::get('branches/{branch}/reports/ask/{key}', [NlReportController::class, 'poll'])
+        ->middleware('permission:analytics.view')
+        ->name('nl-ask.poll');
+    Route::get('branches/{branch}/reports/ask/{key}/export', [NlReportController::class, 'export'])
+        ->middleware('permission:reports.export')
+        ->name('nl-ask.export');
+    Route::post('branches/{branch}/reports/queries', [NlReportController::class, 'store'])
+        ->middleware('permission:analytics.view')
+        ->name('nl-ask.queries.store');
 
     // Revenue analytics (ADR/RevPAR/pace/OTB vs budget)
     Route::get('branches/{branch}/revenue', [RevenueReportController::class, 'index'])
