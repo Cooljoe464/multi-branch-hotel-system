@@ -1,22 +1,31 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import {
+    Activity,
     BarChart3,
     BedDouble,
     Building2,
+    Calculator,
     CalendarDays,
     CalendarRange,
     ChevronRight,
+    Database,
     DollarSign,
     FileText,
     FileSpreadsheet,
     LayoutGrid,
+    MessagesSquare,
     Plus,
     ReceiptText,
     Settings,
     Shield,
     Sparkles,
+    Tablet,
+    Terminal,
+    TriangleAlert,
+    TrendingUp,
     Users,
+    Wifi,
     Wrench,
     X,
     UtensilsCrossed,
@@ -54,6 +63,9 @@ const { sidebarOpen, mobileSidebarOpen, closeMobileSidebar } = useSidebar();
 const page = usePage();
 const auth = computed(() => page.props.auth);
 
+const branchId = computed(() => page.props.branch?.current?.id ?? null);
+const branchLink = (path: string) => (branchId.value !== null ? `/branches/${branchId.value}${path}` : '#');
+
 const isFrontDesk = computed(() => hasRole('front_desk'));
 
 const allNavItems = computed<NavItem[]>(() => [
@@ -71,7 +83,10 @@ const allNavItems = computed<NavItem[]>(() => [
             { title: 'Reservations', href: '/reservations', icon: CalendarDays, permission: 'reservations.view' },
             { title: 'Rooms', href: '/rooms', icon: BedDouble, permission: 'rooms.view' },
             { title: 'Housekeeping', href: '/housekeeping', icon: Sparkles, permission: 'housekeeping.view' },
+            { title: 'HK Schedule', href: branchLink('/housekeeping/schedule'), icon: CalendarDays, permission: 'housekeeping.assign', requiresBranch: true },
             { title: 'Maintenance', href: '/maintenance', icon: Wrench, permission: 'maintenance.view' },
+            { title: 'Asset Health', href: branchLink('/maintenance/health'), icon: Activity, permission: 'maintenance.manage_assets', requiresBranch: true },
+            { title: 'Tablets', href: branchLink('/tablets'), icon: Tablet, permission: 'rooms.manage', requiresBranch: true },
         ],
     },
     {
@@ -82,6 +97,8 @@ const allNavItems = computed<NavItem[]>(() => [
             { title: 'Folios', href: '/folios', icon: ReceiptText, permission: 'folios.view' },
             { title: 'City Ledger', href: '/city-ledger', icon: Banknote, permission: 'city_ledger.view' },
             { title: 'Audit Flags', href: '/audit/flags', icon: ShieldAlert, permission: 'audit.view' },
+            { title: 'Anomalies', href: branchLink('/anomalies'), icon: TriangleAlert, permission: 'audit.view', requiresBranch: true },
+            { title: 'Accounting', href: branchLink('/accounting'), icon: Calculator, permission: 'accounting_export.view', requiresBranch: true },
         ],
     },
     {
@@ -91,6 +108,8 @@ const allNavItems = computed<NavItem[]>(() => [
         children: [
             { title: 'Analytics', href: '/analytics', icon: BarChart3, permission: 'analytics.view' },
             { title: 'Reports', href: '/reports', icon: FileText, permission: 'reports.view' },
+            { title: 'Warehouse', href: '/analytics/warehouse', icon: Database, permission: 'analytics.view' },
+            { title: 'Ask', href: branchLink('/reports/ask'), icon: MessagesSquare, permission: 'analytics.view', requiresBranch: true },
         ],
     },
     {
@@ -100,6 +119,7 @@ const allNavItems = computed<NavItem[]>(() => [
         children: [
             { title: 'Yield Rules', href: '/yield-rules', icon: DollarSign, permission: 'yield_rules.view' },
             { title: 'Rate Overrides', href: '/rate-overrides', icon: Settings, permission: 'rate_overrides.view' },
+            { title: 'Forecast', href: branchLink('/forecast'), icon: TrendingUp, permission: 'analytics.view', requiresBranch: true },
         ],
     },
     {
@@ -123,6 +143,16 @@ const allNavItems = computed<NavItem[]>(() => [
             { title: 'Laundry', href: '/laundry', icon: WashingMachine, permission: 'laundry.view' },
             { title: 'Channels', href: '/channels', icon: Globe, permission: 'channels.view' },
             { title: 'CRS', href: '/crs', icon: Map, permission: 'crs.view' },
+            { title: 'Connectivity', href: branchLink('/connectivity'), icon: Wifi, permission: 'telecom.view', requiresBranch: true },
+        ],
+    },
+    {
+        title: 'Guests',
+        href: '/guests',
+        icon: Users,
+        children: [
+            { title: 'Do Not Rent', href: branchLink('/dnr'), icon: TriangleAlert, permission: 'guests.manage_dnr', requiresBranch: true },
+            { title: 'Merge Duplicates', href: branchLink('/guests/merges'), icon: Users, permission: 'guests.merge', requiresBranch: true },
         ],
     },
     {
@@ -137,6 +167,8 @@ const allNavItems = computed<NavItem[]>(() => [
             { title: 'Import Guests', href: '/admin/import/guests', icon: FileSpreadsheet, permission: 'branches.manage' },
             { title: 'Import Reservations', href: '/admin/import/reservations', icon: FileSpreadsheet, permission: 'branches.manage' },
             { title: 'Payment Guard', href: '/settings/payment-guard', icon: ShieldAlert, permission: 'settings.manage' },
+            { title: 'Developers', href: '/developers', icon: Terminal, permission: 'api.view' },
+            { title: 'Database', href: '/admin/database', icon: Activity, permission: 'system_health.view' },
         ],
     },
 ]);
@@ -152,7 +184,9 @@ function isGroupActive(group: NavItem): boolean {
 
 function visibleChildren(group: NavItem): NavItem[] {
     if (!group.children) return [];
-    return group.children.filter((child) => !child.permission || can(child.permission));
+    return group.children.filter(
+        (child) => (!child.permission || can(child.permission)) && (!child.requiresBranch || branchId.value !== null),
+    );
 }
 
 function isGroupOpen(group: NavItem): boolean {

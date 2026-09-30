@@ -24,7 +24,7 @@ interface DnrEntry {
 
 const props = defineProps<{
     branch: Branch;
-    entries: { data: DnrEntry[]; current_page: number; last_page: number; total: number; };
+    entries: { data: DnrEntry[]; current_page: number; last_page: number; per_page: number; total: number; };
 }>();
 
 defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Do Not Rent', href: '/guests' }] } });
