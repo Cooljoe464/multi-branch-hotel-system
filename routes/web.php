@@ -1262,6 +1262,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('night-audit.retry');
 
     // Tablet Session Management
+    Route::get('branches/{branch}/tablets', [TabletSessionController::class, 'index'])
+        ->middleware('permission:rooms.manage')
+        ->name('tablets.index');
     Route::post('tablet/pair', [TabletSessionController::class, 'pair'])
         ->middleware('permission:rooms.manage')
         ->name('tablet.pair');
