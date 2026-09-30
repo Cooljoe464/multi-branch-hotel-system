@@ -5,6 +5,8 @@ import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
 import { Toaster } from '@/components/ui/sonner';
 import type { BreadcrumbItem } from '@/types';
+import { usePage } from '@inertiajs/vue3';
+import { initLocale } from '@/lib/locale';
 
 type Props = {
     breadcrumbs?: BreadcrumbItem[];
@@ -13,6 +15,9 @@ type Props = {
 withDefaults(defineProps<Props>(), {
     breadcrumbs: () => [],
 });
+
+const page = usePage();
+initLocale(page.props.auth?.user?.locale);
 </script>
 
 <template>

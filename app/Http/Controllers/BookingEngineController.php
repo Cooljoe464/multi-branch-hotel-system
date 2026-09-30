@@ -31,6 +31,7 @@ class BookingEngineController extends Controller
 
         return Inertia::render('booking/Index', [
             'branches' => $branches,
+            'defaultLocale' => Branch::active()->primary()->value('locale') ?? Branch::active()->value('locale') ?? 'en',
         ]);
     }
 

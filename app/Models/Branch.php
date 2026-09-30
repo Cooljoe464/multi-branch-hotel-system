@@ -31,6 +31,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string $currency_code
  * @property string $currency_symbol
  * @property string|null $cdr_secret
+ * @property string $locale
  * @property float $tax_rate
  * @property string $tax_label
  * @property bool $is_active
@@ -66,6 +67,7 @@ use Spatie\Activitylog\Support\LogOptions;
     'currency_code',
     'currency_symbol',
     'cdr_secret',
+    'locale',
     'current_business_date',
     'overbooking_policy',
     'tax_rate',

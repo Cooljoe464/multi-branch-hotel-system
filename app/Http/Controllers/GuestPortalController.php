@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Folio;
 use App\Models\Guest;
 use App\Models\Reservation;
@@ -14,7 +15,9 @@ class GuestPortalController extends Controller
 {
     public function index(): Response
     {
-        return Inertia::render('guest/Index');
+        return Inertia::render('guest/Index', [
+            'defaultLocale' => Branch::active()->primary()->value('locale') ?? 'en',
+        ]);
     }
 
     public function folio(string $confirmationNumber): Response

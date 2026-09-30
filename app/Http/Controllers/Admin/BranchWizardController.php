@@ -43,6 +43,7 @@ class BranchWizardController extends Controller
                 'phone' => $data['phone'] ?? null,
                 'email' => $data['email'] ?? null,
                 'timezone' => $data['timezone'],
+                'locale' => $data['locale'] ?? 'en',
                 'currency_code' => $data['currency_code'],
                 'currency_symbol' => $data['currency_symbol'],
                 'tax_rate' => $data['tax_rate'],

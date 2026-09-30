@@ -3,7 +3,13 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from '@lucide/vue';
 import LocaleSwitcher from '@/components/LocaleSwitcher.vue';
-import { t } from '@/lib/locale';
+import { t, initLocale } from '@/lib/locale';
+
+const props = defineProps<{
+    defaultLocale?: string;
+}>();
+
+initLocale(props.defaultLocale);
 
 const form = useForm({
     confirmation: '',

@@ -5,6 +5,7 @@ export type User = {
     branch_id: number | null;
     name: string;
     email: string;
+    locale: string;
     avatar?: string;
     email_verified_at: string | null;
     two_factor_enabled?: boolean;

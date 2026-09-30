@@ -13,10 +13,14 @@ export const locales: { code: LocaleCode; label: string }[] = [
 
 const STORAGE_KEY = 'guest-locale';
 
+function isLocaleCode(value: unknown): value is LocaleCode {
+    return value === 'en' || value === 'fr';
+}
+
 function defaultLocale(): LocaleCode {
     try {
         const stored = window.localStorage.getItem(STORAGE_KEY);
-        if (stored === 'en' || stored === 'fr') return stored;
+        if (isLocaleCode(stored)) return stored;
         if (window.navigator.language.toLowerCase().startsWith('fr')) return 'fr';
     } catch {
         // Private mode or SSR: fall through to English.
@@ -25,6 +29,20 @@ function defaultLocale(): LocaleCode {
 }
 
 const current = ref<LocaleCode>(defaultLocale());
+
+/**
+ * Adopt a server-provided default (branch or user preference) unless
+ * the visitor already picked a language explicitly.
+ */
+export function initLocale(serverDefault?: string): void {
+    if (!isLocaleCode(serverDefault)) return;
+    try {
+        if (window.localStorage.getItem(STORAGE_KEY) !== null) return;
+    } catch {
+        return;
+    }
+    current.value = serverDefault;
+}
 
 export const locale = computed(() => current.value);
 

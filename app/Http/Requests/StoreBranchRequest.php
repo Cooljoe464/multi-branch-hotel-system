@@ -27,6 +27,7 @@ class StoreBranchRequest extends FormRequest
             'phone' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
             'timezone' => 'required|string|max:50',
+            'locale' => 'nullable|string|in:en,fr',
             'currency_code' => 'required|string|size:3',
             'currency_symbol' => 'required|string|max:5',
             'tax_rate' => 'required|numeric|min:0|max:100',

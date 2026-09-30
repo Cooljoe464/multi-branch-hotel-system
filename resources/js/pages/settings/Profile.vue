@@ -6,6 +6,7 @@ import { Loader2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
@@ -27,6 +28,7 @@ const page = usePage();
 const user = computed(() => page.props.auth.user);
 const nameInput = ref(user.value.name);
 const emailInput = ref(user.value.email);
+const localeInput = ref(user.value.locale ?? 'en');
 </script>
 
 <template>
@@ -75,6 +77,21 @@ const emailInput = ref(user.value.email);
                     :class="errors.email ? 'border-destructive' : ''"
                 />
                 <p v-if="errors.email" class="text-sm text-destructive">{{ errors.email }}</p>
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="locale">Language</Label>
+                <Select v-model="localeInput">
+                    <SelectTrigger class="mt-1 block w-full">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="en">English</SelectItem>
+                        <SelectItem value="fr">Français</SelectItem>
+                    </SelectContent>
+                </Select>
+                <input type="hidden" name="locale" :value="localeInput" />
+                <p v-if="errors.locale" class="text-sm text-destructive">{{ errors.locale }}</p>
             </div>
 
             <div v-if="page.props.mustVerifyEmail && !user.email_verified_at">

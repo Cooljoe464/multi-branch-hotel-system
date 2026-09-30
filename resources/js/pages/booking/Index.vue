@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import LocaleSwitcher from '@/components/LocaleSwitcher.vue';
-import { t } from '@/lib/locale';
+import { t, initLocale } from '@/lib/locale';
 import { newIdempotencyKey } from '@/lib/idempotency';
 import {
     ArrowLeft,
@@ -61,7 +61,10 @@ interface RoomType {
 
 const props = defineProps<{
     branches: Branch[];
+    defaultLocale?: string;
 }>();
+
+initLocale(props.defaultLocale);
 
 const step = ref(1);
 const selectedBranch = ref<number | null>(null);

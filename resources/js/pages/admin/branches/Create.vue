@@ -98,6 +98,7 @@ const form = reactive({
     state: '',
     country: 'NG',
     timezone: 'Africa/Lagos',
+    locale: 'en',
     currency_code: 'NGN',
     currency_symbol: '₦',
     tax_rate: 0,
@@ -404,6 +405,18 @@ const submitBranch = () => {
                                     >
                                         {{ currency }} ({{ CURRENCY_MAP[currency] }})
                                     </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div class="space-y-2">
+                            <Label>Default Language</Label>
+                            <Select v-model="form.locale">
+                                <SelectTrigger class="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="en">English</SelectItem>
+                                    <SelectItem value="fr">Français</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
