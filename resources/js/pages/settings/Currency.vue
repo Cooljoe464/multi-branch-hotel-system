@@ -3,6 +3,7 @@ import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, reactive, watch } from 'vue';
 import { Loader2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Heading from '@/components/Heading.vue';
@@ -35,6 +36,7 @@ const CURRENCIES = ['NGN', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'INR', 'AED
 const page = usePage();
 const globalCurrency = computed(() => page.props.globalCurrency as { currency_code: string; currency_symbol: string });
 const branches = computed(() => page.props.branches as Array<{ id: number; name: string; currency_code: string; currency_symbol: string }>);
+const rates = computed(() => page.props.rates as Array<{ id: number; base_code: string; quote_code: string; rate_date: string; rate: number; source: string }>);
 
 const form = reactive({
     currency_code: globalCurrency.value.currency_code,
@@ -48,6 +50,13 @@ const form = reactive({
 });
 
 const processing = ref(false);
+const rateForm = reactive({
+    base_code: 'USD',
+    quote_code: 'NGN',
+    rate_date: new Date().toISOString().split('T')[0],
+    rate: 1500,
+    source: 'manual',
+});
 
 function onGlobalCurrencyChange(value: string) {
     form.currency_code = value;
@@ -79,6 +88,14 @@ function submit() {
             processing.value = false;
         },
     });
+}
+
+function submitRate() {
+    router.post('/settings/fx-rates', { ...rateForm }, { preserveScroll: true });
+}
+
+function deleteRate(id: number) {
+    router.delete(`/settings/fx-rates/${id}`, { preserveScroll: true });
 }
 </script>
 
@@ -152,5 +169,63 @@ function submit() {
                 </Button>
             </div>
         </form>
+
+        <Heading
+            variant="small"
+            title="Exchange Rates"
+            description="Daily reference rates used for foreign-currency conversion (1 unit of base buys the quoted units)"
+        />
+
+        <form @submit.prevent="submitRate" class="flex flex-wrap items-end gap-3 rounded-lg border border-border p-4">
+            <div class="grid gap-2">
+                <Label>Base</Label>
+                <Select v-model="rateForm.base_code">
+                    <SelectTrigger class="w-[120px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="code in CURRENCIES" :key="code" :value="code">{{ code }}</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <div class="grid gap-2">
+                <Label>Quote</Label>
+                <Select v-model="rateForm.quote_code">
+                    <SelectTrigger class="w-[120px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="code in CURRENCIES" :key="code" :value="code">{{ code }}</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <div class="grid gap-2">
+                <Label>Date</Label>
+                <Input v-model="rateForm.rate_date" type="date" class="w-[160px]" />
+            </div>
+            <div class="grid gap-2">
+                <Label>Rate</Label>
+                <Input v-model.number="rateForm.rate" type="number" min="0.000001" step="any" class="w-[160px]" />
+            </div>
+            <Button type="submit">Save Rate</Button>
+        </form>
+
+        <div class="rounded-lg border border-border">
+            <table class="w-full caption-bottom text-sm">
+                <thead class="bg-muted/50"><tr>
+                    <th class="h-12 px-4 text-left font-medium text-muted-foreground">Pair</th>
+                    <th class="h-12 px-4 text-left font-medium text-muted-foreground">Date</th>
+                    <th class="h-12 px-4 text-left font-medium text-muted-foreground">Rate</th>
+                    <th class="h-12 px-4 text-left font-medium text-muted-foreground">Source</th>
+                    <th class="h-12 px-4 text-right font-medium text-muted-foreground">Actions</th>
+                </tr></thead>
+                <tbody>
+                    <tr v-for="r in rates" :key="r.id" class="border-t border-border">
+                        <td class="p-4 font-mono text-foreground">{{ r.base_code }}/{{ r.quote_code }}</td>
+                        <td class="p-4 text-muted-foreground">{{ r.rate_date }}</td>
+                        <td class="p-4 text-foreground">{{ r.rate }}</td>
+                        <td class="p-4 text-muted-foreground">{{ r.source }}</td>
+                        <td class="p-4 text-right"><Button size="sm" variant="outline" @click="deleteRate(r.id)">Delete</Button></td>
+                    </tr>
+                    <tr v-if="rates.length === 0"><td colspan="5" class="p-4 text-center text-muted-foreground">No rates yet.</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </template>

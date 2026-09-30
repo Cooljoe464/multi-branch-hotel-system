@@ -3,6 +3,7 @@
 use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\Settings\CashierOutletController;
 use App\Http\Controllers\Settings\CurrencyController;
+use App\Http\Controllers\Settings\FxRateController;
 use App\Http\Controllers\Settings\PaymentGuardController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -50,6 +51,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('settings/currency', [CurrencyController::class, 'update'])
             ->middleware('permission:branches.manage')
             ->name('currency.update');
+        Route::post('settings/fx-rates', [FxRateController::class, 'store'])
+            ->middleware('permission:branches.manage')
+            ->name('fx-rates.store');
+        Route::delete('settings/fx-rates/{fxRate}', [FxRateController::class, 'destroy'])
+            ->middleware('permission:branches.manage')
+            ->name('fx-rates.destroy');
     });
 
     // Payment Guard (Global Admin / Settings Manager only)

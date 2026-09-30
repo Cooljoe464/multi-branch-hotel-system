@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Branding;
+use App\Models\FxRate;
+use App\Services\FxService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -32,6 +34,16 @@ class CurrencyController extends Controller
                 'currency_symbol' => $branding->currency_symbol,
             ],
             'branches' => $branches,
+            'rates' => FxRate::orderByDesc('rate_date')->limit(50)->get([
+                'id', 'base_code', 'quote_code', 'rate_date', 'rate_micro', 'source',
+            ])->map(fn (FxRate $r) => [
+                'id' => $r->id,
+                'base_code' => $r->base_code,
+                'quote_code' => $r->quote_code,
+                'rate_date' => $r->rate_date->toDateString(),
+                'rate' => $r->rate_micro / FxService::MICROS,
+                'source' => $r->source,
+            ])->all(),
         ]);
     }
 
