@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $folio_id
  * @property int|null $transaction_id
+ * @property Carbon|null $business_date
  * @property int $disputed_by
  * @property string $status
  * @property string $reason
@@ -37,6 +38,7 @@ class FolioDispute extends Model
         'folio_id',
         'currency_code',
         'transaction_id',
+        'business_date',
         'disputed_by',
         'status',
         'reason',
@@ -50,6 +52,7 @@ class FolioDispute extends Model
     protected function casts(): array
     {
         return [
+            'business_date' => 'date',
             'resolved_at' => 'datetime',
             'amount_disputed' => 'integer',
             'metadata' => 'array',

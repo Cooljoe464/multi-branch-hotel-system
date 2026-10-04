@@ -379,6 +379,7 @@ class PosService
 
             $locked->update([
                 'transaction_id' => $transaction->id,
+                'business_date' => $transaction->business_date?->toDateString(),
                 'status' => 'posted',
                 'posted_at' => now(),
             ]);

@@ -338,6 +338,7 @@ class FolioService
     public function initiateDispute(Folio $folio, ?int $transactionId, string $reason, int $userId): FolioDispute
     {
         $amountDisputed = 0;
+        $transaction = null;
         if ($transactionId) {
             $transaction = Transaction::findOrFail($transactionId);
             $amountDisputed = $transaction->amount;
@@ -347,6 +348,7 @@ class FolioService
             'folio_id' => $folio->id,
             'currency_code' => $folio->currency_code,
             'transaction_id' => $transactionId,
+            'business_date' => $transaction?->business_date?->toDateString(),
             'disputed_by' => $userId,
             'status' => 'open',
             'reason' => $reason,
@@ -582,6 +584,7 @@ class FolioService
             foreach ($resolved as $leg) {
                 $splits[] = TransactionSplit::create([
                     'transaction_id' => $transaction->id,
+                    'business_date' => $transaction->business_date?->toDateString(),
                     'target_window_id' => $leg['window']->id,
                     'amount_minor' => $leg['amount_minor'],
                     'percent_bps' => $leg['percent_bps'],

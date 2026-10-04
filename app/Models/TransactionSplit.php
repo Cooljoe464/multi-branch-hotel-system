@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $transaction_id
+ * @property Carbon|null $business_date
  * @property int $target_window_id
  * @property int $amount_minor
  * @property int|null $percent_bps
@@ -23,6 +24,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'transaction_id',
+    'business_date',
     'target_window_id',
     'amount_minor',
     'percent_bps',
@@ -32,6 +34,7 @@ class TransactionSplit extends Model
     protected function casts(): array
     {
         return [
+            'business_date' => 'date',
             'amount_minor' => 'integer',
             'percent_bps' => 'integer',
         ];
