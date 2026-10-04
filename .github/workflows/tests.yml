@@ -56,6 +56,8 @@ jobs:
       MAIL_MAILER: array
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
+      # Hotspot provisioning stays log-only in CI (no live RADIUS/MikroTik).
+      RADIUS_FAKE: 'true'
 
     steps:
       - name: Checkout code
