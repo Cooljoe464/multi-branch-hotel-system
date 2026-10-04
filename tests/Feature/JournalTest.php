@@ -113,6 +113,7 @@ it('backfills legacy postings and re-runs to zero new rows', function () {
     $legacy = Transaction::withoutEvents(function () use ($folio) {
         return Transaction::create([
             'folio_id' => $folio->id,
+            'business_date' => now()->toDateString(),
             'currency_code' => 'NGN',
             'type' => 'debit',
             'category' => 'room_rate',

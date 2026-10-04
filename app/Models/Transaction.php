@@ -64,6 +64,18 @@ class Transaction extends Model
     /** @use HasFactory<TransactionFactory> */
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        // Partition key safety net: every writer sets business_date
+        // explicitly, but a direct create (seeds, scripts, tests) must
+        // never violate NOT NULL. Today is the only sane default.
+        static::creating(function (Transaction $transaction) {
+            if ($transaction->business_date === null) {
+                $transaction->setAttribute('business_date', today()->toDateString());
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
