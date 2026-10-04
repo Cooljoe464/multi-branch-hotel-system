@@ -30,6 +30,7 @@ class TransactionFactory extends Factory
             'is_voided' => false,
             'voided_at' => null,
             'metadata' => null,
+            'business_date' => now()->toDateString(),
         ];
     }
 

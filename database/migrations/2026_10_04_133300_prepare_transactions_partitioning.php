@@ -20,7 +20,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement("UPDATE transactions SET business_date = COALESCE(business_date, created_at::date, CURRENT_DATE) WHERE business_date IS NULL");
+        DB::statement('UPDATE transactions SET business_date = COALESCE(business_date, created_at::date, CURRENT_DATE) WHERE business_date IS NULL');
 
         Schema::table('transactions', function (Blueprint $table) {
             $table->date('business_date')->nullable(false)->change();

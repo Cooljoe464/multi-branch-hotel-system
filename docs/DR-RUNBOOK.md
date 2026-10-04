@@ -44,12 +44,16 @@
 - `activity_log` is monthly RANGE-partitioned on `created_at`;
   `PartitionManagerJob` (monthly) pre-provisions 3 months. Retention
   deletes work across partitions unchanged.
-- `transactions` / `journal_entries` are NOT partitioned: four child
-  tables hold FKs to `transactions(id)`, and declarative partitioning
-  requires composite keys + FK rewrites. `PartitionManager::readiness()`
-  lists every blocker; the cutover needs a DBA maintenance window and
-  stays out of automated migrations until then. Safe under ~10M rows;
-  watch vacuum/lock pain as the trigger.
+- `transactions` converts via `db:partition-transactions` in a DBA
+  window (traffic drained, pre-migrate backup taken): monthly RANGE
+  on `business_date`, composite PK `(business_date, id)`, composite
+  FKs from `pos_charges`/`folio_disputes`/`transaction_splits`
+  (populated at link time), self-FK dropped to app-level
+  (`transferToMaster()` already guards idempotency). `--dry-run`
+  reports first; `--rollback` restores the plain table. `journal_entries`
+  stays unpartitioned (no inbound FKs yet — same treatment when it
+  earns it). Safe under ~10M rows; watch vacuum/lock pain as the
+  trigger.
 
 ## Escalation
 

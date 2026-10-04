@@ -6,12 +6,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Monthly partition provisioning for activity_log plus a readiness
- * report for the tables that cannot convert yet. transactions and
- * journal_entries keep single-column primary keys referenced by
- * child foreign keys; converting them needs composite keys and FK
- * rewrites in a DBA maintenance window — readiness() names every
- * blocker so the cutover can be planned, not guessed.
+ * Monthly partition provisioning for activity_log and transactions.
+ * journal_entries keeps its single-column primary key with no
+ * inbound foreign keys pending the same treatment; readiness()
+ * names every remaining blocker.
  */
 class PartitionManager
 {
@@ -20,21 +18,34 @@ class PartitionManager
      */
     public function ensureFuturePartitions(): array
     {
-        if (! Schema::hasTable('activity_log')) {
-            return [];
+        $created = [];
+
+        if (Schema::hasTable('activity_log')) {
+            foreach ([0, 1, 2] as $offset) {
+                $start = new \DateTimeImmutable(date('Y-m-01', strtotime("+{$offset} month")));
+                $name = 'activity_log_'.strtolower($start->format('Y_M'));
+                $end = $start->modify('+1 month');
+
+                DB::statement(
+                    "CREATE TABLE IF NOT EXISTS {$name} PARTITION OF activity_log ".
+                    "FOR VALUES FROM ('".$start->format('Y-m-d')."') TO ('".$end->format('Y-m-d')."')"
+                );
+                $created[] = $name;
+            }
         }
 
-        $created = [];
-        foreach ([0, 1, 2] as $offset) {
-            $start = new \DateTimeImmutable(date('Y-m-01', strtotime("+{$offset} month")));
-            $name = 'activity_log_'.strtolower($start->format('Y_M'));
-            $end = $start->modify('+1 month');
+        if ($this->isPartitioned('transactions')) {
+            foreach ([0, 1, 2] as $offset) {
+                $start = new \DateTimeImmutable(date('Y-m-01', strtotime("+{$offset} month")));
+                $name = 'transactions_'.$start->format('Y_m');
+                $end = $start->modify('+1 month');
 
-            DB::statement(
-                "CREATE TABLE IF NOT EXISTS {$name} PARTITION OF activity_log ".
-                "FOR VALUES FROM ('".$start->format('Y-m-d')."') TO ('".$end->format('Y-m-d')."')"
-            );
-            $created[] = $name;
+                DB::statement(
+                    "CREATE TABLE IF NOT EXISTS {$name} PARTITION OF transactions ".
+                    "FOR VALUES FROM ('".$start->format('Y-m-d')."') TO ('".$end->format('Y-m-d')."')"
+                );
+                $created[] = $name;
+            }
         }
 
         return $created;
