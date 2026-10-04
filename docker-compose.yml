@@ -77,6 +77,7 @@ services:
         --maxmemory 256mb
         --maxmemory-policy allkeys-lru
         --appendonly yes
+        --requirepass ${REDIS_PASSWORD:?Set a strong REDIS_PASSWORD}
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
