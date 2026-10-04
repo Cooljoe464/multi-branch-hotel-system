@@ -5,8 +5,12 @@ import type { Auth } from '@/types';
 export function useCan() {
     const page = usePage();
 
-    const permissions = computed<string[]>(() => (page.props.auth as Auth)?.permissions ?? []);
-    const roles = computed<string[]>(() => (page.props.auth as Auth)?.roles ?? []);
+    const permissions = computed<string[]>(
+        () => (page.props.auth as Auth)?.permissions ?? [],
+    );
+    const roles = computed<string[]>(
+        () => (page.props.auth as Auth)?.roles ?? [],
+    );
 
     function can(permission: string): boolean {
         return permissions.value.includes(permission);

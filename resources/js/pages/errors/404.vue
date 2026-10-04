@@ -5,11 +5,15 @@ import { Button } from '@/components/ui/button';
 
 <template>
     <Head title="Page not found" />
-    <div class="flex min-h-screen items-center justify-center bg-background">
+    <div class="bg-background flex min-h-screen items-center justify-center">
         <div class="text-center">
-            <p class="text-sm font-medium text-muted-foreground">404</p>
-            <h1 class="mt-2 text-2xl font-semibold tracking-tight text-foreground">Page not found</h1>
-            <p class="mt-2 max-w-md text-sm text-muted-foreground">
+            <p class="text-muted-foreground text-sm font-medium">404</p>
+            <h1
+                class="text-foreground mt-2 text-2xl font-semibold tracking-tight"
+            >
+                Page not found
+            </h1>
+            <p class="text-muted-foreground mt-2 max-w-md text-sm">
                 The page you're looking for doesn't exist or has been moved.
             </p>
             <div class="mt-6">

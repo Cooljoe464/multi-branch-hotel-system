@@ -43,16 +43,14 @@ const mainNavItems: NavItem[] = [
 
 <template>
     <div>
-        <nav
-            class="border-b border-border bg-background"
-        >
+        <nav class="border-border bg-background border-b">
             <div
                 class="mx-auto flex h-16 max-w-7xl flex-wrap items-center justify-between px-4"
             >
                 <div class="flex items-center gap-2">
                     <button
                         type="button"
-                        class="rounded-lg p-2 text-muted-foreground hover:bg-accent lg:hidden"
+                        class="text-muted-foreground hover:bg-accent rounded-lg p-2 lg:hidden"
                         aria-label="Open menu"
                         :aria-expanded="mobileMenuOpen"
                         @click="mobileMenuOpen = !mobileMenuOpen"
@@ -89,12 +87,16 @@ const mainNavItems: NavItem[] = [
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <PropertySwitcher v-if="hasRole('Global Admin') || hasRole('Property Owner')" />
+                    <PropertySwitcher
+                        v-if="
+                            hasRole('Global Admin') || hasRole('Property Owner')
+                        "
+                    />
                     <DropdownMenu>
                         <DropdownMenuTrigger as-child>
                             <button
                                 type="button"
-                                class="rounded-full p-0.5 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                class="hover:bg-accent focus-visible:ring-ring rounded-full p-0.5 focus:outline-none focus-visible:ring-2"
                                 :aria-label="`Account: ${auth.user?.name}`"
                                 aria-haspopup="menu"
                             >
@@ -117,12 +119,15 @@ const mainNavItems: NavItem[] = [
                 </div>
             </div>
 
-            <div v-if="mobileMenuOpen" class="border-t border-border px-4 py-3 lg:hidden">
+            <div
+                v-if="mobileMenuOpen"
+                class="border-border border-t px-4 py-3 lg:hidden"
+            >
                 <ul class="space-y-1">
                     <li v-for="item in mainNavItems" :key="item.title">
                         <Link
                             :href="item.href"
-                            class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
+                            class="text-foreground hover:bg-accent flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium"
                             @click="mobileMenuOpen = false"
                         >
                             <component
@@ -139,14 +144,13 @@ const mainNavItems: NavItem[] = [
 
         <div
             v-if="props.breadcrumbs.length > 0"
-            class="flex w-full border-b border-border bg-background"
+            class="border-border bg-background flex w-full border-b"
         >
             <div
-                class="mx-auto flex h-12 w-full max-w-7xl items-center justify-start px-4 text-muted-foreground"
+                class="text-muted-foreground mx-auto flex h-12 w-full max-w-7xl items-center justify-start px-4"
             >
                 <Breadcrumbs :breadcrumbs="breadcrumbs" />
             </div>
         </div>
     </div>
 </template>
-

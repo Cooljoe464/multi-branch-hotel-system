@@ -18,11 +18,22 @@ const props = defineProps<{
     history: BusinessDate[];
 }>();
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Business Date', href: '#' }] } });
+defineOptions({
+    layout: {
+        breadcrumbs: [
+            { title: 'Dashboard', href: '/dashboard' },
+            { title: 'Business Date', href: '#' },
+        ],
+    },
+});
 
 function advance() {
     const { withKey } = useIdempotentForm({});
-    router.post(`/branches/${props.branch.id}/business-date/advance`, {}, withKey);
+    router.post(
+        `/branches/${props.branch.id}/business-date/advance`,
+        {},
+        withKey,
+    );
 }
 </script>
 
@@ -31,11 +42,18 @@ function advance() {
     <div class="space-y-6 p-6">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-2xl font-semibold">Business Date — {{ branch.name }}</h1>
-                <p class="text-sm text-muted-foreground">Timezone: {{ branch.timezone }} · All postings anchor to this date.</p>
+                <h1 class="text-2xl font-semibold">
+                    Business Date — {{ branch.name }}
+                </h1>
+                <p class="text-muted-foreground text-sm">
+                    Timezone: {{ branch.timezone }} · All postings anchor to
+                    this date.
+                </p>
             </div>
             <div class="flex items-center gap-3">
-                <span class="rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-800">
+                <span
+                    class="rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-800"
+                >
                     {{ current.business_date }} · {{ current.status }}
                 </span>
                 <Button @click="advance">Advance to next day</Button>
@@ -45,7 +63,7 @@ function advance() {
         <div class="rounded-lg border">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="border-b text-left text-muted-foreground">
+                    <tr class="text-muted-foreground border-b text-left">
                         <th class="p-3">Date</th>
                         <th class="p-3">Status</th>
                         <th class="p-3">Opened</th>
@@ -53,7 +71,11 @@ function advance() {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="row in history" :key="row.id" class="border-b last:border-0">
+                    <tr
+                        v-for="row in history"
+                        :key="row.id"
+                        class="border-b last:border-0"
+                    >
                         <td class="p-3 font-medium">{{ row.business_date }}</td>
                         <td class="p-3">{{ row.status }}</td>
                         <td class="p-3">{{ row.opened_at ?? '—' }}</td>

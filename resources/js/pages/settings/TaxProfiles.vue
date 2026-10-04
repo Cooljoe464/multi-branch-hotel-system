@@ -26,12 +26,21 @@ const props = defineProps<{
     profiles: TaxProfile[];
 }>();
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Tax Profiles', href: '#' }] } });
+defineOptions({
+    layout: {
+        breadcrumbs: [
+            { title: 'Dashboard', href: '/dashboard' },
+            { title: 'Tax Profiles', href: '#' },
+        ],
+    },
+});
 
 const form = useForm({
     jurisdiction: 'NG-LA',
     name: '',
-    components: [{ code: 'VAT', mode: 'exclusive', rate_bps: 750, applies_to: 'all' }],
+    components: [
+        { code: 'VAT', mode: 'exclusive', rate_bps: 750, applies_to: 'all' },
+    ],
 });
 
 function submit() {
@@ -47,25 +56,61 @@ function deactivate(id: number) {
     <Head title="Tax Profiles" />
     <div class="space-y-6 p-6">
         <div>
-            <h1 class="text-2xl font-semibold">Tax Profiles — {{ branch.name }}</h1>
-            <p class="text-sm text-muted-foreground">Rates snapshot onto every folio line at posting time. Deactivating never rewrites history.</p>
+            <h1 class="text-2xl font-semibold">
+                Tax Profiles — {{ branch.name }}
+            </h1>
+            <p class="text-muted-foreground text-sm">
+                Rates snapshot onto every folio line at posting time.
+                Deactivating never rewrites history.
+            </p>
         </div>
 
-        <div v-for="profile in profiles" :key="profile.id" class="rounded-lg border p-4">
+        <div
+            v-for="profile in profiles"
+            :key="profile.id"
+            class="rounded-lg border p-4"
+        >
             <div class="flex items-center justify-between">
-                <div class="font-medium">{{ profile.name }} <span class="text-muted-foreground">({{ profile.jurisdiction }})</span></div>
+                <div class="font-medium">
+                    {{ profile.name }}
+                    <span class="text-muted-foreground"
+                        >({{ profile.jurisdiction }})</span
+                    >
+                </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs uppercase" :class="profile.active ? 'text-emerald-600' : 'text-muted-foreground'">{{ profile.active ? 'active' : 'inactive' }}</span>
-                    <Button v-if="profile.active" variant="outline" size="sm" @click="deactivate(profile.id)">Deactivate</Button>
+                    <span
+                        class="text-xs uppercase"
+                        :class="
+                            profile.active
+                                ? 'text-emerald-600'
+                                : 'text-muted-foreground'
+                        "
+                        >{{ profile.active ? 'active' : 'inactive' }}</span
+                    >
+                    <Button
+                        v-if="profile.active"
+                        variant="outline"
+                        size="sm"
+                        @click="deactivate(profile.id)"
+                        >Deactivate</Button
+                    >
                 </div>
             </div>
             <table class="mt-2 w-full text-sm">
                 <tbody>
-                    <tr v-for="c in profile.components" :key="c.id" class="border-t">
+                    <tr
+                        v-for="c in profile.components"
+                        :key="c.id"
+                        class="border-t"
+                    >
                         <td class="py-1 font-mono">{{ c.code }}</td>
                         <td class="py-1">{{ c.mode }}</td>
-                        <td class="py-1">{{ (c.rate_bps / 100).toFixed(2) }}%</td>
-                        <td class="py-1 text-muted-foreground">{{ c.applies_to }}</td>
+                        <td class="py-1">
+                            {{ (c.rate_bps / 100).toFixed(2) }}%
+                        </td>
+                        <td class="text-muted-foreground py-1">
+                            {{ c.applies_to }}
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -81,7 +126,9 @@ function deactivate(id: number) {
                 <Label>Name</Label>
                 <Input v-model="form.name" required />
             </div>
-            <Button type="submit" :disabled="form.processing">Create profile</Button>
+            <Button type="submit" :disabled="form.processing"
+                >Create profile</Button
+            >
         </form>
     </div>
 </template>

@@ -4,7 +4,14 @@ import { Head, router } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent,
+    CardFooter,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -14,7 +21,17 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, CheckCircle2, Plus, Trash2, Loader2, Building2, BedDouble, Map, ClipboardCheck } from '@lucide/vue';
+import {
+    ArrowLeft,
+    CheckCircle2,
+    Plus,
+    Trash2,
+    Loader2,
+    Building2,
+    BedDouble,
+    Map,
+    ClipboardCheck,
+} from '@lucide/vue';
 import { formatCurrency as formatCurrencyRaw } from '@/lib/format';
 
 defineOptions({
@@ -74,7 +91,17 @@ const TIMEZONES = [
     'Pacific/Auckland',
 ];
 
-const CURRENCIES = ['NGN', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'INR', 'AED'];
+const CURRENCIES = [
+    'NGN',
+    'USD',
+    'EUR',
+    'GBP',
+    'CAD',
+    'AUD',
+    'SGD',
+    'INR',
+    'AED',
+];
 
 const BED_TYPES = ['single', 'queen', 'king', 'twin', 'sofa'];
 
@@ -127,7 +154,10 @@ const stepIcons = [Building2, BedDouble, Map, ClipboardCheck];
 
 // --- Auto-generate code from name ---
 const generateCode = () => {
-    return form.name.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10);
+    return form.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .substring(0, 10);
 };
 
 // Watch name changes to auto-fill code
@@ -142,7 +172,8 @@ const onCurrencyChange = () => {
     form.currency_symbol = CURRENCY_MAP[form.currency_code] || '$';
 };
 
-const formatCurrency = (amount: number) => formatCurrencyRaw(amount, form.currency_symbol);
+const formatCurrency = (amount: number) =>
+    formatCurrencyRaw(amount, form.currency_symbol);
 
 // --- Room type management ---
 const addRoomType = () => {
@@ -177,7 +208,12 @@ const canProceedStep1 = computed(() => {
 const canProceedStep2 = computed(() => {
     return (
         form.room_types.length > 0 &&
-        form.room_types.every((rt) => rt.name.trim() !== '' && rt.code.trim() !== '' && rt.base_rate > 0)
+        form.room_types.every(
+            (rt) =>
+                rt.name.trim() !== '' &&
+                rt.code.trim() !== '' &&
+                rt.base_rate > 0,
+        )
     );
 });
 
@@ -195,7 +231,8 @@ const roomPreview = computed(() => {
         for (let r = 0; r < form.rooms_per_floor; r++) {
             const roomNum = String(start + r).padStart(2, '0');
             const roomNumber = `${prefix}${floor}${roomNum}`;
-            const rt = form.room_types[form.floor_room_type] || form.room_types[0];
+            const rt =
+                form.room_types[form.floor_room_type] || form.room_types[0];
             rooms.push({
                 number: roomNumber,
                 floor,
@@ -241,27 +278,35 @@ const submitBranch = () => {
 
     <div class="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
         <!-- Page Header -->
-        <div class="flex items-center justify-between pb-2 border-b border-border">
+        <div
+            class="border-border flex items-center justify-between border-b pb-2"
+        >
             <div>
-                <h1 class="text-2xl font-bold tracking-tight text-foreground">Create New Branch</h1>
-                <p class="text-sm text-muted-foreground mt-0.5">
+                <h1 class="text-foreground text-2xl font-bold tracking-tight">
+                    Create New Branch
+                </h1>
+                <p class="text-muted-foreground mt-0.5 text-sm">
                     Set up a new property with room types and floor plan
                 </p>
             </div>
         </div>
 
         <!-- Step Indicator -->
-        <div class="max-w-2xl mx-auto w-full">
+        <div class="mx-auto w-full max-w-2xl">
             <div class="flex items-center justify-between">
-                <div v-for="(label, idx) in stepLabels" :key="idx" class="flex items-center">
+                <div
+                    v-for="(label, idx) in stepLabels"
+                    :key="idx"
+                    class="flex items-center"
+                >
                     <button
-                        class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 cursor-pointer"
+                        class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-sm font-semibold transition-all duration-200"
                         :class="
                             step > idx + 1
                                 ? 'bg-primary text-primary-foreground shadow-md'
                                 : step === idx + 1
-                                    ? 'bg-primary text-primary-foreground shadow-md ring-4 ring-primary/20'
-                                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                  ? 'bg-primary text-primary-foreground ring-primary/20 shadow-md ring-4'
+                                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
                         "
                         @click="goToStep(idx + 1)"
                     >
@@ -270,16 +315,20 @@ const submitBranch = () => {
                     </button>
                     <div
                         v-if="idx < stepLabels.length - 1"
-                        class="w-12 sm:w-20 h-0.5 mx-2 rounded-full transition-colors duration-300"
+                        class="mx-2 h-0.5 w-12 rounded-full transition-colors duration-300 sm:w-20"
                         :class="step > idx + 1 ? 'bg-primary' : 'bg-border'"
                     />
                 </div>
             </div>
-            <div class="flex justify-between mt-3 text-xs font-medium text-muted-foreground px-1">
+            <div
+                class="text-muted-foreground mt-3 flex justify-between px-1 text-xs font-medium"
+            >
                 <span
                     v-for="(label, idx) in stepLabels"
                     :key="idx"
-                    :class="step >= idx + 1 ? 'text-foreground font-semibold' : ''"
+                    :class="
+                        step >= idx + 1 ? 'text-foreground font-semibold' : ''
+                    "
                 >
                     {{ label }}
                 </span>
@@ -287,11 +336,11 @@ const submitBranch = () => {
         </div>
 
         <!-- Step 1: Branch Information -->
-        <div v-if="step === 1" class="max-w-3xl mx-auto w-full">
+        <div v-if="step === 1" class="mx-auto w-full max-w-3xl">
             <Card class="border-border shadow-sm">
                 <CardHeader>
-                    <CardTitle class="text-xl flex items-center gap-2">
-                        <Building2 class="size-5 text-primary" />
+                    <CardTitle class="flex items-center gap-2 text-xl">
+                        <Building2 class="text-primary size-5" />
                         Branch Information
                     </CardTitle>
                     <CardDescription>
@@ -300,7 +349,7 @@ const submitBranch = () => {
                 </CardHeader>
 
                 <CardContent class="space-y-5">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div class="space-y-2">
                             <Label for="name">Branch Name *</Label>
                             <Input
@@ -320,7 +369,9 @@ const submitBranch = () => {
                                 placeholder="granddt"
                                 maxlength="10"
                             />
-                            <p class="text-xs text-muted-foreground">Auto-generated from name. Max 10 characters.</p>
+                            <p class="text-muted-foreground text-xs">
+                                Auto-generated from name. Max 10 characters.
+                            </p>
                         </div>
                     </div>
 
@@ -331,11 +382,11 @@ const submitBranch = () => {
                             v-model="form.address"
                             placeholder="123 Main Street, Suite 100"
                             rows="2"
-                            class="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[60px] w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                         />
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div class="space-y-2">
                             <Label for="city">City *</Label>
                             <Input
@@ -373,12 +424,14 @@ const submitBranch = () => {
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div class="space-y-2">
                             <Label>Timezone *</Label>
                             <Select v-model="form.timezone">
                                 <SelectTrigger class="w-full">
-                                    <SelectValue placeholder="Select timezone" />
+                                    <SelectValue
+                                        placeholder="Select timezone"
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
@@ -393,7 +446,10 @@ const submitBranch = () => {
                         </div>
                         <div class="space-y-2">
                             <Label>Currency *</Label>
-                            <Select v-model="form.currency_code" @update:model-value="onCurrencyChange">
+                            <Select
+                                v-model="form.currency_code"
+                                @update:model-value="onCurrencyChange"
+                            >
                                 <SelectTrigger class="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -403,7 +459,9 @@ const submitBranch = () => {
                                         :key="currency"
                                         :value="currency"
                                     >
-                                        {{ currency }} ({{ CURRENCY_MAP[currency] }})
+                                        {{ currency }} ({{
+                                            CURRENCY_MAP[currency]
+                                        }})
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
@@ -422,7 +480,7 @@ const submitBranch = () => {
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div class="space-y-2">
                             <Label for="currency_symbol">Currency Symbol</Label>
                             <Input
@@ -457,8 +515,14 @@ const submitBranch = () => {
                     </div>
 
                     <div class="flex items-center space-x-2 pt-2">
-                        <Checkbox id="is_primary" v-model:checked="form.is_primary" />
-                        <Label for="is_primary" class="text-sm font-medium leading-none cursor-pointer">
+                        <Checkbox
+                            id="is_primary"
+                            v-model:checked="form.is_primary"
+                        />
+                        <Label
+                            for="is_primary"
+                            class="cursor-pointer text-sm leading-none font-medium"
+                        >
                             Set as primary branch
                         </Label>
                     </div>
@@ -473,17 +537,19 @@ const submitBranch = () => {
         </div>
 
         <!-- Step 2: Room Types -->
-        <div v-else-if="step === 2" class="max-w-4xl mx-auto w-full space-y-6">
+        <div v-else-if="step === 2" class="mx-auto w-full max-w-4xl space-y-6">
             <div class="flex items-center justify-between">
                 <Button
                     variant="ghost"
                     size="sm"
-                    class="gap-1 text-muted-foreground hover:text-foreground"
+                    class="text-muted-foreground hover:text-foreground gap-1"
                     @click="prevStep"
                 >
                     <ArrowLeft class="size-4" /> Back
                 </Button>
-                <h2 class="text-lg font-semibold text-foreground">Room Types</h2>
+                <h2 class="text-foreground text-lg font-semibold">
+                    Room Types
+                </h2>
             </div>
 
             <div class="space-y-4">
@@ -499,7 +565,10 @@ const submitBranch = () => {
                                     RT{{ index + 1 }}
                                 </Badge>
                                 <CardTitle class="text-base">
-                                    {{ roomType.name || `Room Type ${index + 1}` }}
+                                    {{
+                                        roomType.name ||
+                                        `Room Type ${index + 1}`
+                                    }}
                                 </CardTitle>
                             </div>
                             <Button
@@ -515,7 +584,7 @@ const submitBranch = () => {
                     </CardHeader>
 
                     <CardContent class="space-y-4">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div class="space-y-2">
                                 <Label>Name *</Label>
                                 <Input
@@ -535,7 +604,7 @@ const submitBranch = () => {
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
                             <div class="space-y-2">
                                 <Label>Base Rate *</Label>
                                 <Input
@@ -578,7 +647,10 @@ const submitBranch = () => {
                                             :key="bt"
                                             :value="bt"
                                         >
-                                            {{ bt.charAt(0).toUpperCase() + bt.slice(1) }}
+                                            {{
+                                                bt.charAt(0).toUpperCase() +
+                                                bt.slice(1)
+                                            }}
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -592,7 +664,7 @@ const submitBranch = () => {
                     class="w-full border-dashed"
                     @click="addRoomType"
                 >
-                    <Plus class="size-4 mr-2" />
+                    <Plus class="mr-2 size-4" />
                     Add Room Type
                 </Button>
             </div>
@@ -605,23 +677,25 @@ const submitBranch = () => {
         </div>
 
         <!-- Step 3: Floor Plan & Rooms -->
-        <div v-else-if="step === 3" class="max-w-4xl mx-auto w-full space-y-6">
+        <div v-else-if="step === 3" class="mx-auto w-full max-w-4xl space-y-6">
             <div class="flex items-center justify-between">
                 <Button
                     variant="ghost"
                     size="sm"
-                    class="gap-1 text-muted-foreground hover:text-foreground"
+                    class="text-muted-foreground hover:text-foreground gap-1"
                     @click="prevStep"
                 >
                     <ArrowLeft class="size-4" /> Back
                 </Button>
-                <h2 class="text-lg font-semibold text-foreground">Floor Plan & Rooms</h2>
+                <h2 class="text-foreground text-lg font-semibold">
+                    Floor Plan & Rooms
+                </h2>
             </div>
 
             <Card class="border-border shadow-sm">
                 <CardHeader>
-                    <CardTitle class="text-xl flex items-center gap-2">
-                        <Map class="size-5 text-primary" />
+                    <CardTitle class="flex items-center gap-2 text-xl">
+                        <Map class="text-primary size-5" />
                         Configure Floors & Rooms
                     </CardTitle>
                     <CardDescription>
@@ -630,7 +704,7 @@ const submitBranch = () => {
                 </CardHeader>
 
                 <CardContent class="space-y-5">
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div class="space-y-2">
                             <Label for="floors">Number of Floors *</Label>
                             <Input
@@ -643,7 +717,9 @@ const submitBranch = () => {
                             />
                         </div>
                         <div class="space-y-2">
-                            <Label for="rooms_per_floor">Rooms Per Floor *</Label>
+                            <Label for="rooms_per_floor"
+                                >Rooms Per Floor *</Label
+                            >
                             <Input
                                 id="rooms_per_floor"
                                 v-model.number="form.rooms_per_floor"
@@ -657,7 +733,9 @@ const submitBranch = () => {
                             <Label>Room Type Assignment</Label>
                             <Select v-model.number="form.floor_room_type">
                                 <SelectTrigger class="w-full">
-                                    <SelectValue placeholder="Select room type" />
+                                    <SelectValue
+                                        placeholder="Select room type"
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
@@ -672,7 +750,7 @@ const submitBranch = () => {
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div class="space-y-2">
                             <Label for="room_prefix">Room Number Prefix</Label>
                             <Input
@@ -682,8 +760,9 @@ const submitBranch = () => {
                                 placeholder="e.g., 1, A, S (optional)"
                                 maxlength="3"
                             />
-                            <p class="text-xs text-muted-foreground">
-                                Prefix + floor number + room number. Example: prefix "1" → 1101, 1102...
+                            <p class="text-muted-foreground text-xs">
+                                Prefix + floor number + room number. Example:
+                                prefix "1" → 1101, 1102...
                             </p>
                         </div>
                         <div class="space-y-2">
@@ -701,27 +780,52 @@ const submitBranch = () => {
 
                     <!-- Room Preview Table -->
                     <div v-if="roomPreview.length > 0" class="pt-2">
-                        <h3 class="text-sm font-semibold text-foreground mb-3">
-                            Room Preview ({{ roomPreview.length }} rooms will be created)
+                        <h3 class="text-foreground mb-3 text-sm font-semibold">
+                            Room Preview ({{ roomPreview.length }} rooms will be
+                            created)
                         </h3>
-                        <div class="max-h-64 overflow-y-auto rounded-lg border border-border">
+                        <div
+                            class="border-border max-h-64 overflow-y-auto rounded-lg border"
+                        >
                             <table class="w-full text-sm">
-                                <thead class="sticky top-0 bg-muted/80 backdrop-blur-sm">
-                                    <tr class="border-b border-border">
-                                        <th class="text-left py-2 px-3 font-medium text-muted-foreground">Room #</th>
-                                        <th class="text-left py-2 px-3 font-medium text-muted-foreground">Floor</th>
-                                        <th class="text-left py-2 px-3 font-medium text-muted-foreground">Room Type</th>
+                                <thead
+                                    class="bg-muted/80 sticky top-0 backdrop-blur-sm"
+                                >
+                                    <tr class="border-border border-b">
+                                        <th
+                                            class="text-muted-foreground px-3 py-2 text-left font-medium"
+                                        >
+                                            Room #
+                                        </th>
+                                        <th
+                                            class="text-muted-foreground px-3 py-2 text-left font-medium"
+                                        >
+                                            Floor
+                                        </th>
+                                        <th
+                                            class="text-muted-foreground px-3 py-2 text-left font-medium"
+                                        >
+                                            Room Type
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr
                                         v-for="(room, idx) in roomPreview"
                                         :key="idx"
-                                        class="border-b border-border/50 last:border-0"
+                                        class="border-border/50 border-b last:border-0"
                                     >
-                                        <td class="py-1.5 px-3 font-mono text-xs">{{ room.number }}</td>
-                                        <td class="py-1.5 px-3">{{ room.floor }}</td>
-                                        <td class="py-1.5 px-3">{{ room.room_type }}</td>
+                                        <td
+                                            class="px-3 py-1.5 font-mono text-xs"
+                                        >
+                                            {{ room.number }}
+                                        </td>
+                                        <td class="px-3 py-1.5">
+                                            {{ room.floor }}
+                                        </td>
+                                        <td class="px-3 py-1.5">
+                                            {{ room.room_type }}
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -738,65 +842,117 @@ const submitBranch = () => {
         </div>
 
         <!-- Step 4: Review & Create -->
-        <div v-else-if="step === 4" class="max-w-4xl mx-auto w-full space-y-6">
+        <div v-else-if="step === 4" class="mx-auto w-full max-w-4xl space-y-6">
             <div class="flex items-center justify-between">
                 <Button
                     variant="ghost"
                     size="sm"
-                    class="gap-1 text-muted-foreground hover:text-foreground"
+                    class="text-muted-foreground hover:text-foreground gap-1"
                     @click="prevStep"
                 >
                     <ArrowLeft class="size-4" /> Back
                 </Button>
-                <h2 class="text-lg font-semibold text-foreground">Review & Create</h2>
+                <h2 class="text-foreground text-lg font-semibold">
+                    Review & Create
+                </h2>
             </div>
 
             <!-- Branch Info Card -->
             <Card class="border-border shadow-sm">
                 <CardHeader class="pb-3">
                     <div class="flex items-center justify-between">
-                        <CardTitle class="text-base flex items-center gap-2">
-                            <Building2 class="size-4 text-primary" />
+                        <CardTitle class="flex items-center gap-2 text-base">
+                            <Building2 class="text-primary size-4" />
                             Branch Information
                         </CardTitle>
-                        <Button variant="ghost" size="sm" class="text-xs" @click="goToStep(1)">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            class="text-xs"
+                            @click="goToStep(1)"
+                        >
                             Edit
                         </Button>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
+                    <div
+                        class="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2"
+                    >
                         <div class="flex justify-between sm:block">
-                            <span class="text-muted-foreground sm:mb-0.5 block">Name</span>
-                            <span class="font-semibold text-foreground">{{ form.name }}</span>
+                            <span class="text-muted-foreground block sm:mb-0.5"
+                                >Name</span
+                            >
+                            <span class="text-foreground font-semibold">{{
+                                form.name
+                            }}</span>
                         </div>
                         <div class="flex justify-between sm:block">
-                            <span class="text-muted-foreground sm:mb-0.5 block">Code</span>
-                            <span class="font-semibold text-foreground font-mono">{{ form.code }}</span>
+                            <span class="text-muted-foreground block sm:mb-0.5"
+                                >Code</span
+                            >
+                            <span
+                                class="text-foreground font-mono font-semibold"
+                                >{{ form.code }}</span
+                            >
                         </div>
                         <div class="flex justify-between sm:block">
-                            <span class="text-muted-foreground sm:mb-0.5 block">City</span>
-                            <span class="font-semibold text-foreground">{{ form.city }}{{ form.state ? `, ${form.state}` : '' }}</span>
+                            <span class="text-muted-foreground block sm:mb-0.5"
+                                >City</span
+                            >
+                            <span class="text-foreground font-semibold"
+                                >{{ form.city
+                                }}{{
+                                    form.state ? `, ${form.state}` : ''
+                                }}</span
+                            >
                         </div>
                         <div class="flex justify-between sm:block">
-                            <span class="text-muted-foreground sm:mb-0.5 block">Country</span>
-                            <span class="font-semibold text-foreground">{{ COUNTRIES.find(c => c.code === form.country)?.name || form.country }}</span>
+                            <span class="text-muted-foreground block sm:mb-0.5"
+                                >Country</span
+                            >
+                            <span class="text-foreground font-semibold">{{
+                                COUNTRIES.find((c) => c.code === form.country)
+                                    ?.name || form.country
+                            }}</span>
                         </div>
                         <div class="flex justify-between sm:block">
-                            <span class="text-muted-foreground sm:mb-0.5 block">Timezone</span>
-                            <span class="font-semibold text-foreground">{{ form.timezone }}</span>
+                            <span class="text-muted-foreground block sm:mb-0.5"
+                                >Timezone</span
+                            >
+                            <span class="text-foreground font-semibold">{{
+                                form.timezone
+                            }}</span>
                         </div>
                         <div class="flex justify-between sm:block">
-                            <span class="text-muted-foreground sm:mb-0.5 block">Currency</span>
-                            <span class="font-semibold text-foreground">{{ form.currency_code }} ({{ form.currency_symbol }})</span>
+                            <span class="text-muted-foreground block sm:mb-0.5"
+                                >Currency</span
+                            >
+                            <span class="text-foreground font-semibold"
+                                >{{ form.currency_code }} ({{
+                                    form.currency_symbol
+                                }})</span
+                            >
                         </div>
                         <div class="flex justify-between sm:block">
-                            <span class="text-muted-foreground sm:mb-0.5 block">Tax Rate</span>
-                            <span class="font-semibold text-foreground">{{ form.tax_rate }}% ({{ form.tax_label }})</span>
+                            <span class="text-muted-foreground block sm:mb-0.5"
+                                >Tax Rate</span
+                            >
+                            <span class="text-foreground font-semibold"
+                                >{{ form.tax_rate }}% ({{
+                                    form.tax_label
+                                }})</span
+                            >
                         </div>
                         <div class="flex justify-between sm:block">
-                            <span class="text-muted-foreground sm:mb-0.5 block">Primary Branch</span>
-                            <Badge :variant="form.is_primary ? 'default' : 'secondary'">
+                            <span class="text-muted-foreground block sm:mb-0.5"
+                                >Primary Branch</span
+                            >
+                            <Badge
+                                :variant="
+                                    form.is_primary ? 'default' : 'secondary'
+                                "
+                            >
                                 {{ form.is_primary ? 'Yes' : 'No' }}
                             </Badge>
                         </div>
@@ -808,40 +964,87 @@ const submitBranch = () => {
             <Card class="border-border shadow-sm">
                 <CardHeader class="pb-3">
                     <div class="flex items-center justify-between">
-                        <CardTitle class="text-base flex items-center gap-2">
-                            <BedDouble class="size-4 text-primary" />
+                        <CardTitle class="flex items-center gap-2 text-base">
+                            <BedDouble class="text-primary size-4" />
                             Room Types ({{ form.room_types.length }})
                         </CardTitle>
-                        <Button variant="ghost" size="sm" class="text-xs" @click="goToStep(2)">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            class="text-xs"
+                            @click="goToStep(2)"
+                        >
                             Edit
                         </Button>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div class="overflow-x-auto rounded-lg border border-border">
+                    <div
+                        class="border-border overflow-x-auto rounded-lg border"
+                    >
                         <table class="w-full text-sm">
                             <thead class="bg-muted/50">
-                                <tr class="border-b border-border">
-                                    <th class="text-left py-2 px-3 font-medium text-muted-foreground">Name</th>
-                                    <th class="text-left py-2 px-3 font-medium text-muted-foreground">Code</th>
-                                    <th class="text-right py-2 px-3 font-medium text-muted-foreground">Rate</th>
-                                    <th class="text-center py-2 px-3 font-medium text-muted-foreground">Max Guests</th>
-                                    <th class="text-center py-2 px-3 font-medium text-muted-foreground">Beds</th>
-                                    <th class="text-left py-2 px-3 font-medium text-muted-foreground">Bed Type</th>
+                                <tr class="border-border border-b">
+                                    <th
+                                        class="text-muted-foreground px-3 py-2 text-left font-medium"
+                                    >
+                                        Name
+                                    </th>
+                                    <th
+                                        class="text-muted-foreground px-3 py-2 text-left font-medium"
+                                    >
+                                        Code
+                                    </th>
+                                    <th
+                                        class="text-muted-foreground px-3 py-2 text-right font-medium"
+                                    >
+                                        Rate
+                                    </th>
+                                    <th
+                                        class="text-muted-foreground px-3 py-2 text-center font-medium"
+                                    >
+                                        Max Guests
+                                    </th>
+                                    <th
+                                        class="text-muted-foreground px-3 py-2 text-center font-medium"
+                                    >
+                                        Beds
+                                    </th>
+                                    <th
+                                        class="text-muted-foreground px-3 py-2 text-left font-medium"
+                                    >
+                                        Bed Type
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr
                                     v-for="(rt, idx) in form.room_types"
                                     :key="idx"
-                                    class="border-b border-border/50 last:border-0"
+                                    class="border-border/50 border-b last:border-0"
                                 >
-                                    <td class="py-2 px-3 font-semibold text-foreground">{{ rt.name }}</td>
-                                    <td class="py-2 px-3 font-mono text-xs">{{ rt.code }}</td>
-                                    <td class="py-2 px-3 text-right font-semibold text-foreground">{{ formatCurrency(rt.base_rate) }}</td>
-                                    <td class="py-2 px-3 text-center">{{ rt.max_occupancy }}</td>
-                                    <td class="py-2 px-3 text-center">{{ rt.bed_count }}</td>
-                                    <td class="py-2 px-3 capitalize">{{ rt.bed_type }}</td>
+                                    <td
+                                        class="text-foreground px-3 py-2 font-semibold"
+                                    >
+                                        {{ rt.name }}
+                                    </td>
+                                    <td class="px-3 py-2 font-mono text-xs">
+                                        {{ rt.code }}
+                                    </td>
+                                    <td
+                                        class="text-foreground px-3 py-2 text-right font-semibold"
+                                    >
+                                        {{ formatCurrency(rt.base_rate) }}
+                                    </td>
+                                    <td class="px-3 py-2 text-center">
+                                        {{ rt.max_occupancy }}
+                                    </td>
+                                    <td class="px-3 py-2 text-center">
+                                        {{ rt.bed_count }}
+                                    </td>
+                                    <td class="px-3 py-2 capitalize">
+                                        {{ rt.bed_type }}
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
@@ -853,34 +1056,61 @@ const submitBranch = () => {
             <Card class="border-border shadow-sm">
                 <CardHeader class="pb-3">
                     <div class="flex items-center justify-between">
-                        <CardTitle class="text-base flex items-center gap-2">
-                            <Map class="size-4 text-primary" />
+                        <CardTitle class="flex items-center gap-2 text-base">
+                            <Map class="text-primary size-4" />
                             Rooms ({{ roomPreview.length }})
                         </CardTitle>
-                        <Button variant="ghost" size="sm" class="text-xs" @click="goToStep(3)">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            class="text-xs"
+                            @click="goToStep(3)"
+                        >
                             Edit
                         </Button>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div class="max-h-60 overflow-y-auto rounded-lg border border-border">
+                    <div
+                        class="border-border max-h-60 overflow-y-auto rounded-lg border"
+                    >
                         <table class="w-full text-sm">
-                            <thead class="sticky top-0 bg-muted/80 backdrop-blur-sm">
-                                <tr class="border-b border-border">
-                                    <th class="text-left py-2 px-3 font-medium text-muted-foreground">Room #</th>
-                                    <th class="text-left py-2 px-3 font-medium text-muted-foreground">Floor</th>
-                                    <th class="text-left py-2 px-3 font-medium text-muted-foreground">Room Type</th>
+                            <thead
+                                class="bg-muted/80 sticky top-0 backdrop-blur-sm"
+                            >
+                                <tr class="border-border border-b">
+                                    <th
+                                        class="text-muted-foreground px-3 py-2 text-left font-medium"
+                                    >
+                                        Room #
+                                    </th>
+                                    <th
+                                        class="text-muted-foreground px-3 py-2 text-left font-medium"
+                                    >
+                                        Floor
+                                    </th>
+                                    <th
+                                        class="text-muted-foreground px-3 py-2 text-left font-medium"
+                                    >
+                                        Room Type
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr
                                     v-for="(room, idx) in roomPreview"
                                     :key="idx"
-                                    class="border-b border-border/50 last:border-0"
+                                    class="border-border/50 border-b last:border-0"
                                 >
-                                    <td class="py-1.5 px-3 font-mono text-xs">{{ room.number }}</td>
-                                    <td class="py-1.5 px-3">{{ room.floor }}</td>
-                                    <td class="py-1.5 px-3">{{ room.room_type }}</td>
+                                    <td class="px-3 py-1.5 font-mono text-xs">
+                                        {{ room.number }}
+                                    </td>
+                                    <td class="px-3 py-1.5">
+                                        {{ room.floor }}
+                                    </td>
+                                    <td class="px-3 py-1.5">
+                                        {{ room.room_type }}
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
@@ -896,7 +1126,10 @@ const submitBranch = () => {
                     class="min-w-[160px]"
                     @click="submitBranch"
                 >
-                    <Loader2 v-if="isSubmitting" class="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2
+                        v-if="isSubmitting"
+                        class="mr-2 h-4 w-4 animate-spin"
+                    />
                     {{ isSubmitting ? 'Creating...' : 'Create Branch' }}
                 </Button>
             </div>

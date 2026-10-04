@@ -7,8 +7,20 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Plus, Pencil, Trash2, Loader2, Users, Search } from '@lucide/vue';
 
 defineOptions({
@@ -60,7 +72,9 @@ const filteredUsers = computed(() => {
     if (!search.value) return props.users;
     const q = search.value.toLowerCase();
     return props.users.filter(
-        (u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q),
+        (u) =>
+            u.name.toLowerCase().includes(q) ||
+            u.email.toLowerCase().includes(q),
     );
 });
 
@@ -166,22 +180,32 @@ function formatDate(dateStr: string | null): string {
 <template>
     <Head title="User Management" />
 
-    <div class="p-6 max-w-6xl mx-auto space-y-6">
+    <div class="mx-auto max-w-6xl space-y-6 p-6">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-2xl font-bold text-foreground">User Management</h1>
-                <p class="text-muted-foreground mt-1">Manage staff accounts and their roles</p>
+                <h1 class="text-foreground text-2xl font-bold">
+                    User Management
+                </h1>
+                <p class="text-muted-foreground mt-1">
+                    Manage staff accounts and their roles
+                </p>
             </div>
             <Button @click="openCreate">
-                <Plus class="h-4 w-4 mr-2" />
+                <Plus class="mr-2 h-4 w-4" />
                 Create User
             </Button>
         </div>
 
         <!-- Search -->
         <div class="relative max-w-md">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input v-model="search" placeholder="Search users..." class="pl-9" />
+            <Search
+                class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+            />
+            <Input
+                v-model="search"
+                placeholder="Search users..."
+                class="pl-9"
+            />
         </div>
 
         <!-- User Table -->
@@ -190,15 +214,35 @@ function formatDate(dateStr: string | null): string {
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead class="bg-muted/50">
-                            <tr class="border-b border-border">
-                                <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">User</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Role(s)</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Branch</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Last Login</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Actions</th>
+                            <tr class="border-border border-b">
+                                <th
+                                    class="text-muted-foreground px-4 py-3 text-left text-xs font-medium uppercase"
+                                >
+                                    User
+                                </th>
+                                <th
+                                    class="text-muted-foreground px-4 py-3 text-left text-xs font-medium uppercase"
+                                >
+                                    Role(s)
+                                </th>
+                                <th
+                                    class="text-muted-foreground px-4 py-3 text-left text-xs font-medium uppercase"
+                                >
+                                    Branch
+                                </th>
+                                <th
+                                    class="text-muted-foreground px-4 py-3 text-left text-xs font-medium uppercase"
+                                >
+                                    Last Login
+                                </th>
+                                <th
+                                    class="text-muted-foreground px-4 py-3 text-right text-xs font-medium uppercase"
+                                >
+                                    Actions
+                                </th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-border">
+                        <tbody class="divide-border divide-y">
                             <tr
                                 v-for="user in filteredUsers"
                                 :key="user.id"
@@ -206,8 +250,16 @@ function formatDate(dateStr: string | null): string {
                             >
                                 <td class="px-4 py-3">
                                     <div>
-                                        <div class="font-medium text-foreground">{{ user.name }}</div>
-                                        <div class="text-sm text-muted-foreground">{{ user.email }}</div>
+                                        <div
+                                            class="text-foreground font-medium"
+                                        >
+                                            {{ user.name }}
+                                        </div>
+                                        <div
+                                            class="text-muted-foreground text-sm"
+                                        >
+                                            {{ user.email }}
+                                        </div>
                                     </div>
                                 </td>
                                 <td class="px-4 py-3">
@@ -220,20 +272,34 @@ function formatDate(dateStr: string | null): string {
                                         >
                                             {{ role }}
                                         </Badge>
-                                        <Badge v-if="user.is_global_admin" variant="default" class="text-xs">
+                                        <Badge
+                                            v-if="user.is_global_admin"
+                                            variant="default"
+                                            class="text-xs"
+                                        >
                                             Global Admin
                                         </Badge>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 text-sm text-muted-foreground">
+                                <td
+                                    class="text-muted-foreground px-4 py-3 text-sm"
+                                >
                                     {{ user.current_branch?.name ?? '—' }}
                                 </td>
-                                <td class="px-4 py-3 text-sm text-muted-foreground">
+                                <td
+                                    class="text-muted-foreground px-4 py-3 text-sm"
+                                >
                                     {{ formatDate(user.last_login_at) }}
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <div class="flex items-center justify-end gap-1">
-                                        <Button variant="ghost" size="sm" @click="openEdit(user)">
+                                    <div
+                                        class="flex items-center justify-end gap-1"
+                                    >
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            @click="openEdit(user)"
+                                        >
                                             <Pencil class="h-3.5 w-3.5" />
                                         </Button>
                                         <Button
@@ -242,14 +308,23 @@ function formatDate(dateStr: string | null): string {
                                             :disabled="deletingId === user.id"
                                             @click="deleteUser(user)"
                                         >
-                                            <Loader2 v-if="deletingId === user.id" class="h-3.5 w-3.5 animate-spin" />
-                                            <Trash2 v-else class="h-3.5 w-3.5 text-destructive" />
+                                            <Loader2
+                                                v-if="deletingId === user.id"
+                                                class="h-3.5 w-3.5 animate-spin"
+                                            />
+                                            <Trash2
+                                                v-else
+                                                class="text-destructive h-3.5 w-3.5"
+                                            />
                                         </Button>
                                     </div>
                                 </td>
                             </tr>
                             <tr v-if="filteredUsers.length === 0">
-                                <td colspan="5" class="px-4 py-12 text-center text-muted-foreground">
+                                <td
+                                    colspan="5"
+                                    class="text-muted-foreground px-4 py-12 text-center"
+                                >
                                     No users found.
                                 </td>
                             </tr>
@@ -261,9 +336,11 @@ function formatDate(dateStr: string | null): string {
 
         <!-- Create/Edit Dialog -->
         <Dialog :open="dialogOpen" @update:open="dialogOpen = $event">
-            <DialogContent class="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent class="max-h-[90vh] max-w-2xl overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{{ editingUser ? 'Edit User' : 'Create User' }}</DialogTitle>
+                    <DialogTitle>{{
+                        editingUser ? 'Edit User' : 'Create User'
+                    }}</DialogTitle>
                 </DialogHeader>
 
                 <div class="space-y-6">
@@ -271,19 +348,37 @@ function formatDate(dateStr: string | null): string {
                     <div class="grid grid-cols-2 gap-4">
                         <div class="grid gap-2">
                             <Label>Name *</Label>
-                            <Input v-model="form.name" placeholder="Full name" />
+                            <Input
+                                v-model="form.name"
+                                placeholder="Full name"
+                            />
                         </div>
                         <div class="grid gap-2">
                             <Label>Email *</Label>
-                            <Input v-model="form.email" type="email" placeholder="email@example.com" />
+                            <Input
+                                v-model="form.email"
+                                type="email"
+                                placeholder="email@example.com"
+                            />
                         </div>
                         <div class="grid gap-2">
-                            <Label>{{ editingUser ? 'New Password (leave blank to keep)' : 'Password *' }}</Label>
-                            <Input v-model="form.password" type="password" :required="!editingUser" />
+                            <Label>{{
+                                editingUser
+                                    ? 'New Password (leave blank to keep)'
+                                    : 'Password *'
+                            }}</Label>
+                            <Input
+                                v-model="form.password"
+                                type="password"
+                                :required="!editingUser"
+                            />
                         </div>
                         <div class="grid gap-2">
                             <Label>Confirm Password</Label>
-                            <Input v-model="form.password_confirmation" type="password" />
+                            <Input
+                                v-model="form.password_confirmation"
+                                type="password"
+                            />
                         </div>
                     </div>
 
@@ -294,11 +389,16 @@ function formatDate(dateStr: string | null): string {
                             <label
                                 v-for="(roleName, roleId) in roles"
                                 :key="roleId"
-                                class="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
-                                :class="{ 'bg-primary text-primary-foreground border-primary': form.selectedRoles.includes(roleName) }"
+                                class="border-border hover:bg-accent flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors"
+                                :class="{
+                                    'bg-primary text-primary-foreground border-primary':
+                                        form.selectedRoles.includes(roleName),
+                                }"
                             >
                                 <Checkbox
-                                    :checked="form.selectedRoles.includes(roleName)"
+                                    :checked="
+                                        form.selectedRoles.includes(roleName)
+                                    "
                                     @update:checked="toggleRole(roleName)"
                                 />
                                 {{ roleName }}
@@ -313,11 +413,16 @@ function formatDate(dateStr: string | null): string {
                             <label
                                 v-for="branch in branches"
                                 :key="branch.id"
-                                class="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
-                                :class="{ 'bg-primary text-primary-foreground border-primary': form.branchIds.includes(branch.id) }"
+                                class="border-border hover:bg-accent flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors"
+                                :class="{
+                                    'bg-primary text-primary-foreground border-primary':
+                                        form.branchIds.includes(branch.id),
+                                }"
                             >
                                 <Checkbox
-                                    :checked="form.branchIds.includes(branch.id)"
+                                    :checked="
+                                        form.branchIds.includes(branch.id)
+                                    "
                                     @update:checked="toggleBranch(branch.id)"
                                 />
                                 {{ branch.name }}
@@ -330,7 +435,9 @@ function formatDate(dateStr: string | null): string {
                         <Label>Default Branch *</Label>
                         <Select v-model="form.defaultBranchId">
                             <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Select default branch" />
+                                <SelectValue
+                                    placeholder="Select default branch"
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem
@@ -338,7 +445,10 @@ function formatDate(dateStr: string | null): string {
                                     :key="branchId"
                                     :value="String(branchId)"
                                 >
-                                    {{ branches.find(b => b.id === branchId)?.name }}
+                                    {{
+                                        branches.find((b) => b.id === branchId)
+                                            ?.name
+                                    }}
                                 </SelectItem>
                             </SelectContent>
                         </Select>
@@ -347,17 +457,30 @@ function formatDate(dateStr: string | null): string {
                     <!-- Global Admin Toggle -->
                     <label class="flex items-center gap-2 text-sm">
                         <Checkbox v-model:checked="form.is_global_admin" />
-                        <span class="text-muted-foreground">Global Admin (full system access)</span>
+                        <span class="text-muted-foreground"
+                            >Global Admin (full system access)</span
+                        >
                     </label>
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" @click="dialogOpen = false">Cancel</Button>
+                    <Button variant="outline" @click="dialogOpen = false"
+                        >Cancel</Button
+                    >
                     <Button
-                        :disabled="saving || !form.name || !form.email || form.selectedRoles.length === 0 || form.branchIds.length === 0"
+                        :disabled="
+                            saving ||
+                            !form.name ||
+                            !form.email ||
+                            form.selectedRoles.length === 0 ||
+                            form.branchIds.length === 0
+                        "
                         @click="submitForm"
                     >
-                        <Loader2 v-if="saving" class="h-4 w-4 mr-2 animate-spin" />
+                        <Loader2
+                            v-if="saving"
+                            class="mr-2 h-4 w-4 animate-spin"
+                        />
                         {{ editingUser ? 'Save Changes' : 'Create User' }}
                     </Button>
                 </DialogFooter>

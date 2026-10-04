@@ -3,7 +3,11 @@ import { locale, locales, setLocale } from '@/lib/locale';
 </script>
 
 <template>
-    <div class="inline-flex items-center gap-1 text-xs" role="group" aria-label="Language">
+    <div
+        class="inline-flex items-center gap-1 text-xs"
+        role="group"
+        aria-label="Language"
+    >
         <button
             v-for="option in locales"
             :key="option.code"

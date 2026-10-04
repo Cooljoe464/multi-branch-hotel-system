@@ -84,19 +84,18 @@ defineProps<{
             </div>
 
             <div class="flex items-center space-x-2">
-                <Checkbox
-                    id="remember"
-                    name="remember"
-                    :tabindex="3"
-                />
-                <Label for="remember" class="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                <Checkbox id="remember" name="remember" :tabindex="3" />
+                <Label
+                    for="remember"
+                    class="text-sm leading-none font-normal peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
                     Remember me
                 </Label>
             </div>
 
             <Button
                 type="submit"
-                class="w-full mt-2"
+                class="mt-2 w-full"
                 :tabindex="4"
                 :disabled="processing"
                 data-test="login-button"
@@ -106,9 +105,7 @@ defineProps<{
             </Button>
         </div>
 
-        <div
-            class="text-muted-foreground text-center text-sm"
-        >
+        <div class="text-muted-foreground text-center text-sm">
             Don't have an account?
             <TextLink :href="register()" :tabindex="5">Sign up</TextLink>
         </div>

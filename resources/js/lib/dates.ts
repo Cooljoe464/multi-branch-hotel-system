@@ -16,14 +16,16 @@ export function formatDate(dateStr: string): string {
 /** Format a date string to short month + time: "Jan 5, 2024 at 2:30 PM" */
 export function formatDateTime(dateStr: string): string {
     if (!dateStr) return '';
-    return new Date(dateStr).toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-    }).replace(',', ' at');
+    return new Date(dateStr)
+        .toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+        })
+        .replace(',', ' at');
 }
 
 /** Format a date string to short month + day: "Jan 5" (for chart axes) */

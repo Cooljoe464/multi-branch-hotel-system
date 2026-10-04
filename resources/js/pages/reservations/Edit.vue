@@ -7,7 +7,13 @@ import DatePicker from '@/components/ui/date-picker/DatePicker.vue';
 import ConflictDialog from '@/components/ConflictDialog.vue';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 interface Room {
     id: number;
@@ -48,7 +54,15 @@ const props = defineProps<{
     availableRooms: Room[];
 }>();
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Reservations', href: '/reservations' }, { title: 'Edit', href: '/reservations' }] } });
+defineOptions({
+    layout: {
+        breadcrumbs: [
+            { title: 'Dashboard', href: '/dashboard' },
+            { title: 'Reservations', href: '/reservations' },
+            { title: 'Edit', href: '/reservations' },
+        ],
+    },
+});
 
 const titleOptions = ['Mr.', 'Mrs.', 'Miss', 'Prof.', ''];
 
@@ -79,19 +93,27 @@ const form = reactive({
 });
 
 const filteredRooms = computed(() => {
-    if (! form.room_type_id) return props.availableRooms;
-    return props.availableRooms.filter(r => r.room_type.id === Number(form.room_type_id));
+    if (!form.room_type_id) return props.availableRooms;
+    return props.availableRooms.filter(
+        (r) => r.room_type.id === Number(form.room_type_id),
+    );
 });
 
 const submit = () => {
     const data = { ...form };
-    data.guest_name = guestTitle.value ? `${guestTitle.value} ${data.guest_name}`.trim() : data.guest_name;
+    data.guest_name = guestTitle.value
+        ? `${guestTitle.value} ${data.guest_name}`.trim()
+        : data.guest_name;
     router.put(`/reservations/${props.reservation.id}`, data);
 };
 
 const page = usePage();
-const conflictOpen = computed(() => Boolean((page.props.errors as Record<string, string>).version));
-const conflictMessage = computed(() => (page.props.errors as Record<string, string>).version ?? '');
+const conflictOpen = computed(() =>
+    Boolean((page.props.errors as Record<string, string>).version),
+);
+const conflictMessage = computed(
+    () => (page.props.errors as Record<string, string>).version ?? '',
+);
 
 const goBack = () => {
     window.history.back();
@@ -99,110 +121,179 @@ const goBack = () => {
 </script>
 
 <template>
-        <div class="p-6 max-w-4xl mx-auto">
-            <div class="mb-6 flex items-center gap-3">
-                <Button variant="ghost" size="sm" @click="goBack()" class="gap-1 text-muted-foreground hover:text-foreground">
-                    <ArrowLeft class="size-4" /> Back
-                </Button>
-                <h1 class="text-2xl font-bold text-foreground">
-                    Edit Reservation {{ reservation.confirmation_number }}
-                </h1>
+    <div class="mx-auto max-w-4xl p-6">
+        <div class="mb-6 flex items-center gap-3">
+            <Button
+                variant="ghost"
+                size="sm"
+                @click="goBack()"
+                class="text-muted-foreground hover:text-foreground gap-1"
+            >
+                <ArrowLeft class="size-4" /> Back
+            </Button>
+            <h1 class="text-foreground text-2xl font-bold">
+                Edit Reservation {{ reservation.confirmation_number }}
+            </h1>
+        </div>
+
+        <form @submit.prevent="submit" class="space-y-6">
+            <div class="border-border bg-card rounded-lg border p-6">
+                <h2 class="text-foreground mb-4 text-lg font-semibold">
+                    Guest Information
+                </h2>
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div class="grid gap-2">
+                        <Label for="guest_name">Guest Name</Label>
+                        <div class="flex gap-2">
+                            <Select v-model="guestTitle">
+                                <SelectTrigger class="w-[110px] shrink-0">
+                                    <SelectValue placeholder="Title" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem
+                                        v-for="t in titleOptions"
+                                        :key="t"
+                                        :value="t"
+                                    >
+                                        {{ t || 'None' }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Input
+                                id="guest_name"
+                                v-model="form.guest_name"
+                                type="text"
+                                placeholder="Full name"
+                                class="flex-1"
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="guest_email">Email</Label>
+                        <Input
+                            id="guest_email"
+                            v-model="form.guest_email"
+                            type="email"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="guest_phone">Phone</Label>
+                        <Input
+                            id="guest_phone"
+                            v-model="form.guest_phone"
+                            type="tel"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="adults">Adults</Label>
+                        <Input
+                            id="adults"
+                            v-model.number="form.adults"
+                            type="number"
+                            min="1"
+                            max="10"
+                            required
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="children">Children</Label>
+                        <Input
+                            id="children"
+                            v-model.number="form.children"
+                            type="number"
+                            min="0"
+                            max="10"
+                        />
+                    </div>
+                </div>
             </div>
 
-            <form @submit.prevent="submit" class="space-y-6">
-                <div class="rounded-lg border border-border bg-card p-6">
-                    <h2 class="text-lg font-semibold mb-4 text-foreground">Guest Information</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="grid gap-2">
-                            <Label for="guest_name">Guest Name</Label>
-                            <div class="flex gap-2">
-                                <Select v-model="guestTitle">
-                                    <SelectTrigger class="w-[110px] shrink-0">
-                                        <SelectValue placeholder="Title" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem v-for="t in titleOptions" :key="t" :value="t">
-                                            {{ t || 'None' }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Input id="guest_name" v-model="form.guest_name" type="text" placeholder="Full name" class="flex-1" required />
-                            </div>
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="guest_email">Email</Label>
-                            <Input id="guest_email" v-model="form.guest_email" type="email" />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="guest_phone">Phone</Label>
-                            <Input id="guest_phone" v-model="form.guest_phone" type="tel" />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="adults">Adults</Label>
-                            <Input id="adults" v-model.number="form.adults" type="number" min="1" max="10" required />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="children">Children</Label>
-                            <Input id="children" v-model.number="form.children" type="number" min="0" max="10" />
-                        </div>
+            <div class="border-border bg-card rounded-lg border p-6">
+                <h2 class="text-foreground mb-4 text-lg font-semibold">
+                    Stay Details
+                </h2>
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div class="grid gap-2">
+                        <Label>Room Type</Label>
+                        <Select
+                            :model-value="String(form.room_type_id)"
+                            @update:model-value="
+                                form.room_type_id = Number($event)
+                            "
+                            required
+                        >
+                            <SelectTrigger class="w-full">
+                                <SelectValue placeholder="Select room type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="type in roomTypes"
+                                    :key="type.id"
+                                    :value="String(type.id)"
+                                >
+                                    {{ type.name }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div class="grid gap-2">
+                        <Label>Room</Label>
+                        <Select
+                            :model-value="
+                                form.room_id === '' ? '' : String(form.room_id)
+                            "
+                            @update:model-value="
+                                form.room_id =
+                                    $event === '' ? '' : Number($event)
+                            "
+                        >
+                            <SelectTrigger class="w-full">
+                                <SelectValue placeholder="No room" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="room in filteredRooms"
+                                    :key="room.id"
+                                    :value="String(room.id)"
+                                >
+                                    Room {{ room.number }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="check_in_date">Check-in Date</Label>
+                        <DatePicker
+                            id="check_in_date"
+                            v-model="form.check_in_date"
+                            required
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="check_out_date">Check-out Date</Label>
+                        <DatePicker
+                            id="check_out_date"
+                            v-model="form.check_out_date"
+                            required
+                        />
                     </div>
                 </div>
+            </div>
 
-                <div class="rounded-lg border border-border bg-card p-6">
-                    <h2 class="text-lg font-semibold mb-4 text-foreground">Stay Details</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="grid gap-2">
-                            <Label>Room Type</Label>
-                            <Select :model-value="String(form.room_type_id)" @update:model-value="form.room_type_id = Number($event)" required>
-                                <SelectTrigger class="w-full">
-                                    <SelectValue placeholder="Select room type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="type in roomTypes" :key="type.id" :value="String(type.id)">
-                                        {{ type.name }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div class="grid gap-2">
-                            <Label>Room</Label>
-                            <Select :model-value="form.room_id === '' ? '' : String(form.room_id)" @update:model-value="form.room_id = $event === '' ? '' : Number($event)">
-                                <SelectTrigger class="w-full">
-                                    <SelectValue placeholder="No room" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="room in filteredRooms" :key="room.id" :value="String(room.id)">
-                                        Room {{ room.number }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="check_in_date">Check-in Date</Label>
-                            <DatePicker id="check_in_date" v-model="form.check_in_date" required />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="check_out_date">Check-out Date</Label>
-                            <DatePicker id="check_out_date" v-model="form.check_out_date" required />
-                        </div>
-                    </div>
-                </div>
+            <div class="flex justify-end gap-2">
+                <Link :href="`/reservations/${reservation.id}`">
+                    <Button variant="outline">Cancel</Button>
+                </Link>
+                <Button type="submit"> Save Changes </Button>
+            </div>
+        </form>
 
-                <div class="flex justify-end gap-2">
-                    <Link :href="`/reservations/${reservation.id}`">
-                        <Button variant="outline">Cancel</Button>
-                    </Link>
-                    <Button type="submit">
-                        Save Changes
-                    </Button>
-                </div>
-            </form>
-
-            <ConflictDialog
-                :open="conflictOpen"
-                :message="conflictMessage"
-                @reload="router.reload()"
-                @close="conflictOpen = false"
-            />
-        </div>
+        <ConflictDialog
+            :open="conflictOpen"
+            :message="conflictMessage"
+            @reload="router.reload()"
+            @close="conflictOpen = false"
+        />
+    </div>
 </template>

@@ -101,9 +101,7 @@ defineOptions({
             </Button>
         </div>
 
-        <div
-            class="text-muted-foreground text-center text-sm"
-        >
+        <div class="text-muted-foreground text-center text-sm">
             Already have an account?
             <TextLink
                 :href="login()"

@@ -31,7 +31,8 @@ export const en = {
         confirmed_body: 'Your confirmation number is:',
         confirmed_saved: 'A confirmation details summary has been saved for',
         select_title: 'Select Property & Dates',
-        select_description: 'Choose your destination hotel and check-in duration',
+        select_description:
+            'Choose your destination hotel and check-in duration',
         property: 'Property',
         property_placeholder: 'Select a property',
         property_aria: 'Select a property',
@@ -47,7 +48,8 @@ export const en = {
         total_label: 'Total:',
         guest_title: 'Guest Details',
         contact_title: 'Contact Information',
-        contact_description: 'Enter primary guest details for reservation processing',
+        contact_description:
+            'Enter primary guest details for reservation processing',
         first_name: 'First Name *',
         last_name: 'Last Name *',
         email_label: 'Email Address *',
@@ -55,7 +57,8 @@ export const en = {
         review: 'Review Booking',
         confirm_title: 'Confirm Your Reservation',
         summary_title: 'Reservation Summary',
-        summary_description: 'Please double check your details before finalizing',
+        summary_description:
+            'Please double check your details before finalizing',
         property_row: 'Property',
         room_type_row: 'Room Type',
         check_in_row: 'Check-in',
@@ -70,7 +73,8 @@ export const en = {
     },
     portal: {
         title: 'Guest Portal',
-        lookup_body: 'Enter your confirmation number and email to access your folio',
+        lookup_body:
+            'Enter your confirmation number and email to access your folio',
         confirmation_number: 'Confirmation Number',
         confirmation_placeholder: 'e.g. HTL-20240917-A1B2',
         email_label: 'Email Address',
@@ -159,7 +163,8 @@ export const en = {
         category_transfer: 'Transfer',
         payment_title: 'Complete Payment',
         amount_to_pay: 'Amount to Pay',
-        scan_qr: 'Scan this QR code with your phone camera to complete payment via Paystack',
+        scan_qr:
+            'Scan this QR code with your phone camera to complete payment via Paystack',
         pay_with_card: 'Pay with Card →',
         folio_row: 'Folio',
         remaining_balance: 'Remaining Balance',

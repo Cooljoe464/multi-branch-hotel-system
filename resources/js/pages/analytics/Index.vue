@@ -12,7 +12,9 @@ import RoomTypeBreakdown from '@/components/analytics/RoomTypeBreakdown.vue';
 import { analytics } from '@/routes';
 
 const page = usePage();
-const currencySymbol = computed(() => (page.props.branch?.current as any)?.currency_symbol || '₦');
+const currencySymbol = computed(
+    () => (page.props.branch?.current as any)?.currency_symbol || '₦',
+);
 
 defineOptions({
     layout: {
@@ -124,7 +126,11 @@ function changePeriod(days: number) {
 
 function applyDateRange() {
     if (dateFrom.value && dateTo.value) {
-        router.get('/analytics', { start_date: dateFrom.value, end_date: dateTo.value }, { preserveState: true });
+        router.get(
+            '/analytics',
+            { start_date: dateFrom.value, end_date: dateTo.value },
+            { preserveState: true },
+        );
     }
 }
 
@@ -138,11 +144,15 @@ function clearDateRange() {
 <template>
     <Head title="Analytics" />
 
-    <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4">
+    <div
+        class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4"
+    >
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-2xl font-bold text-foreground">Analytics &amp; Reporting</h1>
-                <p class="text-sm text-muted-foreground">{{ branch.name }}</p>
+                <h1 class="text-foreground text-2xl font-bold">
+                    Analytics &amp; Reporting
+                </h1>
+                <p class="text-muted-foreground text-sm">{{ branch.name }}</p>
             </div>
             <div class="flex items-center gap-3">
                 <div class="flex gap-2">
@@ -150,7 +160,11 @@ function clearDateRange() {
                         v-for="option in periodOptions"
                         :key="option.value"
                         size="sm"
-                        :variant="days === option.value && !dateFrom && !dateTo ? 'default' : 'outline'"
+                        :variant="
+                            days === option.value && !dateFrom && !dateTo
+                                ? 'default'
+                                : 'outline'
+                        "
                         @click="changePeriod(option.value)"
                     >
                         {{ option.label }}
@@ -158,14 +172,33 @@ function clearDateRange() {
                 </div>
                 <div class="flex items-end gap-2">
                     <div class="grid gap-1.5">
-                        <Label class="text-xs text-muted-foreground">From</Label>
-                        <DatePicker v-model="dateFrom" placeholder="Start date" class="w-36" @change="applyDateRange" />
+                        <Label class="text-muted-foreground text-xs"
+                            >From</Label
+                        >
+                        <DatePicker
+                            v-model="dateFrom"
+                            placeholder="Start date"
+                            class="w-36"
+                            @change="applyDateRange"
+                        />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label class="text-xs text-muted-foreground">To</Label>
-                        <DatePicker v-model="dateTo" :min-date="dateFrom || undefined" placeholder="End date" class="w-36" @change="applyDateRange" />
+                        <Label class="text-muted-foreground text-xs">To</Label>
+                        <DatePicker
+                            v-model="dateTo"
+                            :min-date="dateFrom || undefined"
+                            placeholder="End date"
+                            class="w-36"
+                            @change="applyDateRange"
+                        />
                     </div>
-                    <Button v-if="dateFrom || dateTo" variant="ghost" size="sm" @click="clearDateRange" class="mb-0.5">
+                    <Button
+                        v-if="dateFrom || dateTo"
+                        variant="ghost"
+                        size="sm"
+                        @click="clearDateRange"
+                        class="mb-0.5"
+                    >
                         Clear
                     </Button>
                 </div>
@@ -200,7 +233,11 @@ function clearDateRange() {
         </div>
 
         <div class="grid gap-6 lg:grid-cols-2">
-            <RevenueChart :data="revenue.daily" :height="350" :currency-symbol="currencySymbol" />
+            <RevenueChart
+                :data="revenue.daily"
+                :height="350"
+                :currency-symbol="currencySymbol"
+            />
             <OccupancyChart :data="occupancyTrend" :height="350" />
         </div>
 
@@ -212,21 +249,33 @@ function clearDateRange() {
         />
 
         <div class="grid gap-6 lg:grid-cols-3">
-            <div class="rounded-xl border bg-card p-6 text-card-foreground shadow-sm">
+            <div
+                class="bg-card text-card-foreground rounded-xl border p-6 shadow-sm"
+            >
                 <h3 class="text-lg font-semibold">Total Room Revenue</h3>
-                <p class="mt-2 text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+                <p
+                    class="mt-2 text-3xl font-bold text-indigo-600 dark:text-indigo-400"
+                >
                     {{ formatCurrency(revenue.total_room_revenue) }}
                 </p>
             </div>
-            <div class="rounded-xl border bg-card p-6 text-card-foreground shadow-sm">
+            <div
+                class="bg-card text-card-foreground rounded-xl border p-6 shadow-sm"
+            >
                 <h3 class="text-lg font-semibold">Total Tax</h3>
-                <p class="mt-2 text-3xl font-bold text-amber-600 dark:text-amber-400">
+                <p
+                    class="mt-2 text-3xl font-bold text-amber-600 dark:text-amber-400"
+                >
                     {{ formatCurrency(revenue.total_tax) }}
                 </p>
             </div>
-            <div class="rounded-xl border bg-card p-6 text-card-foreground shadow-sm">
+            <div
+                class="bg-card text-card-foreground rounded-xl border p-6 shadow-sm"
+            >
                 <h3 class="text-lg font-semibold">Total Payments</h3>
-                <p class="mt-2 text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                <p
+                    class="mt-2 text-3xl font-bold text-emerald-600 dark:text-emerald-400"
+                >
                     {{ formatCurrency(revenue.total_payments) }}
                 </p>
             </div>

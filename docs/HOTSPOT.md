@@ -7,12 +7,12 @@ staff VLAN that guests cannot route to.
 
 ## Concepts
 
-| Term | Meaning |
-|---|---|
-| **Tier** (`hotspot_tiers`) | Per-branch Wi-Fi product: name, code (`free` + paid codes), `price_minor`, up/down kbps, optional `quota_mb` / `duration_mins`, `device_limit`. Free tier is auto-included; paid tiers post to the folio. |
-| **Selection** (`reservation_hotspots`) | Tier chosen for a reservation *before it completes* (front-desk create, booking wizard step 4, CRS, API). One row per reservation. |
-| **Session** (`wifi_sessions`) | Per-stay credential (`voucher` = username + generated password), linked to tier + folio transaction, `provisioned_at` on check-in, revoked + `deprovisioned_at` on checkout/expiry. |
-| **NAS** | The branch MikroTik. Exactly one per branch in V1 (no CAPsMAN). |
+| Term                                   | Meaning                                                                                                                                                                                                   |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tier** (`hotspot_tiers`)             | Per-branch Wi-Fi product: name, code (`free` + paid codes), `price_minor`, up/down kbps, optional `quota_mb` / `duration_mins`, `device_limit`. Free tier is auto-included; paid tiers post to the folio. |
+| **Selection** (`reservation_hotspots`) | Tier chosen for a reservation _before it completes_ (front-desk create, booking wizard step 4, CRS, API). One row per reservation.                                                                        |
+| **Session** (`wifi_sessions`)          | Per-stay credential (`voucher` = username + generated password), linked to tier + folio transaction, `provisioned_at` on check-in, revoked + `deprovisioned_at` on checkout/expiry.                       |
+| **NAS**                                | The branch MikroTik. Exactly one per branch in V1 (no CAPsMAN).                                                                                                                                           |
 
 ## Network isolation (the important part)
 
@@ -37,15 +37,15 @@ Or download it from **Hotspot → Download .rsc isolation export** (permission `
 
 ## Branch configuration (`branches.settings`)
 
-| Key | Purpose |
-|---|---|
-| `staff_ssid` / `guest_ssid` | SSID names (defaults `STAFF` / `GUEST-WIFI`) |
-| `staff_psk` | **Secret.** Staff WPA2 passphrase. Never commit. |
-| `nas_secret` | **Secret.** RADIUS shared secret for this NAS (falls back to `cdr_secret`). |
-| `radius_host` | Tunnel IP of cloud RADIUS (default `config/radius.host`) |
-| `tunnel_ip` | This router's WireGuard address (marks NAS "configured" in UI) |
-| `wireguard_private_key` / `wireguard_peer_public_key` / `wireguard_endpoint` | Tunnel identity |
-| `portal_url` | Guest portal URL printed in the export |
+| Key                                                                          | Purpose                                                                     |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `staff_ssid` / `guest_ssid`                                                  | SSID names (defaults `STAFF` / `GUEST-WIFI`)                                |
+| `staff_psk`                                                                  | **Secret.** Staff WPA2 passphrase. Never commit.                            |
+| `nas_secret`                                                                 | **Secret.** RADIUS shared secret for this NAS (falls back to `cdr_secret`). |
+| `radius_host`                                                                | Tunnel IP of cloud RADIUS (default `config/radius.host`)                    |
+| `tunnel_ip`                                                                  | This router's WireGuard address (marks NAS "configured" in UI)              |
+| `wireguard_private_key` / `wireguard_peer_public_key` / `wireguard_endpoint` | Tunnel identity                                                             |
+| `portal_url`                                                                 | Guest portal URL printed in the export                                      |
 
 ## Guest lifecycle
 

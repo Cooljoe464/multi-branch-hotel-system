@@ -22,7 +22,8 @@ export const fr: LocaleDict = {
     booking: {
         title: 'Réserver une chambre',
         heading: 'Réservez votre séjour',
-        tagline: 'Trouvez et réservez des chambres de luxe dans nos établissements',
+        tagline:
+            'Trouvez et réservez des chambres de luxe dans nos établissements',
         steps: {
             dates: 'Dates',
             room: 'Chambre',
@@ -31,9 +32,11 @@ export const fr: LocaleDict = {
         },
         confirmed_title: 'Réservation confirmée !',
         confirmed_body: 'Votre numéro de confirmation est :',
-        confirmed_saved: 'Un récapitulatif de confirmation a été enregistré pour',
+        confirmed_saved:
+            'Un récapitulatif de confirmation a été enregistré pour',
         select_title: 'Choisir l’établissement et les dates',
-        select_description: 'Choisissez votre hôtel de destination et la durée du séjour',
+        select_description:
+            'Choisissez votre hôtel de destination et la durée du séjour',
         property: 'Établissement',
         property_placeholder: 'Sélectionnez un établissement',
         property_aria: 'Sélectionnez un établissement',
@@ -49,7 +52,8 @@ export const fr: LocaleDict = {
         total_label: 'Total :',
         guest_title: 'Détails du client',
         contact_title: 'Coordonnées',
-        contact_description: 'Saisissez les coordonnées du client principal pour traiter la réservation',
+        contact_description:
+            'Saisissez les coordonnées du client principal pour traiter la réservation',
         first_name: 'Prénom *',
         last_name: 'Nom *',
         email_label: 'Adresse e-mail *',
@@ -57,7 +61,8 @@ export const fr: LocaleDict = {
         review: 'Vérifier la réservation',
         confirm_title: 'Confirmez votre réservation',
         summary_title: 'Récapitulatif de la réservation',
-        summary_description: 'Veuillez vérifier vos informations avant de finaliser',
+        summary_description:
+            'Veuillez vérifier vos informations avant de finaliser',
         property_row: 'Établissement',
         room_type_row: 'Type de chambre',
         check_in_row: 'Arrivée',
@@ -72,16 +77,19 @@ export const fr: LocaleDict = {
     },
     portal: {
         title: 'Portail client',
-        lookup_body: 'Saisissez votre numéro de confirmation et votre e-mail pour accéder à votre folio',
+        lookup_body:
+            'Saisissez votre numéro de confirmation et votre e-mail pour accéder à votre folio',
         confirmation_number: 'Numéro de confirmation',
         confirmation_placeholder: 'p. ex. HTL-20240917-A1B2',
         email_label: 'Adresse e-mail',
         looking_up: 'Recherche en cours…',
         view_my_folio_btn: 'Voir mon folio',
-        lookup_hint: 'Retrouvez ces informations dans votre e-mail de confirmation.',
+        lookup_hint:
+            'Retrouvez ces informations dans votre e-mail de confirmation.',
         welcome: 'Bienvenue, {name}',
         choose_outlet: 'Choisir un point de vente',
-        no_outlets: 'Aucun point de vente disponible pour commander pour le moment.',
+        no_outlets:
+            'Aucun point de vente disponible pour commander pour le moment.',
         outlet_restaurant: 'Carte complète avec entrées, plats et desserts',
         outlet_bar: 'Cocktails, vins, bières et amuse-bouches',
         outlet_spa: 'Soins relaxants et services de bien-être',
@@ -90,7 +98,8 @@ export const fr: LocaleDict = {
         order_title: 'Commander',
         all_outlets: 'Tous les points de vente',
         cart: 'Panier',
-        no_items: 'Aucun article disponible dans ce point de vente pour le moment.',
+        no_items:
+            'Aucun article disponible dans ce point de vente pour le moment.',
         add: 'Ajouter',
         your_order: 'Votre commande',
         cart_empty: 'Votre panier est vide. Ajoutez des articles du menu.',
@@ -161,7 +170,8 @@ export const fr: LocaleDict = {
         category_transfer: 'Transfert',
         payment_title: 'Finaliser le paiement',
         amount_to_pay: 'Montant à payer',
-        scan_qr: 'Scannez ce QR Code avec votre téléphone pour payer via Paystack',
+        scan_qr:
+            'Scannez ce QR Code avec votre téléphone pour payer via Paystack',
         pay_with_card: 'Payer par carte →',
         folio_row: 'Folio',
         remaining_balance: 'Solde restant',

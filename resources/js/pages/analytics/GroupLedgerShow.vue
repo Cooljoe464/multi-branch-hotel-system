@@ -5,7 +5,13 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from '@lucide/vue';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/components/ui/dialog';
 
 interface GroupLedger {
     id: number;
@@ -47,22 +53,33 @@ const form = ref({
 
 import { formatCurrency, getCurrencySymbol } from '@/lib/format';
 const page = usePage();
-const branchSymbol = computed(() => (page.props.branch?.current as any)?.currency_symbol || '$');
-const resolveSymbol = (code?: string) => getCurrencySymbol(code || 'NGN') || branchSymbol.value;
-const formatMoney = (cents: number, currencyCode?: string) => formatCurrency(cents, resolveSymbol(currencyCode));
+const branchSymbol = computed(
+    () => (page.props.branch?.current as any)?.currency_symbol || '$',
+);
+const resolveSymbol = (code?: string) =>
+    getCurrencySymbol(code || 'NGN') || branchSymbol.value;
+const formatMoney = (cents: number, currencyCode?: string) =>
+    formatCurrency(cents, resolveSymbol(currencyCode));
 
 const update = () => {
-    router.put(`/group-ledgers/${props.groupLedger.id}`, {
-        total_room_revenue: parseFloat(form.value.total_room_revenue) || 0,
-        total_pos_revenue: parseFloat(form.value.total_pos_revenue) || 0,
-        total_tax: parseFloat(form.value.total_tax) || 0,
-        total_payments: parseFloat(form.value.total_payments) || 0,
-        net_revenue: parseFloat(form.value.net_revenue) || 0,
-        currency_code: form.value.currency_code,
-        exchange_rate_to_group: parseFloat(form.value.exchange_rate_to_group) || 1,
-    }, {
-        onSuccess: () => { showEditModal.value = false; },
-    });
+    router.put(
+        `/group-ledgers/${props.groupLedger.id}`,
+        {
+            total_room_revenue: parseFloat(form.value.total_room_revenue) || 0,
+            total_pos_revenue: parseFloat(form.value.total_pos_revenue) || 0,
+            total_tax: parseFloat(form.value.total_tax) || 0,
+            total_payments: parseFloat(form.value.total_payments) || 0,
+            net_revenue: parseFloat(form.value.net_revenue) || 0,
+            currency_code: form.value.currency_code,
+            exchange_rate_to_group:
+                parseFloat(form.value.exchange_rate_to_group) || 1,
+        },
+        {
+            onSuccess: () => {
+                showEditModal.value = false;
+            },
+        },
+    );
 };
 
 const deleteEntry = () => {
@@ -80,44 +97,69 @@ const goBack = () => {
     <div class="p-6">
         <div class="mb-6 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <Button variant="ghost" size="sm" @click="goBack()" class="gap-1 text-muted-foreground hover:text-foreground">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    @click="goBack()"
+                    class="text-muted-foreground hover:text-foreground gap-1"
+                >
                     <ArrowLeft class="size-4" /> Back
                 </Button>
                 <div>
-                <h1 class="text-2xl font-bold text-foreground">Group Ledger - {{ groupLedger.business_date }}</h1>
-                <p class="text-muted-foreground">{{ groupLedger.currency_code }}</p>
-            </div>
-            <div class="flex gap-2">
-                <Button variant="outline" @click="showEditModal = true">Edit</Button>
-                <Button variant="destructive" @click="deleteEntry">Delete</Button>
+                    <h1 class="text-foreground text-2xl font-bold">
+                        Group Ledger - {{ groupLedger.business_date }}
+                    </h1>
+                    <p class="text-muted-foreground">
+                        {{ groupLedger.currency_code }}
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <Button variant="outline" @click="showEditModal = true"
+                        >Edit</Button
+                    >
+                    <Button variant="destructive" @click="deleteEntry"
+                        >Delete</Button
+                    >
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div class="bg-card rounded-lg border border-border p-4">
-                <div class="text-sm text-muted-foreground">Room Revenue</div>
-                <div class="text-lg font-bold text-foreground">{{ formatMoney(groupLedger.total_room_revenue) }}</div>
+        <div class="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div class="bg-card border-border rounded-lg border p-4">
+                <div class="text-muted-foreground text-sm">Room Revenue</div>
+                <div class="text-foreground text-lg font-bold">
+                    {{ formatMoney(groupLedger.total_room_revenue) }}
+                </div>
             </div>
-            <div class="bg-card rounded-lg border border-border p-4">
-                <div class="text-sm text-muted-foreground">POS Revenue</div>
-                <div class="text-lg font-bold text-foreground">{{ formatMoney(groupLedger.total_pos_revenue) }}</div>
+            <div class="bg-card border-border rounded-lg border p-4">
+                <div class="text-muted-foreground text-sm">POS Revenue</div>
+                <div class="text-foreground text-lg font-bold">
+                    {{ formatMoney(groupLedger.total_pos_revenue) }}
+                </div>
             </div>
-            <div class="bg-card rounded-lg border border-border p-4">
-                <div class="text-sm text-muted-foreground">Tax</div>
-                <div class="text-lg font-bold text-foreground">{{ formatMoney(groupLedger.total_tax) }}</div>
+            <div class="bg-card border-border rounded-lg border p-4">
+                <div class="text-muted-foreground text-sm">Tax</div>
+                <div class="text-foreground text-lg font-bold">
+                    {{ formatMoney(groupLedger.total_tax) }}
+                </div>
             </div>
-            <div class="bg-card rounded-lg border border-border p-4">
-                <div class="text-sm text-muted-foreground">Payments</div>
-                <div class="text-lg font-bold text-foreground">{{ formatMoney(groupLedger.total_payments) }}</div>
+            <div class="bg-card border-border rounded-lg border p-4">
+                <div class="text-muted-foreground text-sm">Payments</div>
+                <div class="text-foreground text-lg font-bold">
+                    {{ formatMoney(groupLedger.total_payments) }}
+                </div>
             </div>
-            <div class="bg-card rounded-lg border border-border p-4">
-                <div class="text-sm text-muted-foreground">Net Revenue</div>
-                <div class="text-lg font-bold text-foreground">{{ formatMoney(groupLedger.net_revenue) }}</div>
+            <div class="bg-card border-border rounded-lg border p-4">
+                <div class="text-muted-foreground text-sm">Net Revenue</div>
+                <div class="text-foreground text-lg font-bold">
+                    {{ formatMoney(groupLedger.net_revenue) }}
+                </div>
             </div>
-            <div class="bg-card rounded-lg border border-border p-4">
-                <div class="text-sm text-muted-foreground">Exchange Rate</div>
-                <div class="text-lg font-bold text-foreground">{{ groupLedger.exchange_rate_to_group }}</div>
+            <div class="bg-card border-border rounded-lg border p-4">
+                <div class="text-muted-foreground text-sm">Exchange Rate</div>
+                <div class="text-foreground text-lg font-bold">
+                    {{ groupLedger.exchange_rate_to_group }}
+                </div>
             </div>
         </div>
 
@@ -130,27 +172,52 @@ const goBack = () => {
                     <div class="grid grid-cols-2 gap-4">
                         <div class="grid gap-2">
                             <Label>Room Revenue (cents)</Label>
-                            <Input v-model="form.total_room_revenue" type="number" min="0" required />
+                            <Input
+                                v-model="form.total_room_revenue"
+                                type="number"
+                                min="0"
+                                required
+                            />
                         </div>
                         <div class="grid gap-2">
                             <Label>POS Revenue (cents)</Label>
-                            <Input v-model="form.total_pos_revenue" type="number" min="0" required />
+                            <Input
+                                v-model="form.total_pos_revenue"
+                                type="number"
+                                min="0"
+                                required
+                            />
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="grid gap-2">
                             <Label>Tax (cents)</Label>
-                            <Input v-model="form.total_tax" type="number" min="0" required />
+                            <Input
+                                v-model="form.total_tax"
+                                type="number"
+                                min="0"
+                                required
+                            />
                         </div>
                         <div class="grid gap-2">
                             <Label>Payments (cents)</Label>
-                            <Input v-model="form.total_payments" type="number" min="0" required />
+                            <Input
+                                v-model="form.total_payments"
+                                type="number"
+                                min="0"
+                                required
+                            />
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="grid gap-2">
                             <Label>Net Revenue (cents)</Label>
-                            <Input v-model="form.net_revenue" type="number" min="0" required />
+                            <Input
+                                v-model="form.net_revenue"
+                                type="number"
+                                min="0"
+                                required
+                            />
                         </div>
                         <div class="grid gap-2">
                             <Label>Currency</Label>
@@ -159,11 +226,22 @@ const goBack = () => {
                     </div>
                     <div class="grid gap-2">
                         <Label>Exchange Rate</Label>
-                        <Input v-model="form.exchange_rate_to_group" type="number" step="0.000001" min="0" required />
+                        <Input
+                            v-model="form.exchange_rate_to_group"
+                            type="number"
+                            step="0.000001"
+                            min="0"
+                            required
+                        />
                     </div>
                     <DialogFooter>
                         <div class="flex justify-end gap-2">
-                            <Button variant="outline" type="button" @click="showEditModal = false">Cancel</Button>
+                            <Button
+                                variant="outline"
+                                type="button"
+                                @click="showEditModal = false"
+                                >Cancel</Button
+                            >
                             <Button type="submit">Save</Button>
                         </div>
                     </DialogFooter>

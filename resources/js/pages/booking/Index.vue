@@ -81,9 +81,11 @@ const checkIn = ref('');
 const checkOut = ref('');
 const adults = ref(2);
 const children = ref(0);
-const searchResults = ref<{ room_types: RoomType[]; nights: number; hotspot_tiers?: HotspotTier[] } | null>(
-    null,
-);
+const searchResults = ref<{
+    room_types: RoomType[];
+    nights: number;
+    hotspot_tiers?: HotspotTier[];
+} | null>(null);
 const selectedRoomType = ref<RoomType | null>(null);
 const selectedHotspotTier = ref<number | null>(null);
 const termsAgreed = ref(false);
@@ -346,12 +348,12 @@ const getAmenityIcon = (amenity: string) => {
             <div v-else-if="step === 1" class="mx-auto max-w-2xl">
                 <Card class="border-border shadow-sm">
                     <CardHeader>
-                        <CardTitle class="text-xl"
-                            >{{ t('booking.select_title') }}</CardTitle
-                        >
-                        <CardDescription
-                            >{{ t('booking.select_description') }}</CardDescription
-                        >
+                        <CardTitle class="text-xl">{{
+                            t('booking.select_title')
+                        }}</CardTitle>
+                        <CardDescription>{{
+                            t('booking.select_description')
+                        }}</CardDescription>
                     </CardHeader>
 
                     <CardContent class="space-y-5">
@@ -363,7 +365,9 @@ const getAmenityIcon = (amenity: string) => {
                             >
                                 <SelectTrigger class="w-full">
                                     <SelectValue
-                                        :placeholder="t('booking.property_placeholder')"
+                                        :placeholder="
+                                            t('booking.property_placeholder')
+                                        "
                                     />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -381,7 +385,9 @@ const getAmenityIcon = (amenity: string) => {
 
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div class="space-y-2">
-                                <Label for="check_in">{{ t('booking.check_in') }}</Label>
+                                <Label for="check_in">{{
+                                    t('booking.check_in')
+                                }}</Label>
                                 <DatePicker
                                     id="check_in"
                                     v-model="checkIn"
@@ -389,7 +395,9 @@ const getAmenityIcon = (amenity: string) => {
                                 />
                             </div>
                             <div class="space-y-2">
-                                <Label for="check_out">{{ t('booking.check_out') }}</Label>
+                                <Label for="check_out">{{
+                                    t('booking.check_out')
+                                }}</Label>
                                 <DatePicker
                                     id="check_out"
                                     v-model="checkOut"
@@ -413,7 +421,9 @@ const getAmenityIcon = (amenity: string) => {
                                             v-for="n in 10"
                                             :key="n"
                                             :value="n"
-                                            >{{ t('common.adult_count', { n }) }}</SelectItem
+                                            >{{
+                                                t('common.adult_count', { n })
+                                            }}</SelectItem
                                         >
                                     </SelectContent>
                                 </Select>
@@ -432,7 +442,11 @@ const getAmenityIcon = (amenity: string) => {
                                             v-for="n in 6"
                                             :key="n"
                                             :value="n - 1"
-                                            >{{ t('common.children_count', { n: n - 1 }) }}</SelectItem
+                                            >{{
+                                                t('common.children_count', {
+                                                    n: n - 1,
+                                                })
+                                            }}</SelectItem
                                         >
                                     </SelectContent>
                                 </Select>
@@ -464,7 +478,11 @@ const getAmenityIcon = (amenity: string) => {
                         <ArrowLeft class="size-4" /> {{ t('common.back') }}
                     </Button>
                     <h2 class="text-foreground text-xl font-semibold">
-                        {{ t('booking.rooms_title', { nights: searchResults?.nights ?? 0 }) }}
+                        {{
+                            t('booking.rooms_title', {
+                                nights: searchResults?.nights ?? 0,
+                            })
+                        }}
                     </h2>
                 </div>
 
@@ -507,13 +525,22 @@ const getAmenityIcon = (amenity: string) => {
                                             class="inline-flex items-center gap-1"
                                         >
                                             <BedDouble class="size-3.5" />
-                                            {{ t('common.beds', { count: roomType.bed_count, type: roomType.bed_type }) }}
+                                            {{
+                                                t('common.beds', {
+                                                    count: roomType.bed_count,
+                                                    type: roomType.bed_type,
+                                                })
+                                            }}
                                         </span>
                                         <span
                                             class="inline-flex items-center gap-1"
                                         >
                                             <Users class="size-3.5" />
-                                            {{ t('common.max_guests', { count: roomType.max_occupancy }) }}
+                                            {{
+                                                t('common.max_guests', {
+                                                    count: roomType.max_occupancy,
+                                                })
+                                            }}
                                         </span>
                                     </div>
 
@@ -590,18 +617,20 @@ const getAmenityIcon = (amenity: string) => {
 
                 <Card class="border-border shadow-sm">
                     <CardHeader>
-                        <CardTitle class="text-lg"
-                            >{{ t('booking.contact_title') }}</CardTitle
-                        >
-                        <CardDescription
-                            >{{ t('booking.contact_description') }}</CardDescription
-                        >
+                        <CardTitle class="text-lg">{{
+                            t('booking.contact_title')
+                        }}</CardTitle>
+                        <CardDescription>{{
+                            t('booking.contact_description')
+                        }}</CardDescription>
                     </CardHeader>
 
                     <CardContent class="space-y-4">
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div class="space-y-2">
-                                <Label for="first_name">{{ t('booking.first_name') }}</Label>
+                                <Label for="first_name">{{
+                                    t('booking.first_name')
+                                }}</Label>
                                 <Input
                                     id="first_name"
                                     v-model="guestInfo.first_name"
@@ -611,7 +640,9 @@ const getAmenityIcon = (amenity: string) => {
                                 />
                             </div>
                             <div class="space-y-2">
-                                <Label for="last_name">{{ t('booking.last_name') }}</Label>
+                                <Label for="last_name">{{
+                                    t('booking.last_name')
+                                }}</Label>
                                 <Input
                                     id="last_name"
                                     v-model="guestInfo.last_name"
@@ -623,7 +654,9 @@ const getAmenityIcon = (amenity: string) => {
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="email">{{ t('booking.email_label') }}</Label>
+                            <Label for="email">{{
+                                t('booking.email_label')
+                            }}</Label>
                             <Input
                                 id="email"
                                 v-model="guestInfo.email"
@@ -634,7 +667,9 @@ const getAmenityIcon = (amenity: string) => {
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="phone">{{ t('booking.phone_label') }}</Label>
+                            <Label for="phone">{{
+                                t('booking.phone_label')
+                            }}</Label>
                             <Input
                                 id="phone"
                                 v-model="guestInfo.phone"
@@ -674,67 +709,72 @@ const getAmenityIcon = (amenity: string) => {
 
                 <Card class="border-border shadow-sm">
                     <CardHeader>
-                        <CardTitle class="text-lg"
-                            >{{ t('booking.summary_title') }}</CardTitle
-                        >
-                        <CardDescription
-                            >{{ t('booking.summary_description') }}</CardDescription
-                        >
+                        <CardTitle class="text-lg">{{
+                            t('booking.summary_title')
+                        }}</CardTitle>
+                        <CardDescription>{{
+                            t('booking.summary_description')
+                        }}</CardDescription>
                     </CardHeader>
 
                     <CardContent class="space-y-4">
                         <div class="divide-border divide-y text-sm">
                             <div class="flex justify-between py-3">
-                                <span class="text-muted-foreground"
-                                    >{{ t('booking.property_row') }}</span
-                                >
+                                <span class="text-muted-foreground">{{
+                                    t('booking.property_row')
+                                }}</span>
                                 <span class="text-foreground font-semibold">{{
                                     selectedBranchObj?.name
                                 }}</span>
                             </div>
                             <div class="flex justify-between py-3">
-                                <span class="text-muted-foreground"
-                                    >{{ t('booking.room_type_row') }}</span
-                                >
+                                <span class="text-muted-foreground">{{
+                                    t('booking.room_type_row')
+                                }}</span>
                                 <span class="text-foreground font-semibold">{{
                                     selectedRoomType?.name
                                 }}</span>
                             </div>
                             <div class="flex justify-between py-3">
-                                <span class="text-muted-foreground"
-                                    >{{ t('booking.check_in_row') }}</span
-                                >
+                                <span class="text-muted-foreground">{{
+                                    t('booking.check_in_row')
+                                }}</span>
                                 <span class="text-foreground font-semibold">{{
                                     checkIn
                                 }}</span>
                             </div>
                             <div class="flex justify-between py-3">
-                                <span class="text-muted-foreground"
-                                    >{{ t('booking.check_out_row') }}</span
-                                >
+                                <span class="text-muted-foreground">{{
+                                    t('booking.check_out_row')
+                                }}</span>
                                 <span class="text-foreground font-semibold">{{
                                     checkOut
                                 }}</span>
                             </div>
                             <div class="flex justify-between py-3">
-                                <span class="text-muted-foreground"
-                                    >{{ t('booking.guests_row') }}</span
-                                >
-                                <span class="text-foreground font-semibold"
-                                    >{{ t('portal.guests_value', { adults, children }) }}</span
-                                >
+                                <span class="text-muted-foreground">{{
+                                    t('booking.guests_row')
+                                }}</span>
+                                <span class="text-foreground font-semibold">{{
+                                    t('portal.guests_value', {
+                                        adults,
+                                        children,
+                                    })
+                                }}</span>
                             </div>
                             <div class="flex justify-between py-3">
-                                <span class="text-muted-foreground"
-                                    >{{ t('booking.guest_name_row') }}</span
-                                >
+                                <span class="text-muted-foreground">{{
+                                    t('booking.guest_name_row')
+                                }}</span>
                                 <span class="text-foreground font-semibold"
                                     >{{ guestInfo.first_name }}
                                     {{ guestInfo.last_name }}</span
                                 >
                             </div>
                             <div class="flex justify-between py-3">
-                                <span class="text-muted-foreground">{{ t('booking.email_row') }}</span>
+                                <span class="text-muted-foreground">{{
+                                    t('booking.email_row')
+                                }}</span>
                                 <span class="text-foreground font-semibold">{{
                                     guestInfo.email
                                 }}</span>
@@ -742,9 +782,9 @@ const getAmenityIcon = (amenity: string) => {
                             <div
                                 class="bg-muted/50 -mx-6 flex justify-between rounded-b-lg px-6 py-4 text-base"
                             >
-                                <span class="text-foreground font-bold"
-                                    >{{ t('booking.total_charge') }}</span
-                                >
+                                <span class="text-foreground font-bold">{{
+                                    t('booking.total_charge')
+                                }}</span>
                                 <span
                                     class="text-foreground text-lg font-extrabold"
                                     >{{
@@ -756,13 +796,16 @@ const getAmenityIcon = (amenity: string) => {
                             </div>
                         </div>
 
-                        <div v-if="searchResults?.hotspot_tiers?.length" class="space-y-2 pt-2">
+                        <div
+                            v-if="searchResults?.hotspot_tiers?.length"
+                            class="space-y-2 pt-2"
+                        >
                             <Label>Wi-Fi tier (free included)</Label>
                             <div class="grid gap-2">
                                 <label
                                     v-for="tier in searchResults.hotspot_tiers"
                                     :key="tier.id"
-                                    class="flex cursor-pointer items-center justify-between rounded-lg border border-border p-3 text-sm"
+                                    class="border-border flex cursor-pointer items-center justify-between rounded-lg border p-3 text-sm"
                                 >
                                     <span class="flex items-center gap-2">
                                         <input
@@ -772,10 +815,18 @@ const getAmenityIcon = (amenity: string) => {
                                             :value="tier.id"
                                             class="accent-primary size-4"
                                         />
-                                        <span class="font-medium">{{ tier.name }}</span>
+                                        <span class="font-medium">{{
+                                            tier.name
+                                        }}</span>
                                     </span>
                                     <span class="text-muted-foreground">
-                                        {{ tier.price_minor === 0 ? 'Free' : formatCurrency(tier.price_minor) }}
+                                        {{
+                                            tier.price_minor === 0
+                                                ? 'Free'
+                                                : formatCurrency(
+                                                      tier.price_minor,
+                                                  )
+                                        }}
                                     </span>
                                 </label>
                             </div>

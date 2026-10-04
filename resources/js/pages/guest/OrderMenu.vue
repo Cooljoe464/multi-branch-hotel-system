@@ -53,17 +53,25 @@ const groupedMenu = computed(() => {
     return groups;
 });
 
-const cartTotal = computed(() => cart.value.reduce((sum, item) => sum + item.price * item.quantity, 0));
-const cartCount = computed(() => cart.value.reduce((sum, item) => sum + item.quantity, 0));
+const cartTotal = computed(() =>
+    cart.value.reduce((sum, item) => sum + item.price * item.quantity, 0),
+);
+const cartCount = computed(() =>
+    cart.value.reduce((sum, item) => sum + item.quantity, 0),
+);
 
 import { formatCurrency, getCurrencySymbol } from '@/lib/format';
 const page = usePage();
-const branchSymbol = computed(() => (page.props.branch?.current as any)?.currency_symbol || '$');
-const resolveSymbol = (code?: string) => getCurrencySymbol(code || 'NGN') || branchSymbol.value;
-const formatPrice = (cents: number, currencyCode?: string) => formatCurrency(cents, resolveSymbol(currencyCode));
+const branchSymbol = computed(
+    () => (page.props.branch?.current as any)?.currency_symbol || '$',
+);
+const resolveSymbol = (code?: string) =>
+    getCurrencySymbol(code || 'NGN') || branchSymbol.value;
+const formatPrice = (cents: number, currencyCode?: string) =>
+    formatCurrency(cents, resolveSymbol(currencyCode));
 
 const addToCart = (menuItem: MenuItem) => {
-    const existing = cart.value.find(i => i.menu_item_id === menuItem.id);
+    const existing = cart.value.find((i) => i.menu_item_id === menuItem.id);
     if (existing) {
         existing.quantity++;
     } else {
@@ -78,144 +86,246 @@ const addToCart = (menuItem: MenuItem) => {
 };
 
 const updateQuantity = (menuItemId: number, delta: number) => {
-    const item = cart.value.find(i => i.menu_item_id === menuItemId);
+    const item = cart.value.find((i) => i.menu_item_id === menuItemId);
     if (!item) return;
     item.quantity += delta;
     if (item.quantity <= 0) {
-        cart.value = cart.value.filter(i => i.menu_item_id !== menuItemId);
+        cart.value = cart.value.filter((i) => i.menu_item_id !== menuItemId);
     }
 };
 
 const removeFromCart = (menuItemId: number) => {
-    cart.value = cart.value.filter(i => i.menu_item_id !== menuItemId);
+    cart.value = cart.value.filter((i) => i.menu_item_id !== menuItemId);
 };
 
 const submitOrder = () => {
     if (cart.value.length === 0 || isSubmitting.value) return;
     isSubmitting.value = true;
 
-    router.post(`/guest/order/${props.reservation.confirmation_number}`, {
-        outlet_code: props.outlet.code,
-        items: cart.value.map(i => ({
-            menu_item_id: i.menu_item_id,
-            quantity: i.quantity,
-            notes: i.notes || null,
-        })),
-    }, {
-        onFinish: () => { isSubmitting.value = false; },
-    });
+    router.post(
+        `/guest/order/${props.reservation.confirmation_number}`,
+        {
+            outlet_code: props.outlet.code,
+            items: cart.value.map((i) => ({
+                menu_item_id: i.menu_item_id,
+                quantity: i.quantity,
+                notes: i.notes || null,
+            })),
+        },
+        {
+            onFinish: () => {
+                isSubmitting.value = false;
+            },
+        },
+    );
 };
 
-const typeIcon: Record<string, string> = { restaurant: '\uD83C\uDF7D\uFE0F', bar: '\uD83C\uDF78', spa: '\uD83D\uDC86', gift_shop: '\uD83C\uDF81', laundry: '\uD83D\uDC54' };
+const typeIcon: Record<string, string> = {
+    restaurant: '\uD83C\uDF7D\uFE0F',
+    bar: '\uD83C\uDF78',
+    spa: '\uD83D\uDC86',
+    gift_shop: '\uD83C\uDF81',
+    laundry: '\uD83D\uDC54',
+};
 </script>
 
 <template>
-<Head :title="`${outlet.name} - ${t('portal.order_title')}`" />
+    <Head :title="`${outlet.name} - ${t('portal.order_title')}`" />
 
-<div class="min-h-screen bg-background">
-    <div class="bg-card border-b border-border px-4 py-3 sm:px-6">
-        <div class="mx-auto max-w-2xl">
-            <div class="flex items-center justify-between">
-                <div>
-                    <Link :href="`/guest/order/${reservation.confirmation_number}`" class="text-xs text-muted-foreground hover:text-foreground">&larr; {{ t('portal.all_outlets') }}</Link>
-                    <h1 class="text-lg font-bold text-foreground">{{ typeIcon[outlet.type] || '' }} {{ outlet.name }}</h1>
-                </div>
-                <div class="flex items-center gap-2">
-                    <LocaleSwitcher />
-                    <button
-                        @click="showCart = !showCart"
-                        class="relative rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-                    >
-                        {{ t('portal.cart') }}
-                        <span v-if="cartCount > 0" class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                            {{ cartCount }}
-                        </span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="mx-auto max-w-2xl px-4 py-4 sm:px-6">
-        <div v-if="menuItems.length === 0" class="rounded-lg border border-border bg-card p-8 text-center">
-            <p class="text-muted-foreground">{{ t('portal.no_items') }}</p>
-        </div>
-
-        <template v-else>
-            <div v-for="(items, category) in groupedMenu" :key="category" class="mb-6">
-                <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{{ category }}</h2>
-                <div class="space-y-2">
-                    <div
-                        v-for="item in items"
-                        :key="item.id"
-                        class="flex items-center justify-between rounded-lg border border-border bg-card p-3"
-                    >
-                        <div class="flex-1 pr-3">
-                            <div class="font-medium text-foreground">{{ item.name }}</div>
-                            <div v-if="item.description" class="text-xs text-muted-foreground">{{ item.description }}</div>
-                            <div class="mt-1 text-sm font-semibold text-foreground">{{ formatPrice(item.price) }}</div>
-                        </div>
-                        <button
-                            @click="addToCart(item)"
-                            class="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+    <div class="bg-background min-h-screen">
+        <div class="bg-card border-border border-b px-4 py-3 sm:px-6">
+            <div class="mx-auto max-w-2xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <Link
+                            :href="`/guest/order/${reservation.confirmation_number}`"
+                            class="text-muted-foreground hover:text-foreground text-xs"
+                            >&larr; {{ t('portal.all_outlets') }}</Link
                         >
-                            {{ t('portal.add') }}
+                        <h1 class="text-foreground text-lg font-bold">
+                            {{ typeIcon[outlet.type] || '' }} {{ outlet.name }}
+                        </h1>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <LocaleSwitcher />
+                        <button
+                            @click="showCart = !showCart"
+                            class="border-border text-foreground hover:bg-muted relative rounded-lg border px-3 py-2 text-sm font-medium"
+                        >
+                            {{ t('portal.cart') }}
+                            <span
+                                v-if="cartCount > 0"
+                                class="bg-primary text-primary-foreground absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full text-xs"
+                            >
+                                {{ cartCount }}
+                            </span>
                         </button>
                     </div>
                 </div>
             </div>
-        </template>
-    </div>
+        </div>
 
-    <div
-        v-if="showCart"
-        class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
-        @click.self="showCart = false"
-    >
-        <div class="w-full max-w-lg rounded-t-2xl bg-card border border-border p-4 sm:rounded-2xl max-h-[80vh] overflow-y-auto">
-            <div class="mb-4 flex items-center justify-between">
-                <h2 class="text-lg font-bold text-foreground">{{ t('portal.your_order') }}</h2>
-                <button @click="showCart = false" class="text-muted-foreground hover:text-foreground">&times;</button>
-            </div>
-
-            <div v-if="cart.length === 0" class="py-6 text-center text-sm text-muted-foreground">
-                {{ t('portal.cart_empty') }}
+        <div class="mx-auto max-w-2xl px-4 py-4 sm:px-6">
+            <div
+                v-if="menuItems.length === 0"
+                class="border-border bg-card rounded-lg border p-8 text-center"
+            >
+                <p class="text-muted-foreground">{{ t('portal.no_items') }}</p>
             </div>
 
             <template v-else>
-                <div class="space-y-3 mb-4">
-                    <div v-for="item in cart" :key="item.menu_item_id" class="flex items-center gap-3">
-                        <div class="flex-1">
-                            <div class="text-sm font-medium text-foreground">{{ item.name }}</div>
-                            <div class="text-xs text-muted-foreground">{{ formatPrice(item.price) }} {{ t('portal.each') }}</div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button @click="updateQuantity(item.menu_item_id, -1)" class="h-7 w-7 rounded border border-border text-sm font-medium hover:bg-muted">-</button>
-                            <span class="w-6 text-center text-sm text-foreground">{{ item.quantity }}</span>
-                            <button @click="updateQuantity(item.menu_item_id, 1)" class="h-7 w-7 rounded border border-border text-sm font-medium hover:bg-muted">+</button>
-                        </div>
-                        <div class="w-16 text-right text-sm font-medium text-foreground">{{ formatPrice(item.price * item.quantity) }}</div>
-                        <button @click="removeFromCart(item.menu_item_id)" class="text-destructive hover:text-destructive/80 text-xs">&times;</button>
-                    </div>
-                </div>
-
-                <div class="border-t border-border pt-3 mb-4">
-                    <div class="flex justify-between text-base font-bold">
-                        <span class="text-foreground">{{ t('common.total') }}</span>
-                        <span class="text-foreground">{{ formatPrice(cartTotal) }}</span>
-                    </div>
-                    <p class="mt-1 text-xs text-muted-foreground">{{ t('portal.charged_to_room') }}</p>
-                </div>
-
-                <button
-                    @click="submitOrder"
-                    :disabled="isSubmitting"
-                    class="w-full rounded-lg bg-primary py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                <div
+                    v-for="(items, category) in groupedMenu"
+                    :key="category"
+                    class="mb-6"
                 >
-                    {{ isSubmitting ? t('portal.placing') : t('portal.place_order') }}
-                </button>
+                    <h2
+                        class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase"
+                    >
+                        {{ category }}
+                    </h2>
+                    <div class="space-y-2">
+                        <div
+                            v-for="item in items"
+                            :key="item.id"
+                            class="border-border bg-card flex items-center justify-between rounded-lg border p-3"
+                        >
+                            <div class="flex-1 pr-3">
+                                <div class="text-foreground font-medium">
+                                    {{ item.name }}
+                                </div>
+                                <div
+                                    v-if="item.description"
+                                    class="text-muted-foreground text-xs"
+                                >
+                                    {{ item.description }}
+                                </div>
+                                <div
+                                    class="text-foreground mt-1 text-sm font-semibold"
+                                >
+                                    {{ formatPrice(item.price) }}
+                                </div>
+                            </div>
+                            <button
+                                @click="addToCart(item)"
+                                class="bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium"
+                            >
+                                {{ t('portal.add') }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </template>
         </div>
+
+        <div
+            v-if="showCart"
+            class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+            @click.self="showCart = false"
+        >
+            <div
+                class="bg-card border-border max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border p-4 sm:rounded-2xl"
+            >
+                <div class="mb-4 flex items-center justify-between">
+                    <h2 class="text-foreground text-lg font-bold">
+                        {{ t('portal.your_order') }}
+                    </h2>
+                    <button
+                        @click="showCart = false"
+                        class="text-muted-foreground hover:text-foreground"
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <div
+                    v-if="cart.length === 0"
+                    class="text-muted-foreground py-6 text-center text-sm"
+                >
+                    {{ t('portal.cart_empty') }}
+                </div>
+
+                <template v-else>
+                    <div class="mb-4 space-y-3">
+                        <div
+                            v-for="item in cart"
+                            :key="item.menu_item_id"
+                            class="flex items-center gap-3"
+                        >
+                            <div class="flex-1">
+                                <div
+                                    class="text-foreground text-sm font-medium"
+                                >
+                                    {{ item.name }}
+                                </div>
+                                <div class="text-muted-foreground text-xs">
+                                    {{ formatPrice(item.price) }}
+                                    {{ t('portal.each') }}
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    @click="
+                                        updateQuantity(item.menu_item_id, -1)
+                                    "
+                                    class="border-border hover:bg-muted h-7 w-7 rounded border text-sm font-medium"
+                                >
+                                    -
+                                </button>
+                                <span
+                                    class="text-foreground w-6 text-center text-sm"
+                                    >{{ item.quantity }}</span
+                                >
+                                <button
+                                    @click="
+                                        updateQuantity(item.menu_item_id, 1)
+                                    "
+                                    class="border-border hover:bg-muted h-7 w-7 rounded border text-sm font-medium"
+                                >
+                                    +
+                                </button>
+                            </div>
+                            <div
+                                class="text-foreground w-16 text-right text-sm font-medium"
+                            >
+                                {{ formatPrice(item.price * item.quantity) }}
+                            </div>
+                            <button
+                                @click="removeFromCart(item.menu_item_id)"
+                                class="text-destructive hover:text-destructive/80 text-xs"
+                            >
+                                &times;
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="border-border mb-4 border-t pt-3">
+                        <div class="flex justify-between text-base font-bold">
+                            <span class="text-foreground">{{
+                                t('common.total')
+                            }}</span>
+                            <span class="text-foreground">{{
+                                formatPrice(cartTotal)
+                            }}</span>
+                        </div>
+                        <p class="text-muted-foreground mt-1 text-xs">
+                            {{ t('portal.charged_to_room') }}
+                        </p>
+                    </div>
+
+                    <button
+                        @click="submitOrder"
+                        :disabled="isSubmitting"
+                        class="bg-primary text-primary-foreground hover:bg-primary/90 w-full rounded-lg py-3 text-sm font-medium disabled:opacity-50"
+                    >
+                        {{
+                            isSubmitting
+                                ? t('portal.placing')
+                                : t('portal.place_order')
+                        }}
+                    </button>
+                </template>
+            </div>
+        </div>
     </div>
-</div>
 </template>

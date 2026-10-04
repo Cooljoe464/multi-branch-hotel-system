@@ -4,7 +4,12 @@ import { useClipboard } from '@vueuse/core';
 import { Check, Copy, Loader2, ScanLine } from '@lucide/vue';
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import AlertError from '@/components/AlertError.vue';
 import InputError from '@/components/InputError.vue';
 import {
@@ -107,19 +112,21 @@ watch(
         <DialogContent class="sm:max-w-md">
             <DialogHeader>
                 <div class="flex items-center gap-3">
-                    <div class="rounded-full bg-muted p-2.5">
-                        <ScanLine class="h-6 w-6 text-foreground" />
+                    <div class="bg-muted rounded-full p-2.5">
+                        <ScanLine class="text-foreground h-6 w-6" />
                     </div>
                     <div>
                         <DialogTitle>{{ modalConfig.title }}</DialogTitle>
-                        <p class="text-sm text-muted-foreground">
+                        <p class="text-muted-foreground text-sm">
                             {{ modalConfig.description }}
                         </p>
                     </div>
                 </div>
             </DialogHeader>
 
-            <div class="flex flex-col items-center justify-center space-y-5 py-2">
+            <div
+                class="flex flex-col items-center justify-center space-y-5 py-2"
+            >
                 <template v-if="!showVerificationStep">
                     <AlertError v-if="errors?.length" :errors="errors" />
                     <template v-else>
@@ -127,17 +134,19 @@ watch(
                             class="relative mx-auto flex max-w-md items-center overflow-hidden"
                         >
                             <div
-                                class="relative mx-auto aspect-square w-64 overflow-hidden rounded-lg border border-border"
+                                class="border-border relative mx-auto aspect-square w-64 overflow-hidden rounded-lg border"
                             >
                                 <div
                                     v-if="!qrCodeSvg"
-                                    class="absolute inset-0 z-10 flex aspect-square h-auto w-full animate-pulse items-center justify-center bg-background"
+                                    class="bg-background absolute inset-0 z-10 flex aspect-square h-auto w-full animate-pulse items-center justify-center"
                                 >
-                                    <Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
+                                    <Loader2
+                                        class="text-muted-foreground h-6 w-6 animate-spin"
+                                    />
                                 </div>
                                 <div
                                     v-else
-                                    class="relative z-10 overflow-hidden border border-border p-5"
+                                    class="border-border relative z-10 overflow-hidden border p-5"
                                 >
                                     <div
                                         v-html="qrCodeSvg"
@@ -154,7 +163,10 @@ watch(
                         </div>
 
                         <div class="flex w-full items-center space-x-5">
-                            <Button class="w-full justify-center" @click="handleModalNextStep">
+                            <Button
+                                class="w-full justify-center"
+                                @click="handleModalNextStep"
+                            >
                                 {{ modalConfig.buttonText }}
                             </Button>
                         </div>
@@ -163,9 +175,10 @@ watch(
                             class="relative flex w-full items-center justify-center"
                         >
                             <div
-                                class="absolute inset-0 top-1/2 h-px w-full bg-border"
+                                class="bg-border absolute inset-0 top-1/2 h-px w-full"
                             />
-                            <span class="relative bg-background px-2 text-xs text-muted-foreground"
+                            <span
+                                class="bg-background text-muted-foreground relative px-2 text-xs"
                                 >or, enter the code manually</span
                             >
                         </div>
@@ -174,30 +187,35 @@ watch(
                             class="flex w-full items-center justify-center space-x-2"
                         >
                             <div
-                                class="flex w-full items-stretch overflow-hidden rounded-xl border border-border"
+                                class="border-border flex w-full items-stretch overflow-hidden rounded-xl border"
                             >
                                 <div
                                     v-if="!manualSetupKey"
-                                    class="flex h-full w-full items-center justify-center bg-muted p-3"
+                                    class="bg-muted flex h-full w-full items-center justify-center p-3"
                                 >
-                                    <Loader2 class="h-4 w-4 animate-spin text-muted-foreground" />
+                                    <Loader2
+                                        class="text-muted-foreground h-4 w-4 animate-spin"
+                                    />
                                 </div>
                                 <template v-else>
                                     <input
                                         type="text"
                                         readonly
                                         :value="manualSetupKey"
-                                        class="h-full w-full bg-background p-3 text-sm text-foreground"
+                                        class="bg-background text-foreground h-full w-full p-3 text-sm"
                                     />
                                     <button
                                         @click="copy(manualSetupKey || '')"
-                                        class="relative block h-auto border-l border-border px-3 hover:bg-muted"
+                                        class="border-border hover:bg-muted relative block h-auto border-l px-3"
                                     >
                                         <Check
                                             v-if="copied"
                                             class="w-4 text-green-500"
                                         />
-                                        <Copy v-else class="w-4 text-muted-foreground" />
+                                        <Copy
+                                            v-else
+                                            class="text-muted-foreground w-4"
+                                        />
                                     </button>
                                 </template>
                             </div>

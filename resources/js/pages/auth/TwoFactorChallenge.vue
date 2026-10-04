@@ -84,21 +84,15 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                     </div>
                     <InputError :message="errors.code" />
                 </div>
-                <Button
-                    type="submit"
-                    class="w-full"
-                    :disabled="processing"
-                >
+                <Button type="submit" class="w-full" :disabled="processing">
                     <Spinner v-if="processing" class="mr-2" />
                     Continue
                 </Button>
-                <div
-                    class="text-muted-foreground text-center text-sm"
-                >
+                <div class="text-muted-foreground text-center text-sm">
                     <span>or you can </span>
                     <button
                         type="button"
-                        class="text-foreground underline underline-offset-4 transition-colors hover:text-foreground/80"
+                        class="text-foreground hover:text-foreground/80 underline underline-offset-4 transition-colors"
                         @click="() => toggleRecoveryMode(clearErrors)"
                     >
                         {{ authConfigContent.buttonText }}
@@ -126,22 +120,16 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                     />
                     <InputError :message="errors.recovery_code" />
                 </div>
-                <Button
-                    type="submit"
-                    class="w-full"
-                    :disabled="processing"
-                >
+                <Button type="submit" class="w-full" :disabled="processing">
                     <Spinner v-if="processing" class="mr-2" />
                     Continue
                 </Button>
 
-                <div
-                    class="text-muted-foreground text-center text-sm"
-                >
+                <div class="text-muted-foreground text-center text-sm">
                     <span>or you can </span>
                     <button
                         type="button"
-                        class="text-foreground underline underline-offset-4 transition-colors hover:text-foreground/80"
+                        class="text-foreground hover:text-foreground/80 underline underline-offset-4 transition-colors"
                         @click="() => toggleRecoveryMode(clearErrors)"
                     >
                         {{ authConfigContent.buttonText }}

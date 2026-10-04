@@ -6,7 +6,12 @@ import { useAppearance } from '@/composables/useAppearance';
 import { formatCurrency } from '@/lib/format';
 
 const props = defineProps<{
-    data: Array<{ room_type_name: string; total_revenue: number; rooms_sold: number; adr: number }>;
+    data: Array<{
+        room_type_name: string;
+        total_revenue: number;
+        rooms_sold: number;
+        adr: number;
+    }>;
     height?: number;
     currencySymbol?: string;
 }>();
@@ -17,7 +22,9 @@ const chartKey = ref(0);
 const chartOptions = computed(() => {
     const isDark = resolvedAppearance.value === 'dark';
     const textColor = isDark ? '#a1a1aa' : '#9ca3af';
-    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(156,163,175,0.15)';
+    const gridColor = isDark
+        ? 'rgba(255,255,255,0.06)'
+        : 'rgba(156,163,175,0.15)';
 
     return {
         chart: {
@@ -50,7 +57,8 @@ const chartOptions = computed(() => {
                 title: { text: 'Revenue', style: { color: textColor } },
                 labels: {
                     style: { colors: textColor },
-                    formatter: (val: number) => formatCurrency(val, props.currencySymbol ?? '₦'),
+                    formatter: (val: number) =>
+                        formatCurrency(val, props.currencySymbol ?? '₦'),
                 },
             },
             {
@@ -90,14 +98,23 @@ const series = computed(() => [
     },
 ]);
 
-watch(() => props.data, () => { chartKey.value++; });
-watch(resolvedAppearance, () => { chartKey.value++; });
+watch(
+    () => props.data,
+    () => {
+        chartKey.value++;
+    },
+);
+watch(resolvedAppearance, () => {
+    chartKey.value++;
+});
 </script>
 
 <template>
     <Card class="border-border shadow-xs">
         <CardHeader class="pb-2">
-            <CardTitle class="text-base font-semibold text-foreground">Room Type Performance</CardTitle>
+            <CardTitle class="text-foreground text-base font-semibold"
+                >Room Type Performance</CardTitle
+            >
         </CardHeader>
         <CardContent class="pt-0">
             <VueApexCharts

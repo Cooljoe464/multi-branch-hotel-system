@@ -20,7 +20,9 @@ defineOptions({
 });
 
 const page = usePage();
-const branding = computed(() => page.props.branding as { app_name: string; logo_url: string | null });
+const branding = computed(
+    () => page.props.branding as { app_name: string; logo_url: string | null },
+);
 
 const appNameInput = ref(branding.value.app_name);
 const logoPreview = ref<string | null>(branding.value.logo_url);
@@ -31,7 +33,7 @@ function handleFileSelect(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
 
-    if (! file) return;
+    if (!file) return;
 
     logoFile.value = file;
     logoPreview.value = URL.createObjectURL(file);
@@ -126,7 +128,11 @@ function submit() {
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                @click="($refs.fileInput as HTMLInputElement).click()"
+                                @click="
+                                    (
+                                        $refs.fileInput as HTMLInputElement
+                                    ).click()
+                                "
                             >
                                 <Upload class="mr-2 size-4" />
                                 Upload Logo
@@ -159,7 +165,10 @@ function submit() {
 
             <div class="flex items-center gap-4">
                 <Button type="submit" :disabled="processing">
-                    <Loader2 v-if="processing" class="mr-2 size-4 animate-spin" />
+                    <Loader2
+                        v-if="processing"
+                        class="mr-2 size-4 animate-spin"
+                    />
                     Save
                 </Button>
             </div>

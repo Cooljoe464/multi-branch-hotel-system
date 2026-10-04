@@ -6,7 +6,13 @@ import { Loader2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
@@ -60,7 +66,9 @@ const localeInput = ref(user.value.locale ?? 'en');
                     placeholder="Full name"
                     :class="errors.name ? 'border-destructive' : ''"
                 />
-                <p v-if="errors.name" class="text-sm text-destructive">{{ errors.name }}</p>
+                <p v-if="errors.name" class="text-destructive text-sm">
+                    {{ errors.name }}
+                </p>
             </div>
 
             <div class="grid gap-2">
@@ -76,7 +84,9 @@ const localeInput = ref(user.value.locale ?? 'en');
                     placeholder="Email address"
                     :class="errors.email ? 'border-destructive' : ''"
                 />
-                <p v-if="errors.email" class="text-sm text-destructive">{{ errors.email }}</p>
+                <p v-if="errors.email" class="text-destructive text-sm">
+                    {{ errors.email }}
+                </p>
             </div>
 
             <div class="grid gap-2">
@@ -91,13 +101,13 @@ const localeInput = ref(user.value.locale ?? 'en');
                     </SelectContent>
                 </Select>
                 <input type="hidden" name="locale" :value="localeInput" />
-                <p v-if="errors.locale" class="text-sm text-destructive">{{ errors.locale }}</p>
+                <p v-if="errors.locale" class="text-destructive text-sm">
+                    {{ errors.locale }}
+                </p>
             </div>
 
             <div v-if="page.props.mustVerifyEmail && !user.email_verified_at">
-                <p
-                    class="text-muted-foreground -mt-4 text-sm"
-                >
+                <p class="text-muted-foreground -mt-4 text-sm">
                     Your email address is unverified.
                     <Link
                         :href="send()"
@@ -122,7 +132,10 @@ const localeInput = ref(user.value.locale ?? 'en');
                     :disabled="processing"
                     data-test="update-profile-button"
                 >
-                    <Loader2 v-if="processing" class="mr-2 size-4 animate-spin" />
+                    <Loader2
+                        v-if="processing"
+                        class="mr-2 size-4 animate-spin"
+                    />
                     Save
                 </Button>
             </div>

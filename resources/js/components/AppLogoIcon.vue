@@ -12,7 +12,9 @@ type Props = {
 
 defineProps<Props>();
 
-const branding = usePage().props.branding as { app_name: string; logo_url: string | null } | undefined;
+const branding = usePage().props.branding as
+    | { app_name: string; logo_url: string | null }
+    | undefined;
 </script>
 
 <template>

@@ -102,7 +102,10 @@ defineOptions({
                     :disabled="processing"
                     data-test="update-password-button"
                 >
-                    <Loader2 v-if="processing" class="mr-2 size-4 animate-spin" />
+                    <Loader2
+                        v-if="processing"
+                        class="mr-2 size-4 animate-spin"
+                    />
                     Save
                 </Button>
             </div>

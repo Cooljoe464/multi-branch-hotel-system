@@ -21,7 +21,8 @@ function defaultLocale(): LocaleCode {
     try {
         const stored = window.localStorage.getItem(STORAGE_KEY);
         if (isLocaleCode(stored)) return stored;
-        if (window.navigator.language.toLowerCase().startsWith('fr')) return 'fr';
+        if (window.navigator.language.toLowerCase().startsWith('fr'))
+            return 'fr';
     } catch {
         // Private mode or SSR: fall through to English.
     }
@@ -66,13 +67,17 @@ export type LocaleKey = LeafPaths<LocaleDict>;
 function lookup(dict: LocaleDict, key: string): string | null {
     let node: unknown = dict;
     for (const part of key.split('.')) {
-        if (typeof node !== 'object' || node === null || !(part in node)) return null;
+        if (typeof node !== 'object' || node === null || !(part in node))
+            return null;
         node = (node as Record<string, unknown>)[part];
     }
     return typeof node === 'string' ? node : null;
 }
 
-function interpolate(template: string, params: Record<string, string | number>): string {
+function interpolate(
+    template: string,
+    params: Record<string, string | number>,
+): string {
     let out = template;
     for (const [name, value] of Object.entries(params)) {
         out = out.split(`{${name}}`).join(String(value));
@@ -88,8 +93,13 @@ function interpolate(template: string, params: Record<string, string | number>):
  * when French has no entry. `{params}` interpolate; `{n}…{s}` handles
  * the one plural marker used in these dictionaries.
  */
-export function t(key: LocaleKey, params: Record<string, string | number> = {}): string {
+export function t(
+    key: LocaleKey,
+    params: Record<string, string | number> = {},
+): string {
     const template =
-        lookup(dictionaries[current.value], key) ?? lookup(dictionaries.en, key) ?? key;
+        lookup(dictionaries[current.value], key) ??
+        lookup(dictionaries.en, key) ??
+        key;
     return interpolate(template, params);
 }

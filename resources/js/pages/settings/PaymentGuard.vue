@@ -25,14 +25,16 @@ const modes = [
     {
         value: 'pay_first',
         label: 'Pre-Pay Mode',
-        description: 'Guests must complete dynamic QR payment before orders are dispatched to Kitchen/Laundry screens.',
+        description:
+            'Guests must complete dynamic QR payment before orders are dispatched to Kitchen/Laundry screens.',
         icon: '💳',
         color: 'border-emerald-500 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950',
     },
     {
         value: 'pay_after',
         label: 'Post-Pay Mode',
-        description: 'Bypasses upfront payment walls. Orders dispatch immediately and charges post as unpaid debits to room folios.',
+        description:
+            'Bypasses upfront payment walls. Orders dispatch immediately and charges post as unpaid debits to room folios.',
         icon: '🏠',
         color: 'border-blue-500 dark:border-blue-700 bg-blue-50 dark:bg-blue-950',
     },
@@ -40,23 +42,31 @@ const modes = [
 
 const save = () => {
     saving.value = true;
-    router.put('/settings/payment-guard', {
-        payment_guard_mode: selectedMode.value,
-    }, {
-        onFinish: () => {
-            saving.value = false;
+    router.put(
+        '/settings/payment-guard',
+        {
+            payment_guard_mode: selectedMode.value,
         },
-    });
+        {
+            onFinish: () => {
+                saving.value = false;
+            },
+        },
+    );
 };
 </script>
 
 <template>
     <Head title="Payment Guard Settings" />
 
-    <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4">
+    <div
+        class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4"
+    >
         <div>
-            <h1 class="text-2xl font-bold text-foreground">Payment Guard Policy</h1>
-            <p class="text-sm text-muted-foreground">
+            <h1 class="text-foreground text-2xl font-bold">
+                Payment Guard Policy
+            </h1>
+            <p class="text-muted-foreground text-sm">
                 Configure order fulfillment rules for {{ branch.name }}
             </p>
         </div>
@@ -65,7 +75,7 @@ const save = () => {
             <div
                 v-for="mode in modes"
                 :key="mode.value"
-                class="rounded-xl border-2 p-6 cursor-pointer transition-all"
+                class="cursor-pointer rounded-xl border-2 p-6 transition-all"
                 :class="[
                     selectedMode === mode.value
                         ? `${mode.color} shadow-md`
@@ -73,10 +83,12 @@ const save = () => {
                 ]"
                 @click="selectedMode = mode.value"
             >
-                <div class="flex items-center justify-between mb-3">
+                <div class="mb-3 flex items-center justify-between">
                     <div class="flex items-center gap-2">
                         <span class="text-2xl">{{ mode.icon }}</span>
-                        <h3 class="text-lg font-semibold text-foreground">{{ mode.label }}</h3>
+                        <h3 class="text-foreground text-lg font-semibold">
+                            {{ mode.label }}
+                        </h3>
                     </div>
                     <Badge
                         v-if="selectedMode === mode.value"
@@ -86,7 +98,9 @@ const save = () => {
                         Selected
                     </Badge>
                 </div>
-                <p class="text-sm text-muted-foreground">{{ mode.description }}</p>
+                <p class="text-muted-foreground text-sm">
+                    {{ mode.description }}
+                </p>
             </div>
         </div>
 

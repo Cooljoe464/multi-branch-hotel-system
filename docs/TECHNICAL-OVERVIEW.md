@@ -74,41 +74,46 @@
 
 ## Tech Stack
 
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| Backend | Laravel | 13.17 |
-| PHP | PHP | 8.4 |
-| Frontend | Vue.js | 3.5 |
-| SPA | Inertia.js | v3 |
-| CSS | Tailwind CSS | 4 |
-| Components | shadcn-vue + reka-ui | source-vendored |
-| Auth | Laravel Fortify | — |
-| Permissions | Spatie Permission | — |
-| Activity Log | Spatie Activity Log | — |
-| WebSockets | Laravel Reverb | (Pusher fallback) |
-| Database | PostgreSQL | — |
-| Cache/Queue | Redis | — |
-| Testing | Pest | 5 |
-| Browser Tests | Pest Browser + Playwright | — |
-| Static Analysis | PHPStan | Level 10 |
-| Code Style | Laravel Pint | — |
-| Build | Vite | — |
+| Layer           | Technology                | Version           |
+| --------------- | ------------------------- | ----------------- |
+| Backend         | Laravel                   | 13.17             |
+| PHP             | PHP                       | 8.4               |
+| Frontend        | Vue.js                    | 3.5               |
+| SPA             | Inertia.js                | v3                |
+| CSS             | Tailwind CSS              | 4                 |
+| Components      | shadcn-vue + reka-ui      | source-vendored   |
+| Auth            | Laravel Fortify           | —                 |
+| Permissions     | Spatie Permission         | —                 |
+| Activity Log    | Spatie Activity Log       | —                 |
+| WebSockets      | Laravel Reverb            | (Pusher fallback) |
+| Database        | PostgreSQL                | —                 |
+| Cache/Queue     | Redis                     | —                 |
+| Testing         | Pest                      | 5                 |
+| Browser Tests   | Pest Browser + Playwright | —                 |
+| Static Analysis | PHPStan                   | Level 10          |
+| Code Style      | Laravel Pint              | —                 |
+| Build           | Vite                      | —                 |
 
 ## Key Design Patterns
 
 ### Branch Scoping
+
 Every branchable model uses `branch_id` + `BranchAccess` trait. Controllers use `EnsuresBranchAccess` trait to validate access.
 
 ### Money Handling
+
 All monetary values stored as integer cents. Displayed via `formatCents()` helper in Vue.
 
 ### Audit Trail
+
 Models use `LogsActivity` trait. Key state changes logged with `activity()` helper. Sensitive operations guard with `AuditGuardService`.
 
 ### Provider Pattern
+
 External integrations (door locks) use a provider pattern — `DoorLockService` dispatches to the correct provider based on gateway configuration.
 
 ### Event-Driven
+
 KDS, tablet, menu, and room updates broadcast via Laravel Reverb (with Pusher fallback) for real-time cross-device synchronization.
 
 ## File Structure

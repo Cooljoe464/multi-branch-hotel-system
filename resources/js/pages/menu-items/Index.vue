@@ -47,7 +47,14 @@ const props = defineProps<{
     };
 }>();
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Menu Items', href: '/menu-items' }] } });
+defineOptions({
+    layout: {
+        breadcrumbs: [
+            { title: 'Dashboard', href: '/dashboard' },
+            { title: 'Menu Items', href: '/menu-items' },
+        ],
+    },
+});
 
 const showCreateModal = ref(false);
 const selectedItem = ref<MenuItem | null>(null);
@@ -80,27 +87,44 @@ const filterForm = ref({
 const categoryBadge: Record<string, string> = {
     food: 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-300 dark:border-orange-700',
     drink: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700',
-    laundry: 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-300 dark:border-purple-700',
-    service: 'bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900 dark:text-teal-300 dark:border-teal-700',
+    laundry:
+        'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-300 dark:border-purple-700',
+    service:
+        'bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900 dark:text-teal-300 dark:border-teal-700',
 };
 
 import { formatCurrency, getCurrencySymbol } from '@/lib/format';
 const page = usePage();
-const branchSymbol = computed(() => (page.props.branch?.current as any)?.currency_symbol || '$');
-const resolveSymbol = (code?: string) => getCurrencySymbol(code || 'NGN') || branchSymbol.value;
-const formatPrice = (cents: number, currencyCode?: string) => formatCurrency(cents, resolveSymbol(currencyCode));
+const branchSymbol = computed(
+    () => (page.props.branch?.current as any)?.currency_symbol || '$',
+);
+const resolveSymbol = (code?: string) =>
+    getCurrencySymbol(code || 'NGN') || branchSymbol.value;
+const formatPrice = (cents: number, currencyCode?: string) =>
+    formatCurrency(cents, resolveSymbol(currencyCode));
 
 const submitCreate = () => {
-    router.post('/menu-items', {
-        ...form.value,
-        price: parseInt(form.value.price) || 0,
-        sort_order: parseInt(form.value.sort_order) || 0,
-    }, {
-        onSuccess: () => {
-            showCreateModal.value = false;
-            form.value = { category: '', name: '', description: '', price: '', dietary_flags: [], sort_order: '0' };
+    router.post(
+        '/menu-items',
+        {
+            ...form.value,
+            price: parseInt(form.value.price) || 0,
+            sort_order: parseInt(form.value.sort_order) || 0,
         },
-    });
+        {
+            onSuccess: () => {
+                showCreateModal.value = false;
+                form.value = {
+                    category: '',
+                    name: '',
+                    description: '',
+                    price: '',
+                    dietary_flags: [],
+                    sort_order: '0',
+                };
+            },
+        },
+    );
 };
 
 const openEdit = (item: MenuItem) => {
@@ -119,16 +143,20 @@ const openEdit = (item: MenuItem) => {
 
 const submitEdit = () => {
     if (!selectedItem.value) return;
-    router.put(`/menu-items/${selectedItem.value.id}`, {
-        ...editForm.value,
-        price: parseInt(editForm.value.price) || 0,
-        sort_order: parseInt(editForm.value.sort_order) || 0,
-    }, {
-        onSuccess: () => {
-            showEditModal.value = false;
-            selectedItem.value = null;
+    router.put(
+        `/menu-items/${selectedItem.value.id}`,
+        {
+            ...editForm.value,
+            price: parseInt(editForm.value.price) || 0,
+            sort_order: parseInt(editForm.value.sort_order) || 0,
         },
-    });
+        {
+            onSuccess: () => {
+                showEditModal.value = false;
+                selectedItem.value = null;
+            },
+        },
+    );
 };
 
 const deleteItem = (item: MenuItem) => {
@@ -138,11 +166,18 @@ const deleteItem = (item: MenuItem) => {
 };
 
 const applyFilters = () => {
-    router.get('/menu-items', filterForm.value, { preserveState: true, replace: true });
+    router.get('/menu-items', filterForm.value, {
+        preserveState: true,
+        replace: true,
+    });
 };
 
 const goToPage = (page: number) => {
-    router.get('/menu-items', { ...filterForm.value, page }, { preserveState: true, replace: true });
+    router.get(
+        '/menu-items',
+        { ...filterForm.value, page },
+        { preserveState: true, replace: true },
+    );
 };
 </script>
 
@@ -150,12 +185,17 @@ const goToPage = (page: number) => {
     <Head title="Menu Items" />
     <div class="p-6">
         <div class="mb-6 flex items-center justify-between">
-            <h1 class="text-2xl font-bold text-foreground">Menu Items</h1>
+            <h1 class="text-foreground text-2xl font-bold">Menu Items</h1>
             <Button @click="showCreateModal = true">Add Menu Item</Button>
         </div>
 
         <div class="mb-4 flex flex-col gap-4 sm:flex-row">
-            <Select v-model="filterForm.category" class="sm:max-w-xs" aria-label="Filter by category" @update:model-value="applyFilters">
+            <Select
+                v-model="filterForm.category"
+                class="sm:max-w-xs"
+                aria-label="Filter by category"
+                @update:model-value="applyFilters"
+            >
                 <SelectTrigger>
                     <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
@@ -166,7 +206,12 @@ const goToPage = (page: number) => {
                     <SelectItem value="service">Service</SelectItem>
                 </SelectContent>
             </Select>
-            <Select v-model="filterForm.available" class="sm:max-w-xs" aria-label="Filter by availability" @update:model-value="applyFilters">
+            <Select
+                v-model="filterForm.available"
+                class="sm:max-w-xs"
+                aria-label="Filter by availability"
+                @update:model-value="applyFilters"
+            >
                 <SelectTrigger>
                     <SelectValue placeholder="All Availability" />
                 </SelectTrigger>
@@ -177,51 +222,126 @@ const goToPage = (page: number) => {
             </Select>
         </div>
 
-        <div class="rounded-lg border border-border">
+        <div class="border-border rounded-lg border">
             <table class="w-full caption-bottom text-sm">
                 <thead class="bg-muted/50">
                     <tr>
-                        <th class="h-12 px-4 text-left font-medium text-muted-foreground">Name</th>
-                        <th class="h-12 px-4 text-left font-medium text-muted-foreground">Category</th>
-                        <th class="h-12 px-4 text-left font-medium text-muted-foreground">Price</th>
-                        <th class="h-12 px-4 text-left font-medium text-muted-foreground">Available</th>
-                        <th class="h-12 px-4 text-left font-medium text-muted-foreground">Active</th>
-                        <th class="h-12 px-4 text-right font-medium text-muted-foreground">Actions</th>
+                        <th
+                            class="text-muted-foreground h-12 px-4 text-left font-medium"
+                        >
+                            Name
+                        </th>
+                        <th
+                            class="text-muted-foreground h-12 px-4 text-left font-medium"
+                        >
+                            Category
+                        </th>
+                        <th
+                            class="text-muted-foreground h-12 px-4 text-left font-medium"
+                        >
+                            Price
+                        </th>
+                        <th
+                            class="text-muted-foreground h-12 px-4 text-left font-medium"
+                        >
+                            Available
+                        </th>
+                        <th
+                            class="text-muted-foreground h-12 px-4 text-left font-medium"
+                        >
+                            Active
+                        </th>
+                        <th
+                            class="text-muted-foreground h-12 px-4 text-right font-medium"
+                        >
+                            Actions
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="item in menuItems.data" :key="item.id" class="border-t border-border hover:bg-muted/50">
-                        <td class="p-4 font-medium text-foreground">{{ item.name }}</td>
-                        <td class="p-4">
-                            <Badge :class="categoryBadge[item.category]" variant="outline" class="capitalize">{{ item.category }}</Badge>
+                    <tr
+                        v-for="item in menuItems.data"
+                        :key="item.id"
+                        class="border-border hover:bg-muted/50 border-t"
+                    >
+                        <td class="text-foreground p-4 font-medium">
+                            {{ item.name }}
                         </td>
-                        <td class="p-4 text-foreground">{{ formatPrice(item.price) }}</td>
                         <td class="p-4">
-                            <Badge :class="item.is_available ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700' : 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700'" variant="outline">
-                                {{ item.is_available ? 'In Stock' : 'Out of Stock' }}
+                            <Badge
+                                :class="categoryBadge[item.category]"
+                                variant="outline"
+                                class="capitalize"
+                                >{{ item.category }}</Badge
+                            >
+                        </td>
+                        <td class="text-foreground p-4">
+                            {{ formatPrice(item.price) }}
+                        </td>
+                        <td class="p-4">
+                            <Badge
+                                :class="
+                                    item.is_available
+                                        ? 'border-green-300 bg-green-100 text-green-800 dark:border-green-700 dark:bg-green-900 dark:text-green-300'
+                                        : 'border-red-300 bg-red-100 text-red-800 dark:border-red-700 dark:bg-red-900 dark:text-red-300'
+                                "
+                                variant="outline"
+                            >
+                                {{
+                                    item.is_available
+                                        ? 'In Stock'
+                                        : 'Out of Stock'
+                                }}
                             </Badge>
                         </td>
                         <td class="p-4">
-                            <Badge :class="item.is_active ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700' : 'bg-muted text-muted-foreground border-border'" variant="outline">
+                            <Badge
+                                :class="
+                                    item.is_active
+                                        ? 'border-green-300 bg-green-100 text-green-800 dark:border-green-700 dark:bg-green-900 dark:text-green-300'
+                                        : 'bg-muted text-muted-foreground border-border'
+                                "
+                                variant="outline"
+                            >
                                 {{ item.is_active ? 'Active' : 'Inactive' }}
                             </Badge>
                         </td>
                         <td class="p-4 text-right">
                             <div class="flex justify-end gap-1">
-                                <Button variant="outline" size="sm" @click="openEdit(item)">Edit</Button>
-                                <Button variant="destructive" size="sm" aria-label="Delete menu item" @click="deleteItem(item)">×</Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    @click="openEdit(item)"
+                                    >Edit</Button
+                                >
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    aria-label="Delete menu item"
+                                    @click="deleteItem(item)"
+                                    >×</Button
+                                >
                             </div>
                         </td>
                     </tr>
                     <tr v-if="menuItems.data.length === 0">
-                        <td colspan="6" class="p-4 text-center text-muted-foreground">No menu items found.</td>
+                        <td
+                            colspan="6"
+                            class="text-muted-foreground p-4 text-center"
+                        >
+                            No menu items found.
+                        </td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
         <div class="mt-4">
-            <Pagination :data="menuItems" label="menu items" @page-change="goToPage" />
+            <Pagination
+                :data="menuItems"
+                label="menu items"
+                @page-change="goToPage"
+            />
         </div>
 
         <!-- Create Modal -->
@@ -234,42 +354,77 @@ const goToPage = (page: number) => {
                     <div class="space-y-4">
                         <div class="grid gap-2">
                             <Label>Category</Label>
-                            <Select v-model="form.category" aria-label="Category">
+                            <Select
+                                v-model="form.category"
+                                aria-label="Category"
+                            >
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Select category" />
+                                    <SelectValue
+                                        placeholder="Select category"
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="food">Food</SelectItem>
                                     <SelectItem value="drink">Drink</SelectItem>
-                                    <SelectItem value="laundry">Laundry</SelectItem>
-                                    <SelectItem value="service">Service</SelectItem>
+                                    <SelectItem value="laundry"
+                                        >Laundry</SelectItem
+                                    >
+                                    <SelectItem value="service"
+                                        >Service</SelectItem
+                                    >
                                 </SelectContent>
                             </Select>
                         </div>
                         <div class="grid gap-2">
                             <Label for="item-name">Name</Label>
-                            <Input id="item-name" v-model="form.name" type="text" required />
+                            <Input
+                                id="item-name"
+                                v-model="form.name"
+                                type="text"
+                                required
+                            />
                         </div>
                         <div class="grid gap-2">
                             <Label for="item-desc">Description</Label>
-                            <Input id="item-desc" v-model="form.description" type="text" />
+                            <Input
+                                id="item-desc"
+                                v-model="form.description"
+                                type="text"
+                            />
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div class="grid gap-2">
                                 <Label for="item-price">Price (cents)</Label>
-                                <Input id="item-price" v-model="form.price" type="number" min="0" required />
+                                <Input
+                                    id="item-price"
+                                    v-model="form.price"
+                                    type="number"
+                                    min="0"
+                                    required
+                                />
                             </div>
                             <div class="grid gap-2">
                                 <Label for="item-sort">Sort Order</Label>
-                                <Input id="item-sort" v-model="form.sort_order" type="number" min="0" />
+                                <Input
+                                    id="item-sort"
+                                    v-model="form.sort_order"
+                                    type="number"
+                                    min="0"
+                                />
                             </div>
                         </div>
                     </div>
                 </form>
                 <DialogFooter>
                     <div class="flex justify-end gap-2">
-                        <Button variant="outline" @click="showCreateModal = false">Cancel</Button>
-                        <Button type="submit" form="create-menu-form">Create</Button>
+                        <Button
+                            variant="outline"
+                            @click="showCreateModal = false"
+                            >Cancel</Button
+                        >
+                        <Button type="submit" form="create-menu-form"
+                            >Create</Button
+                        >
                     </div>
                 </DialogFooter>
             </DialogContent>
@@ -285,38 +440,74 @@ const goToPage = (page: number) => {
                     <div class="space-y-4">
                         <div class="grid gap-2">
                             <Label for="edit-name">Name</Label>
-                            <Input id="edit-name" v-model="editForm.name" type="text" required />
+                            <Input
+                                id="edit-name"
+                                v-model="editForm.name"
+                                type="text"
+                                required
+                            />
                         </div>
                         <div class="grid gap-2">
                             <Label for="edit-desc">Description</Label>
-                            <Input id="edit-desc" v-model="editForm.description" type="text" />
+                            <Input
+                                id="edit-desc"
+                                v-model="editForm.description"
+                                type="text"
+                            />
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div class="grid gap-2">
                                 <Label for="edit-price">Price (cents)</Label>
-                                <Input id="edit-price" v-model="editForm.price" type="number" min="0" required />
+                                <Input
+                                    id="edit-price"
+                                    v-model="editForm.price"
+                                    type="number"
+                                    min="0"
+                                    required
+                                />
                             </div>
                             <div class="grid gap-2">
                                 <Label for="edit-sort">Sort Order</Label>
-                                <Input id="edit-sort" v-model="editForm.sort_order" type="number" min="0" />
+                                <Input
+                                    id="edit-sort"
+                                    v-model="editForm.sort_order"
+                                    type="number"
+                                    min="0"
+                                />
                             </div>
                         </div>
                         <div class="flex gap-4">
                             <label class="flex items-center gap-2">
-                                <input v-model="editForm.is_available" type="checkbox" class="rounded" />
-                                <span class="text-sm text-foreground">Available</span>
+                                <input
+                                    v-model="editForm.is_available"
+                                    type="checkbox"
+                                    class="rounded"
+                                />
+                                <span class="text-foreground text-sm"
+                                    >Available</span
+                                >
                             </label>
                             <label class="flex items-center gap-2">
-                                <input v-model="editForm.is_active" type="checkbox" class="rounded" />
-                                <span class="text-sm text-foreground">Active</span>
+                                <input
+                                    v-model="editForm.is_active"
+                                    type="checkbox"
+                                    class="rounded"
+                                />
+                                <span class="text-foreground text-sm"
+                                    >Active</span
+                                >
                             </label>
                         </div>
                     </div>
                 </form>
                 <DialogFooter>
                     <div class="flex justify-end gap-2">
-                        <Button variant="outline" @click="showEditModal = false">Cancel</Button>
-                        <Button type="submit" form="edit-menu-form">Save</Button>
+                        <Button variant="outline" @click="showEditModal = false"
+                            >Cancel</Button
+                        >
+                        <Button type="submit" form="edit-menu-form"
+                            >Save</Button
+                        >
                     </div>
                 </DialogFooter>
             </DialogContent>

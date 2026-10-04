@@ -51,7 +51,7 @@ return new class extends Migration
             foreach ($months as $row) {
                 $month = is_object($row) ? ($row->month ?? null) : null;
 
-                if ($month instanceof \DateTimeInterface) {
+                if ($month instanceof DateTimeInterface) {
                     $month = $month->format('Y-m-01');
                 }
 

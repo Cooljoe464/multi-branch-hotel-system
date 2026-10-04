@@ -23,7 +23,11 @@ const showAvatar = computed(
 <template>
     <div class="flex items-center gap-2">
         <Avatar class="h-8 w-8 overflow-hidden rounded-lg">
-            <AvatarImage v-if="showAvatar" :src="user.avatar!" :alt="user.name" />
+            <AvatarImage
+                v-if="showAvatar"
+                :src="user.avatar!"
+                :alt="user.name"
+            />
             <AvatarFallback>{{ getInitials(user.name) }}</AvatarFallback>
         </Avatar>
 

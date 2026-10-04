@@ -17,9 +17,7 @@ const inputRef = useTemplateRef('inputRef');
 defineExpose({
     $el: inputRef,
     focus: () => {
-        const root = inputRef.value?.$el as unknown as
-            | HTMLElement
-            | undefined;
+        const root = inputRef.value?.$el as unknown as HTMLElement | undefined;
         if (root) {
             root.focus();
         }

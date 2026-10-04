@@ -44,12 +44,17 @@ const props = defineProps<{
     };
 }>();
 
-const ledgerStatusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const ledgerStatusVariant: Record<
+    string,
+    'default' | 'secondary' | 'destructive' | 'outline'
+> = {
     completed: 'default',
     open: 'secondary',
 };
 
-const startDate = ref(new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]);
+const startDate = ref(
+    new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
+);
 const endDate = ref(new Date().toISOString().split('T')[0]);
 const exporting = ref(false);
 
@@ -60,7 +65,9 @@ function exportNightAudit() {
         end_date: endDate.value,
     });
     window.location.href = `/reports/night-audit/export?${params.toString()}`;
-    setTimeout(() => { exporting.value = false; }, 2000);
+    setTimeout(() => {
+        exporting.value = false;
+    }, 2000);
 }
 
 function exportFinancial() {
@@ -70,7 +77,9 @@ function exportFinancial() {
         end_date: endDate.value,
     });
     window.location.href = `/reports/financial/export?${params.toString()}`;
-    setTimeout(() => { exporting.value = false; }, 2000);
+    setTimeout(() => {
+        exporting.value = false;
+    }, 2000);
 }
 
 import { formatCurrency } from '@/lib/format';
@@ -89,15 +98,23 @@ function goToPage(page: number) {
 <template>
     <Head title="Reports" />
 
-    <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4 md:p-6">
+    <div
+        class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4 md:p-6"
+    >
         <div>
-            <h1 class="text-2xl font-bold text-foreground">Reports &amp; Exports</h1>
-            <p class="text-sm text-muted-foreground">{{ branch.name }}</p>
+            <h1 class="text-foreground text-2xl font-bold">
+                Reports &amp; Exports
+            </h1>
+            <p class="text-muted-foreground text-sm">{{ branch.name }}</p>
         </div>
 
-        <div class="rounded-xl border bg-card p-4 md:p-6 text-card-foreground shadow-sm">
-            <h2 class="text-lg font-semibold mb-4">Export Data</h2>
-            <div class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+        <div
+            class="bg-card text-card-foreground rounded-xl border p-4 shadow-sm md:p-6"
+        >
+            <h2 class="mb-4 text-lg font-semibold">Export Data</h2>
+            <div
+                class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end"
+            >
                 <div class="min-w-40 space-y-1">
                     <Label for="startDate">Start Date</Label>
                     <DatePicker id="startDate" v-model="startDate" />
@@ -106,10 +123,7 @@ function goToPage(page: number) {
                     <Label for="endDate">End Date</Label>
                     <DatePicker id="endDate" v-model="endDate" />
                 </div>
-                <Button
-                    :disabled="exporting"
-                    @click="exportNightAudit"
-                >
+                <Button :disabled="exporting" @click="exportNightAudit">
                     {{ exporting ? 'Exporting...' : 'Night Audit CSV' }}
                 </Button>
                 <Button
@@ -122,72 +136,139 @@ function goToPage(page: number) {
             </div>
         </div>
 
-        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
-            <div class="p-4 md:p-6 border-b">
+        <div class="bg-card text-card-foreground rounded-xl border shadow-sm">
+            <div class="border-b p-4 md:p-6">
                 <h2 class="text-lg font-semibold">Night Audit Log</h2>
             </div>
 
             <!-- Mobile: Card View -->
-            <div class="md:hidden divide-y divide-border">
-                <div v-for="ledger in ledgers.data" :key="ledger.id" class="p-4">
-                    <div class="flex items-start justify-between gap-2 mb-2">
-                        <span class="text-sm font-medium text-foreground">{{ formatDate(ledger.business_date) }}</span>
-                        <Badge :variant="ledgerStatusVariant[ledger.status] ?? 'outline'">
+            <div class="divide-border divide-y md:hidden">
+                <div
+                    v-for="ledger in ledgers.data"
+                    :key="ledger.id"
+                    class="p-4"
+                >
+                    <div class="mb-2 flex items-start justify-between gap-2">
+                        <span class="text-foreground text-sm font-medium">{{
+                            formatDate(ledger.business_date)
+                        }}</span>
+                        <Badge
+                            :variant="
+                                ledgerStatusVariant[ledger.status] ?? 'outline'
+                            "
+                        >
                             {{ ledger.status }}
                         </Badge>
                     </div>
                     <div class="grid grid-cols-2 gap-2 text-sm">
                         <div>
                             <span class="text-muted-foreground">Rooms:</span>
-                            <span class="ml-1 font-medium text-foreground">{{ ledger.rooms_posted }}</span>
+                            <span class="text-foreground ml-1 font-medium">{{
+                                ledger.rooms_posted
+                            }}</span>
                         </div>
                         <div>
                             <span class="text-muted-foreground">Revenue:</span>
-                            <span class="ml-1 font-medium text-foreground">{{ formatCents(ledger.total_room_revenue) }}</span>
+                            <span class="text-foreground ml-1 font-medium">{{
+                                formatCents(ledger.total_room_revenue)
+                            }}</span>
                         </div>
                         <div>
                             <span class="text-muted-foreground">Tax:</span>
-                            <span class="ml-1 font-medium text-foreground">{{ formatCents(ledger.total_tax) }}</span>
+                            <span class="text-foreground ml-1 font-medium">{{
+                                formatCents(ledger.total_tax)
+                            }}</span>
                         </div>
                         <div>
                             <span class="text-muted-foreground">Net:</span>
-                            <span class="ml-1 font-medium text-foreground">{{ formatCents(ledger.net_revenue) }}</span>
+                            <span class="text-foreground ml-1 font-medium">{{
+                                formatCents(ledger.net_revenue)
+                            }}</span>
                         </div>
                     </div>
                 </div>
-                <div v-if="ledgers.data.length === 0" class="p-4 py-8 text-center text-muted-foreground">
+                <div
+                    v-if="ledgers.data.length === 0"
+                    class="text-muted-foreground p-4 py-8 text-center"
+                >
                     No night audit records found.
                 </div>
             </div>
 
             <!-- Desktop: Table View -->
-            <div class="hidden md:block overflow-x-auto rounded-md border">
+            <div class="hidden overflow-x-auto rounded-md border md:block">
                 <table class="w-full caption-bottom text-sm">
-                    <thead class="border-b bg-muted/50 [&_tr]:border-b">
+                    <thead class="bg-muted/50 border-b [&_tr]:border-b">
                         <tr>
-                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Date</th>
-                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Status</th>
-                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Rooms</th>
-                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Room Revenue</th>
-                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Tax</th>
-                            <th class="h-10 px-2 text-left align-middle font-medium text-muted-foreground">Net Revenue</th>
+                            <th
+                                class="text-muted-foreground h-10 px-2 text-left align-middle font-medium"
+                            >
+                                Date
+                            </th>
+                            <th
+                                class="text-muted-foreground h-10 px-2 text-left align-middle font-medium"
+                            >
+                                Status
+                            </th>
+                            <th
+                                class="text-muted-foreground h-10 px-2 text-left align-middle font-medium"
+                            >
+                                Rooms
+                            </th>
+                            <th
+                                class="text-muted-foreground h-10 px-2 text-left align-middle font-medium"
+                            >
+                                Room Revenue
+                            </th>
+                            <th
+                                class="text-muted-foreground h-10 px-2 text-left align-middle font-medium"
+                            >
+                                Tax
+                            </th>
+                            <th
+                                class="text-muted-foreground h-10 px-2 text-left align-middle font-medium"
+                            >
+                                Net Revenue
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="[&_tr:last-child]:border-0">
-                        <tr v-for="ledger in ledgers.data" :key="ledger.id" class="border-b transition-colors hover:bg-muted/50">
-                            <td class="p-2 align-middle">{{ formatDate(ledger.business_date) }}</td>
+                        <tr
+                            v-for="ledger in ledgers.data"
+                            :key="ledger.id"
+                            class="hover:bg-muted/50 border-b transition-colors"
+                        >
                             <td class="p-2 align-middle">
-                                <Badge :variant="ledgerStatusVariant[ledger.status] ?? 'outline'">
+                                {{ formatDate(ledger.business_date) }}
+                            </td>
+                            <td class="p-2 align-middle">
+                                <Badge
+                                    :variant="
+                                        ledgerStatusVariant[ledger.status] ??
+                                        'outline'
+                                    "
+                                >
                                     {{ ledger.status }}
                                 </Badge>
                             </td>
-                            <td class="p-2 align-middle">{{ ledger.rooms_posted }}</td>
-                            <td class="p-2 align-middle">{{ formatCents(ledger.total_room_revenue) }}</td>
-                            <td class="p-2 align-middle">{{ formatCents(ledger.total_tax) }}</td>
-                            <td class="p-2 align-middle">{{ formatCents(ledger.net_revenue) }}</td>
+                            <td class="p-2 align-middle">
+                                {{ ledger.rooms_posted }}
+                            </td>
+                            <td class="p-2 align-middle">
+                                {{ formatCents(ledger.total_room_revenue) }}
+                            </td>
+                            <td class="p-2 align-middle">
+                                {{ formatCents(ledger.total_tax) }}
+                            </td>
+                            <td class="p-2 align-middle">
+                                {{ formatCents(ledger.net_revenue) }}
+                            </td>
                         </tr>
                         <tr v-if="ledgers.data.length === 0">
-                            <td colspan="6" class="p-2 align-middle py-8 text-center text-muted-foreground">
+                            <td
+                                colspan="6"
+                                class="text-muted-foreground p-2 py-8 text-center align-middle"
+                            >
                                 No night audit records found.
                             </td>
                         </tr>
@@ -195,7 +276,11 @@ function goToPage(page: number) {
                 </table>
             </div>
             <div class="p-4">
-                <Pagination :data="ledgers" label="records" @page-change="goToPage" />
+                <Pagination
+                    :data="ledgers"
+                    label="records"
+                    @page-change="goToPage"
+                />
             </div>
         </div>
     </div>

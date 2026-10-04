@@ -30,7 +30,6 @@ class AuditFlagFactory extends Factory
         ];
     }
 
-
     public function unreviewed(): static
     {
         return $this->state(fn () => ['is_reviewed' => false]);

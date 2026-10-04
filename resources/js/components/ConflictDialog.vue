@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
 defineProps<{
     open: boolean;
@@ -18,10 +25,15 @@ const emit = defineEmits<{
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Someone else changed this record</DialogTitle>
-                <DialogDescription>{{ message }} Reload to see the latest values, then re-apply your change.</DialogDescription>
+                <DialogDescription
+                    >{{ message }} Reload to see the latest values, then
+                    re-apply your change.</DialogDescription
+                >
             </DialogHeader>
             <DialogFooter>
-                <Button variant="outline" @click="emit('close')">Keep editing</Button>
+                <Button variant="outline" @click="emit('close')"
+                    >Keep editing</Button
+                >
                 <Button @click="emit('reload')">Reload latest</Button>
             </DialogFooter>
         </DialogContent>

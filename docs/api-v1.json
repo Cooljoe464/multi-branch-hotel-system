@@ -25,9 +25,7 @@
                 "summary": "Revenue KPIs (ADR/RevPAR/pace/budgets) for a date range.",
                 "security": [
                     {
-                        "bearerAuth": [
-                            "analytics.view"
-                        ]
+                        "bearerAuth": ["analytics.view"]
                     }
                 ],
                 "parameters": [
@@ -87,9 +85,7 @@
                 "summary": "Quote availability for a room type and stay window.",
                 "security": [
                     {
-                        "bearerAuth": [
-                            "availability.view"
-                        ]
+                        "bearerAuth": ["availability.view"]
                     }
                 ],
                 "parameters": [
@@ -157,9 +153,7 @@
                 "summary": "Create a confirmed reservation at the token property.",
                 "security": [
                     {
-                        "bearerAuth": [
-                            "reservations.create"
-                        ]
+                        "bearerAuth": ["reservations.create"]
                     }
                 ],
                 "parameters": [
@@ -210,9 +204,7 @@
                 "summary": "Fetch one reservation at the token property.",
                 "security": [
                     {
-                        "bearerAuth": [
-                            "reservations.view"
-                        ]
+                        "bearerAuth": ["reservations.view"]
                     }
                 ],
                 "parameters": [
@@ -254,9 +246,7 @@
                 "summary": "Cancel a reservation, posting any penalty to the folio.",
                 "security": [
                     {
-                        "bearerAuth": [
-                            "reservations.cancel"
-                        ]
+                        "bearerAuth": ["reservations.cancel"]
                     }
                 ],
                 "parameters": [
@@ -307,9 +297,7 @@
                 "summary": "Fetch a folio with live transaction lines.",
                 "security": [
                     {
-                        "bearerAuth": [
-                            "folios.view"
-                        ]
+                        "bearerAuth": ["folios.view"]
                     }
                 ],
                 "parameters": [
@@ -351,9 +339,7 @@
                 "summary": "List active rate plans, optionally quoted for a stay.",
                 "security": [
                     {
-                        "bearerAuth": [
-                            "rate_plans.view"
-                        ]
+                        "bearerAuth": ["rate_plans.view"]
                     }
                 ],
                 "parameters": [
@@ -421,9 +407,7 @@
                 "summary": "Read-only demand forecast feed for a date range.",
                 "security": [
                     {
-                        "bearerAuth": [
-                            "analytics.view"
-                        ]
+                        "bearerAuth": ["analytics.view"]
                     }
                 ],
                 "parameters": [
@@ -483,9 +467,7 @@
                 "summary": "List recent webhook deliveries for this consumer.",
                 "security": [
                     {
-                        "bearerAuth": [
-                            "webhooks.replay"
-                        ]
+                        "bearerAuth": ["webhooks.replay"]
                     }
                 ],
                 "parameters": [
@@ -527,9 +509,7 @@
                 "summary": "Requeue a delivery; the frozen payload re-signs identically.",
                 "security": [
                     {
-                        "bearerAuth": [
-                            "webhooks.replay"
-                        ]
+                        "bearerAuth": ["webhooks.replay"]
                     }
                 ],
                 "parameters": [
@@ -580,9 +560,7 @@
                 "summary": "List warehouse manifests with files, row counts and checksums.",
                 "security": [
                     {
-                        "bearerAuth": [
-                            "analytics.export_warehouse"
-                        ]
+                        "bearerAuth": ["analytics.export_warehouse"]
                     }
                 ],
                 "parameters": [

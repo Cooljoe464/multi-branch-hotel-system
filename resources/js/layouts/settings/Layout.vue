@@ -12,8 +12,12 @@ import { computed } from 'vue';
 
 const page = usePage();
 const permissions = computed(() => page.props.auth.permissions as string[]);
-const isGlobalAdmin = computed(() => permissions.value.includes('branches.manage'));
-const canManageOutlets = computed(() => permissions.value.includes('outlets.manage'));
+const isGlobalAdmin = computed(() =>
+    permissions.value.includes('branches.manage'),
+);
+const canManageOutlets = computed(() =>
+    permissions.value.includes('outlets.manage'),
+);
 
 const sidebarNavItems = computed<NavItem[]>(() => {
     const items: NavItem[] = [
@@ -83,7 +87,7 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                         v-for="item in sidebarNavItems"
                         :key="toUrl(item.href)"
                         :href="item.href"
-                        class="inline-flex w-full items-center justify-start gap-2 rounded-lg border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus:z-10 focus:ring-4 focus:ring-ring"
+                        class="border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground focus:ring-ring inline-flex w-full items-center justify-start gap-2 rounded-lg border px-5 py-2.5 text-sm font-medium focus:z-10 focus:ring-4"
                         :class="{
                             'ring-2 ring-blue-500 dark:ring-blue-500':
                                 isCurrentOrParentUrl(item.href),
@@ -95,7 +99,7 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                 </nav>
             </aside>
 
-            <hr class="my-6 border-border lg:hidden" />
+            <hr class="border-border my-6 lg:hidden" />
 
             <div class="flex-1">
                 <section class="space-y-12">

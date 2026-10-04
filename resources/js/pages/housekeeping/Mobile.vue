@@ -12,14 +12,18 @@ interface Task {
     description: string;
     notes: string | null;
     estimated_minutes: number | null;
-    room: { id: number; number: string; floor: string; } | null;
+    room: { id: number; number: string; floor: string } | null;
 }
 
 const props = defineProps<{
     tasks: Task[];
 }>();
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'Mobile Tasks', href: '/housekeeping/mobile' }] } });
+defineOptions({
+    layout: {
+        breadcrumbs: [{ title: 'Mobile Tasks', href: '/housekeeping/mobile' }],
+    },
+});
 
 const getPriorityBadgeClass = (priority: string) => {
     const classes: Record<string, string> = {
@@ -31,7 +35,8 @@ const getPriorityBadgeClass = (priority: string) => {
     return classes[priority] || 'bg-muted text-muted-foreground';
 };
 
-const getTypeLabel = (type: string) => type.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+const getTypeLabel = (type: string) =>
+    type.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
 const startTask = (task: Task) => {
     router.post(`/housekeeping/${task.id}/start`);
@@ -47,13 +52,20 @@ const completeTask = (task: Task) => {
 
 <template>
     <Head title="Mobile Tasks" />
-    <div class="min-h-screen bg-background p-4">
+    <div class="bg-background min-h-screen p-4">
         <div class="mb-4">
-            <h1 class="text-xl font-bold text-foreground">My Tasks</h1>
-            <p class="text-sm text-muted-foreground">{{ tasks.length }} pending task{{ tasks.length !== 1 ? 's' : '' }}</p>
+            <h1 class="text-foreground text-xl font-bold">My Tasks</h1>
+            <p class="text-muted-foreground text-sm">
+                {{ tasks.length }} pending task{{
+                    tasks.length !== 1 ? 's' : ''
+                }}
+            </p>
         </div>
 
-        <div v-if="tasks.length === 0" class="text-center text-muted-foreground py-12">
+        <div
+            v-if="tasks.length === 0"
+            class="text-muted-foreground py-12 text-center"
+        >
             No tasks assigned.
         </div>
 
@@ -61,27 +73,39 @@ const completeTask = (task: Task) => {
             <div
                 v-for="task in tasks"
                 :key="task.id"
-                class="bg-card rounded-lg shadow border border-border p-4"
+                class="bg-card border-border rounded-lg border p-4 shadow"
             >
-                <div class="flex items-center justify-between mb-2">
+                <div class="mb-2 flex items-center justify-between">
                     <div class="flex items-center gap-2">
-                        <span class="text-lg font-bold text-foreground">
+                        <span class="text-foreground text-lg font-bold">
                             {{ task.room?.number || 'N/A' }}
                         </span>
-                        <Badge :class="getPriorityBadgeClass(task.priority)" variant="outline" class="text-xs">
+                        <Badge
+                            :class="getPriorityBadgeClass(task.priority)"
+                            variant="outline"
+                            class="text-xs"
+                        >
                             {{ task.priority }}
                         </Badge>
                     </div>
-                    <Badge variant="outline" class="text-xs capitalize">{{ task.status.replace('_', ' ') }}</Badge>
+                    <Badge variant="outline" class="text-xs capitalize">{{
+                        task.status.replace('_', ' ')
+                    }}</Badge>
                 </div>
 
-                <div class="text-sm text-muted-foreground mb-1">
+                <div class="text-muted-foreground mb-1 text-sm">
                     {{ getTypeLabel(task.type) }}
                 </div>
-                <div v-if="task.description" class="text-sm text-foreground mb-2">
+                <div
+                    v-if="task.description"
+                    class="text-foreground mb-2 text-sm"
+                >
                     {{ task.description }}
                 </div>
-                <div v-if="task.estimated_minutes" class="text-xs text-muted-foreground mb-3">
+                <div
+                    v-if="task.estimated_minutes"
+                    class="text-muted-foreground mb-3 text-xs"
+                >
                     Est. {{ task.estimated_minutes }} min
                 </div>
 

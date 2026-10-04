@@ -46,19 +46,19 @@ function switchBranch(branchId: number) {
         <DropdownMenuTrigger as-child>
             <button
                 type="button"
-                class="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent disabled:opacity-60 focus:outline-none"
+                class="hover:bg-accent flex items-center gap-2 rounded-lg px-2 py-1.5 focus:outline-none disabled:opacity-60"
                 :disabled="isLoading"
                 aria-haspopup="menu"
                 aria-label="Switch property"
             >
-                <Building2 class="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Building2 class="text-muted-foreground h-4 w-4 shrink-0" />
                 <span class="hidden flex-col items-start text-left md:flex">
                     <span
-                        class="text-sm leading-tight font-medium text-foreground"
+                        class="text-foreground text-sm leading-tight font-medium"
                     >
                         {{ currentBranch.name }}
                     </span>
-                    <span class="text-xs text-muted-foreground">
+                    <span class="text-muted-foreground text-xs">
                         {{ currentBranch.city }}, {{ currentBranch.country }}
                     </span>
                 </span>
@@ -66,51 +66,50 @@ function switchBranch(branchId: number) {
                     v-if="isLoading"
                     class="h-4 w-4 shrink-0 animate-spin"
                 />
-                <ChevronsUpDown v-else class="h-4 w-4 shrink-0 text-muted-foreground" />
+                <ChevronsUpDown
+                    v-else
+                    class="text-muted-foreground h-4 w-4 shrink-0"
+                />
             </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" class="w-72">
-            <DropdownMenuLabel class="text-xs uppercase tracking-wide text-muted-foreground">
+            <DropdownMenuLabel
+                class="text-muted-foreground text-xs tracking-wide uppercase"
+            >
                 Switch Property
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem
                 v-for="branch in availableBranches"
                 :key="branch.id"
-                class="flex items-center gap-2 cursor-pointer"
+                class="flex cursor-pointer items-center gap-2"
                 @click="switchBranch(branch.id)"
             >
-                <Building2 class="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Building2 class="text-muted-foreground h-4 w-4 shrink-0" />
                 <span class="flex flex-1 flex-col">
                     <span class="font-medium">{{ branch.name }}</span>
-                    <span class="text-xs text-muted-foreground">
+                    <span class="text-muted-foreground text-xs">
                         {{ branch.city }}, {{ branch.country }}
                         <span class="ml-1">{{ branch.currency_code }}</span>
                     </span>
                 </span>
                 <Check
                     v-if="branch.id === currentBranch.id"
-                    class="h-4 w-4 shrink-0 text-primary"
+                    class="text-primary h-4 w-4 shrink-0"
                 />
             </DropdownMenuItem>
         </DropdownMenuContent>
     </DropdownMenu>
 
-    <div
-        v-else-if="currentBranch"
-        class="flex items-center gap-2 px-2 py-1.5"
-    >
-        <Building2 class="h-4 w-4 shrink-0 text-muted-foreground" />
+    <div v-else-if="currentBranch" class="flex items-center gap-2 px-2 py-1.5">
+        <Building2 class="text-muted-foreground h-4 w-4 shrink-0" />
         <div class="hidden flex-col items-start text-left md:flex">
-            <span
-                class="text-sm leading-tight font-medium text-foreground"
-            >
+            <span class="text-foreground text-sm leading-tight font-medium">
                 {{ currentBranch.name }}
             </span>
-            <span class="text-xs text-muted-foreground">
+            <span class="text-muted-foreground text-xs">
                 {{ currentBranch.city }}, {{ currentBranch.country }}
             </span>
         </div>
     </div>
 </template>
-

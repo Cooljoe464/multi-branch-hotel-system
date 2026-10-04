@@ -1,170 +1,174 @@
 services:
+    # ──────────────────────────────────────────────
+    # Nginx — Reverse proxy + static assets + SSL
+    # ──────────────────────────────────────────────
+    nginx:
+        image: nginx:1.27-alpine
+        ports:
+            - '80:80'
+            - '443:443'
+        volumes:
+            - ./docker/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+            - ./docker/nginx/entrypoint.sh:/usr/local/bin/render-nginx.sh:ro
+            - ./public:/app/public:ro
+            - certbot_certs:/etc/letsencrypt
+            - certbot_www:/var/www/certbot:ro
+        environment:
+            SSL_DOMAIN: ${SSL_DOMAIN:?Set SSL_DOMAIN to the bare domain (e.g. example.com)}
+        entrypoint: ['sh', '/usr/local/bin/render-nginx.sh']
+        depends_on:
+            - php
+            - reverb
+        networks:
+            - hms-network
+        restart: unless-stopped
 
-  # ──────────────────────────────────────────────
-  # Nginx — Reverse proxy + static assets + SSL
-  # ──────────────────────────────────────────────
-  nginx:
-    image: nginx:1.27-alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./docker/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - ./docker/nginx/entrypoint.sh:/usr/local/bin/render-nginx.sh:ro
-      - ./public:/app/public:ro
-      - certbot_certs:/etc/letsencrypt
-      - certbot_www:/var/www/certbot:ro
-    environment:
-      SSL_DOMAIN: ${SSL_DOMAIN:?Set SSL_DOMAIN to the bare domain (e.g. example.com)}
-    entrypoint: ["sh", "/usr/local/bin/render-nginx.sh"]
-    depends_on:
-      - php
-      - reverb
-    networks:
-      - hms-network
-    restart: unless-stopped
+    # ──────────────────────────────────────────────
+    # PHP-FPM — Application server
+    # ──────────────────────────────────────────────
+    php:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: php
+        volumes:
+            - storage_data:/app/storage
+            - certbot_www:/var/www/certbot:ro
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        env_file: .env
+        networks:
+            - hms-network
+        restart: unless-stopped
 
-  # ──────────────────────────────────────────────
-  # PHP-FPM — Application server
-  # ──────────────────────────────────────────────
-  php:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: php
-    volumes:
-      - storage_data:/app/storage
-      - certbot_www:/var/www/certbot:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    env_file: .env
-    networks:
-      - hms-network
-    restart: unless-stopped
+    # ──────────────────────────────────────────────
+    # PostgreSQL — Database
+    # ──────────────────────────────────────────────
+    postgres:
+        image: postgres:18-alpine
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        environment:
+            POSTGRES_DB: ${DB_DATABASE:-hotel_system}
+            POSTGRES_USER: ${DB_USERNAME:-postgres}
+            POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+        healthcheck:
+            test:
+                [
+                    'CMD-SHELL',
+                    'pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE:-hotel_system}',
+                ]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+        networks:
+            - hms-network
+        restart: unless-stopped
 
-  # ──────────────────────────────────────────────
-  # PostgreSQL — Database
-  # ──────────────────────────────────────────────
-  postgres:
-    image: postgres:18-alpine
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: ${DB_DATABASE:-hotel_system}
-      POSTGRES_USER: ${DB_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE:-hotel_system}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - hms-network
-    restart: unless-stopped
+    # ──────────────────────────────────────────────
+    # Redis — Cache / Queue / Session / Broadcast
+    # ──────────────────────────────────────────────
+    redis:
+        image: redis:7-alpine
+        volumes:
+            - redis_data:/data
+        command: >
+            redis-server
+              --maxmemory 256mb
+              --maxmemory-policy allkeys-lru
+              --appendonly yes
+              --requirepass ${REDIS_PASSWORD:?Set a strong REDIS_PASSWORD}
+        healthcheck:
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 5s
+            timeout: 3s
+            retries: 5
+        networks:
+            - hms-network
+        restart: unless-stopped
 
-  # ──────────────────────────────────────────────
-  # Redis — Cache / Queue / Session / Broadcast
-  # ──────────────────────────────────────────────
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-    command: >
-      redis-server
-        --maxmemory 256mb
-        --maxmemory-policy allkeys-lru
-        --appendonly yes
-        --requirepass ${REDIS_PASSWORD:?Set a strong REDIS_PASSWORD}
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    networks:
-      - hms-network
-    restart: unless-stopped
+    # ──────────────────────────────────────────────
+    # Queue Worker — Processes background jobs
+    # ──────────────────────────────────────────────
+    queue:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: php
+        command:
+            ['supervisord', '-c', '/etc/supervisor/conf.d/supervisord.conf']
+        volumes:
+            - storage_data:/app/storage
+        depends_on:
+            - php
+            - redis
+            - postgres
+        env_file: .env
+        networks:
+            - hms-network
+        restart: unless-stopped
 
-  # ──────────────────────────────────────────────
-  # Queue Worker — Processes background jobs
-  # ──────────────────────────────────────────────
-  queue:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: php
-    command: ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
-    volumes:
-      - storage_data:/app/storage
-    depends_on:
-      - php
-      - redis
-      - postgres
-    env_file: .env
-    networks:
-      - hms-network
-    restart: unless-stopped
+    # ──────────────────────────────────────────────
+    # Scheduler — Laravel cron runner (single instance;
+    # jobs themselves guard with onOneServer)
+    # ──────────────────────────────────────────────
+    scheduler:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: php
+        command: >
+            sh -c "while true; do php artisan schedule:run --verbose --no-interaction >> /proc/1/fd/1 2>&1; sleep 60; done"
+        volumes:
+            - storage_data:/app/storage
+        depends_on:
+            - php
+            - redis
+            - postgres
+        env_file: .env
+        networks:
+            - hms-network
+        restart: unless-stopped
+        deploy:
+            replicas: 1
 
-  # ──────────────────────────────────────────────
-  # Scheduler — Laravel cron runner (single instance;
-  # jobs themselves guard with onOneServer)
-  # ──────────────────────────────────────────────
-  scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: php
-    command: >
-      sh -c "while true; do php artisan schedule:run --verbose --no-interaction >> /proc/1/fd/1 2>&1; sleep 60; done"
-    volumes:
-      - storage_data:/app/storage
-    depends_on:
-      - php
-      - redis
-      - postgres
-    env_file: .env
-    networks:
-      - hms-network
-    restart: unless-stopped
-    deploy:
-      replicas: 1
-
-  # ──────────────────────────────────────────────
-  # Reverb — WebSocket server
-  # ──────────────────────────────────────────────
-  reverb:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: php
-    command: ["php", "artisan", "reverb:start", "--port=8080"]
-    ports:
-      - "8080:8080"
-    volumes:
-      - storage_data:/app/storage
-    depends_on:
-      - php
-      - redis
-    env_file: .env
-    networks:
-      - hms-network
-    restart: unless-stopped
+    # ──────────────────────────────────────────────
+    # Reverb — WebSocket server
+    # ──────────────────────────────────────────────
+    reverb:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: php
+        command: ['php', 'artisan', 'reverb:start', '--port=8080']
+        ports:
+            - '8080:8080'
+        volumes:
+            - storage_data:/app/storage
+        depends_on:
+            - php
+            - redis
+        env_file: .env
+        networks:
+            - hms-network
+        restart: unless-stopped
 
 # ──────────────────────────────────────────────
 # Volumes
 # ──────────────────────────────────────────────
 volumes:
-  postgres_data:
-  redis_data:
-  storage_data:
-  certbot_certs:
-  certbot_www:
+    postgres_data:
+    redis_data:
+    storage_data:
+    certbot_certs:
+    certbot_www:
 
 # ──────────────────────────────────────────────
 # Networks
 # ──────────────────────────────────────────────
 networks:
-  hms-network:
-    driver: bridge
+    hms-network:
+        driver: bridge

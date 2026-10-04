@@ -43,48 +43,92 @@ const totalTax = props.taxSummary.reduce((sum, row) => sum + row.total_tax, 0);
 <template>
     <Head title="Tax Liability" />
 
-    <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4 md:p-6">
+    <div
+        class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4 md:p-6"
+    >
         <div>
-            <h1 class="text-2xl font-bold text-foreground">Tax Liability Report</h1>
-            <p class="text-sm text-muted-foreground">Daily tax collection summary (last 30 days)</p>
+            <h1 class="text-foreground text-2xl font-bold">
+                Tax Liability Report
+            </h1>
+            <p class="text-muted-foreground text-sm">
+                Daily tax collection summary (last 30 days)
+            </p>
         </div>
 
         <!-- Total Tax Card -->
-        <div class="rounded-xl border bg-card p-4 md:p-6 text-card-foreground shadow-sm">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h2 class="text-lg font-semibold text-foreground">Total Tax Liability (30 days)</h2>
-                <span class="text-3xl font-bold text-amber-600">{{ formatCents(totalTax) }}</span>
+        <div
+            class="bg-card text-card-foreground rounded-xl border p-4 shadow-sm md:p-6"
+        >
+            <div
+                class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+            >
+                <h2 class="text-foreground text-lg font-semibold">
+                    Total Tax Liability (30 days)
+                </h2>
+                <span class="text-3xl font-bold text-amber-600">{{
+                    formatCents(totalTax)
+                }}</span>
             </div>
         </div>
 
-        <div class="rounded-xl border bg-card text-card-foreground shadow-sm">
+        <div class="bg-card text-card-foreground rounded-xl border shadow-sm">
             <!-- Mobile: Card View -->
-            <div class="md:hidden divide-y divide-border">
-                <div v-for="row in taxSummary" :key="row.business_date" class="p-4 flex items-center justify-between">
-                    <span class="text-sm font-medium text-foreground">{{ formatDate(row.business_date) }}</span>
-                    <span class="text-sm font-medium text-foreground">{{ formatCents(row.total_tax) }}</span>
+            <div class="divide-border divide-y md:hidden">
+                <div
+                    v-for="row in taxSummary"
+                    :key="row.business_date"
+                    class="flex items-center justify-between p-4"
+                >
+                    <span class="text-foreground text-sm font-medium">{{
+                        formatDate(row.business_date)
+                    }}</span>
+                    <span class="text-foreground text-sm font-medium">{{
+                        formatCents(row.total_tax)
+                    }}</span>
                 </div>
-                <div v-if="taxSummary.length === 0" class="p-4 py-8 text-center text-muted-foreground">
+                <div
+                    v-if="taxSummary.length === 0"
+                    class="text-muted-foreground p-4 py-8 text-center"
+                >
                     No tax data available.
                 </div>
             </div>
 
             <!-- Desktop: Table View -->
-            <div class="hidden md:block overflow-x-auto">
+            <div class="hidden overflow-x-auto md:block">
                 <table class="w-full caption-bottom text-sm">
-                    <thead class="border-b bg-muted/50 [&_tr]:border-b">
+                    <thead class="bg-muted/50 border-b [&_tr]:border-b">
                         <tr>
-                            <th class="h-12 px-4 text-left font-medium text-muted-foreground">Date</th>
-                            <th class="h-12 px-4 text-right font-medium text-muted-foreground">Tax Collected</th>
+                            <th
+                                class="text-muted-foreground h-12 px-4 text-left font-medium"
+                            >
+                                Date
+                            </th>
+                            <th
+                                class="text-muted-foreground h-12 px-4 text-right font-medium"
+                            >
+                                Tax Collected
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="[&_tr:last-child]:border-0">
-                        <tr v-for="row in taxSummary" :key="row.business_date" class="border-b transition-colors hover:bg-muted/50">
-                            <td class="p-4 font-medium text-foreground">{{ formatDate(row.business_date) }}</td>
-                            <td class="p-4 text-right text-foreground">{{ formatCents(row.total_tax) }}</td>
+                        <tr
+                            v-for="row in taxSummary"
+                            :key="row.business_date"
+                            class="hover:bg-muted/50 border-b transition-colors"
+                        >
+                            <td class="text-foreground p-4 font-medium">
+                                {{ formatDate(row.business_date) }}
+                            </td>
+                            <td class="text-foreground p-4 text-right">
+                                {{ formatCents(row.total_tax) }}
+                            </td>
                         </tr>
                         <tr v-if="taxSummary.length === 0">
-                            <td colspan="2" class="p-4 text-center text-muted-foreground py-8">
+                            <td
+                                colspan="2"
+                                class="text-muted-foreground p-4 py-8 text-center"
+                            >
                                 No tax data available.
                             </td>
                         </tr>

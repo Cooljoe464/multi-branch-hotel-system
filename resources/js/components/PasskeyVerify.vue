@@ -59,7 +59,7 @@ const { verify, isLoading, error, isSupported } = usePasskeyVerify({
 
         <div class="relative my-6">
             <div class="absolute inset-0 flex items-center">
-                <div class="w-full border-t border-border"></div>
+                <div class="border-border w-full border-t"></div>
             </div>
             <div class="relative flex justify-center text-xs uppercase">
                 <span class="bg-background text-muted-foreground px-2">

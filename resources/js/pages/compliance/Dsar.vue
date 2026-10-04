@@ -35,7 +35,10 @@ defineOptions({
     },
 });
 
-const form = useForm({ guest_id: undefined as number | undefined, kind: 'access' });
+const form = useForm({
+    guest_id: undefined as number | undefined,
+    kind: 'access',
+});
 const policyForm = useForm({
     data_class: '',
     retain_days: 365,

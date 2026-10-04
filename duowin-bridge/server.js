@@ -17,7 +17,9 @@ function connectSerial() {
             console.error('Serial port error:', err.message);
         });
         port.on('open', () => {
-            console.log(`Serial port ${SERIAL_PATH} opened at ${SERIAL_BAUD} baud`);
+            console.log(
+                `Serial port ${SERIAL_PATH} opened at ${SERIAL_BAUD} baud`,
+            );
         });
     } catch (err) {
         console.error('Failed to open serial port:', err.message);
@@ -38,20 +40,25 @@ app.post('/encode', (req, res) => {
     const { room_number, pin_code, valid_from, valid_until } = req.body;
 
     if (!room_number || !pin_code) {
-        return res.status(400).json({ error: 'room_number and pin_code are required' });
+        return res
+            .status(400)
+            .json({ error: 'room_number and pin_code are required' });
     }
 
     if (!port?.isOpen) {
         return res.status(503).json({ error: 'Serial port not open' });
     }
 
-    const payload = JSON.stringify({
-        command: 'ENCODE',
-        room_number,
-        pin_code,
-        valid_from: valid_from || new Date().toISOString(),
-        valid_until: valid_until || new Date(Date.now() + 7 * 86400000).toISOString(),
-    }) + '\n';
+    const payload =
+        JSON.stringify({
+            command: 'ENCODE',
+            room_number,
+            pin_code,
+            valid_from: valid_from || new Date().toISOString(),
+            valid_until:
+                valid_until ||
+                new Date(Date.now() + 7 * 86400000).toISOString(),
+        }) + '\n';
 
     port.write(payload, (err) => {
         if (err) {
@@ -62,7 +69,11 @@ app.post('/encode', (req, res) => {
             const response = data.toString().trim();
             try {
                 const parsed = JSON.parse(response);
-                res.json({ card_id: parsed.card_id, room_number, success: true });
+                res.json({
+                    card_id: parsed.card_id,
+                    room_number,
+                    success: true,
+                });
             } catch {
                 res.json({ card_id: response, room_number, success: true });
             }
@@ -85,11 +96,12 @@ app.post('/revoke', (req, res) => {
         return res.status(503).json({ error: 'Serial port not open' });
     }
 
-    const payload = JSON.stringify({
-        command: 'REVOKE',
-        card_id,
-        room_number,
-    }) + '\n';
+    const payload =
+        JSON.stringify({
+            command: 'REVOKE',
+            card_id,
+            room_number,
+        }) + '\n';
 
     port.write(payload, (err) => {
         if (err) {
@@ -104,18 +116,21 @@ app.post('/extend', (req, res) => {
     const { card_id, valid_until } = req.body;
 
     if (!card_id || !valid_until) {
-        return res.status(400).json({ error: 'card_id and valid_until are required' });
+        return res
+            .status(400)
+            .json({ error: 'card_id and valid_until are required' });
     }
 
     if (!port?.isOpen) {
         return res.status(503).json({ error: 'Serial port not open' });
     }
 
-    const payload = JSON.stringify({
-        command: 'EXTEND',
-        card_id,
-        valid_until,
-    }) + '\n';
+    const payload =
+        JSON.stringify({
+            command: 'EXTEND',
+            card_id,
+            valid_until,
+        }) + '\n';
 
     port.write(payload, (err) => {
         if (err) {

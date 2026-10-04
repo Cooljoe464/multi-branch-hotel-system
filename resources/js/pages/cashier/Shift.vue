@@ -21,7 +21,14 @@ const props = defineProps<{
     current: ShiftRow | null;
 }>();
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Cashier', href: '#' }] } });
+defineOptions({
+    layout: {
+        breadcrumbs: [
+            { title: 'Dashboard', href: '/dashboard' },
+            { title: 'Cashier', href: '#' },
+        ],
+    },
+});
 
 const openForm = useForm({ opening_float_minor: 0 });
 const closeForm = useForm({ counted_cash_minor: 0, note: '' });
@@ -40,22 +47,46 @@ function close(id: number) {
     <div class="space-y-6 p-6">
         <div>
             <h1 class="text-2xl font-semibold">Cashier — {{ branch.name }}</h1>
-            <p class="text-sm text-muted-foreground">One open drawer per cashier. Variances above threshold need a note.</p>
+            <p class="text-muted-foreground text-sm">
+                One open drawer per cashier. Variances above threshold need a
+                note.
+            </p>
         </div>
 
-        <form v-if="!current" @submit.prevent="open" class="flex items-end gap-2 rounded-lg border p-4">
+        <form
+            v-if="!current"
+            @submit.prevent="open"
+            class="flex items-end gap-2 rounded-lg border p-4"
+        >
             <div class="grid gap-2">
                 <Label>Opening float (minor units)</Label>
-                <Input v-model.number="openForm.opening_float_minor" type="number" min="0" required />
+                <Input
+                    v-model.number="openForm.opening_float_minor"
+                    type="number"
+                    min="0"
+                    required
+                />
             </div>
             <Button type="submit">Open shift</Button>
         </form>
 
-        <form v-else @submit.prevent="close(current.id)" class="space-y-2 rounded-lg border p-4">
-            <p class="text-sm">Open shift from {{ current.business_date }} · float {{ current.opening_float_minor }}</p>
+        <form
+            v-else
+            @submit.prevent="close(current.id)"
+            class="space-y-2 rounded-lg border p-4"
+        >
+            <p class="text-sm">
+                Open shift from {{ current.business_date }} · float
+                {{ current.opening_float_minor }}
+            </p>
             <div class="grid gap-2">
                 <Label>Counted cash (minor units)</Label>
-                <Input v-model.number="closeForm.counted_cash_minor" type="number" min="0" required />
+                <Input
+                    v-model.number="closeForm.counted_cash_minor"
+                    type="number"
+                    min="0"
+                    required
+                />
             </div>
             <div class="grid gap-2">
                 <Label>Note (required for large variances)</Label>
@@ -67,7 +98,7 @@ function close(id: number) {
         <div class="rounded-lg border">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="border-b text-left text-muted-foreground">
+                    <tr class="text-muted-foreground border-b text-left">
                         <th class="p-3">Date</th>
                         <th class="p-3">Cashier</th>
                         <th class="p-3">Status</th>
@@ -77,13 +108,23 @@ function close(id: number) {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="s in shifts" :key="s.id" class="border-b last:border-0">
+                    <tr
+                        v-for="s in shifts"
+                        :key="s.id"
+                        class="border-b last:border-0"
+                    >
                         <td class="p-3">{{ s.business_date }}</td>
                         <td class="p-3">{{ s.cashier?.name ?? '—' }}</td>
                         <td class="p-3">{{ s.status }}</td>
-                        <td class="p-3 text-right">{{ s.expected_cash_minor }}</td>
-                        <td class="p-3 text-right">{{ s.counted_cash_minor ?? '—' }}</td>
-                        <td class="p-3 text-right">{{ s.variance_minor ?? '—' }}</td>
+                        <td class="p-3 text-right">
+                            {{ s.expected_cash_minor }}
+                        </td>
+                        <td class="p-3 text-right">
+                            {{ s.counted_cash_minor ?? '—' }}
+                        </td>
+                        <td class="p-3 text-right">
+                            {{ s.variance_minor ?? '—' }}
+                        </td>
                     </tr>
                 </tbody>
             </table>

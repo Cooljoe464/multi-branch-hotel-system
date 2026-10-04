@@ -20,7 +20,9 @@ void createInertiaApp({
                 return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
-            case name.startsWith('settings/') || name === 'settings/YieldRules' || name === 'settings/RateOverrides':
+            case name.startsWith('settings/') ||
+                name === 'settings/YieldRules' ||
+                name === 'settings/RateOverrides':
                 return [AppLayout, SettingsLayout];
             default:
                 return AppLayout;

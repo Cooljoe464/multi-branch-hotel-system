@@ -32,12 +32,12 @@ onMounted(async () => {
 </script>
 
 <template>
-    <div class="w-full rounded-lg border border-border bg-card p-6 shadow-sm">
+    <div class="border-border bg-card w-full rounded-lg border p-6 shadow-sm">
         <div class="mb-4">
-            <h3 class="flex gap-2 text-lg font-semibold text-foreground">
+            <h3 class="text-foreground flex gap-2 text-lg font-semibold">
                 <LockKeyhole class="h-5 w-5" /> 2FA recovery codes
             </h3>
-            <p class="text-sm text-muted-foreground">
+            <p class="text-muted-foreground text-sm">
                 Recovery codes let you regain access if you lose your 2FA
                 device. Store them in a secure password manager.
             </p>
@@ -46,7 +46,11 @@ onMounted(async () => {
             <div
                 class="flex flex-col gap-3 select-none sm:flex-row sm:items-center sm:justify-between"
             >
-                <Button variant="outline" @click="toggleRecoveryCodesVisibility" class="w-fit">
+                <Button
+                    variant="outline"
+                    @click="toggleRecoveryCodesVisibility"
+                    class="w-fit"
+                >
                     <component
                         :is="isRecoveryCodesVisible ? EyeOff : Eye"
                         class="mr-2 h-4 w-4"
@@ -86,13 +90,13 @@ onMounted(async () => {
                 <div v-else class="mt-3 space-y-3">
                     <div
                         ref="recoveryCodeSectionRef"
-                        class="grid gap-1 rounded-lg bg-muted p-4 font-mono text-sm"
+                        class="bg-muted grid gap-1 rounded-lg p-4 font-mono text-sm"
                     >
                         <div v-if="!recoveryCodesList.length" class="space-y-2">
                             <div
                                 v-for="n in 8"
                                 :key="n"
-                                class="h-4 animate-pulse rounded bg-muted-foreground/20"
+                                class="bg-muted-foreground/20 h-4 animate-pulse rounded"
                             ></div>
                         </div>
                         <div
@@ -103,7 +107,7 @@ onMounted(async () => {
                             {{ code }}
                         </div>
                     </div>
-                    <p class="text-xs text-muted-foreground select-none">
+                    <p class="text-muted-foreground text-xs select-none">
                         Each recovery code can be used once to access your
                         account and will be removed after use. If you need more,
                         click

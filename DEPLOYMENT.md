@@ -203,10 +203,10 @@ Should return `HTTP/2 200` with `strict-transport-security` header.
 
 Add these secrets in your GitHub repository settings (Settings → Secrets and variables → Actions):
 
-| Secret | Description | Example |
-|---|---|---|
-| `DEPLOY_HOST` | Droplet IP or domain | `203.0.113.42` |
-| `DEPLOY_USER` | SSH username | `deploy` |
+| Secret           | Description                | Example                                  |
+| ---------------- | -------------------------- | ---------------------------------------- |
+| `DEPLOY_HOST`    | Droplet IP or domain       | `203.0.113.42`                           |
+| `DEPLOY_USER`    | SSH username               | `deploy`                                 |
 | `DEPLOY_SSH_KEY` | Private SSH key (full PEM) | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
 
 ### Generate SSH Key Pair for Deployment
@@ -240,16 +240,16 @@ chmod 600 ~/.ssh/authorized_keys
 1. Push to `main` branch
 2. GitHub Actions runs `tests.yml` — Pint, PHPStan (level 10), then tests against PostgreSQL + Redis (hotspot provisioning forced log-only via `RADIUS_FAKE=true`; browser journeys run on installed Chrome)
 3. If checks pass, `deploy.yml` triggers:
-   - Re-runs the Lint + Types + Tests gate, then SSH into Droplet
-   - `git pull` latest code
-   - Pre-migrate database backup (`backup:run --only-db`)
-   - Maintenance mode on
-   - `docker compose build` — rebuilds PHP image with new deps
-   - `docker compose up -d --force-recreate`
-   - Wait for Postgres, then `php artisan migrate --force`
-   - `php artisan db:seed --class=HotspotTierSeeder --force` — idempotent Free + Premium Wi-Fi tiers per branch
-   - `php artisan optimize` + `view:cache`, restart Horizon workers (incl. the `network` queue supervisor)
-   - Maintenance mode off, readiness gate on `/readyz`
+    - Re-runs the Lint + Types + Tests gate, then SSH into Droplet
+    - `git pull` latest code
+    - Pre-migrate database backup (`backup:run --only-db`)
+    - Maintenance mode on
+    - `docker compose build` — rebuilds PHP image with new deps
+    - `docker compose up -d --force-recreate`
+    - Wait for Postgres, then `php artisan migrate --force`
+    - `php artisan db:seed --class=HotspotTierSeeder --force` — idempotent Free + Premium Wi-Fi tiers per branch
+    - `php artisan optimize` + `view:cache`, restart Horizon workers (incl. the `network` queue supervisor)
+    - Maintenance mode off, readiness gate on `/readyz`
 
 ## Rollback
 
@@ -455,27 +455,27 @@ docker run --rm -v hms-storage_data:/data -v /opt/hms/backups:/backup alpine \
 
 ## Environment Variables Reference
 
-| Variable | Default | Description |
-|---|---|---|
-| `APP_ENV` | `production` | Application environment |
-| `APP_DEBUG` | `false` | Debug mode (NEVER true in production) |
-| `APP_URL` | — | Full URL including https:// |
-| `DB_CONNECTION` | `pgsql` | Database driver |
-| `DB_HOST` | `postgres` | Docker service name |
-| `DB_DATABASE` | `hotel_system` | Database name |
-| `SESSION_DRIVER` | `redis` | Session storage |
-| `CACHE_STORE` | `redis` | Cache storage |
-| `QUEUE_CONNECTION` | `redis` | Queue driver |
-| `BROADCAST_CONNECTION` | `reverb` | Broadcasting driver |
-| `REDIS_HOST` | `redis` | Docker service name |
-| `REDIS_PASSWORD` | — | Redis auth password |
-| `REVERB_APP_ID` | — | Reverb app identifier |
-| `REVERB_APP_KEY` | — | Reverb public key |
-| `REVERB_APP_SECRET` | — | Reverb secret key |
-| `REVERB_HOST` | — | Public domain for WebSocket |
-| `REVERB_PORT` | `443` | WebSocket port |
-| `REVERB_SCHEME` | `https` | WebSocket scheme |
-| `HOTSPOT_PORTAL_DOMAIN` | `guest.hotels.example` | Guest portal host (Hotspot walled-garden) |
-| `RADIUS_HOST` | `100.64.0.1` | Cloud RADIUS tunnel IP |
-| `RADIUS_DB_CONNECTION` | `radius` | DB connection holding radcheck/radreply/radacct |
-| `RADIUS_FAKE` | `true` | `true` = log-only provisioning; `false` = live RADIUS writes |
+| Variable                | Default                | Description                                                  |
+| ----------------------- | ---------------------- | ------------------------------------------------------------ |
+| `APP_ENV`               | `production`           | Application environment                                      |
+| `APP_DEBUG`             | `false`                | Debug mode (NEVER true in production)                        |
+| `APP_URL`               | —                      | Full URL including https://                                  |
+| `DB_CONNECTION`         | `pgsql`                | Database driver                                              |
+| `DB_HOST`               | `postgres`             | Docker service name                                          |
+| `DB_DATABASE`           | `hotel_system`         | Database name                                                |
+| `SESSION_DRIVER`        | `redis`                | Session storage                                              |
+| `CACHE_STORE`           | `redis`                | Cache storage                                                |
+| `QUEUE_CONNECTION`      | `redis`                | Queue driver                                                 |
+| `BROADCAST_CONNECTION`  | `reverb`               | Broadcasting driver                                          |
+| `REDIS_HOST`            | `redis`                | Docker service name                                          |
+| `REDIS_PASSWORD`        | —                      | Redis auth password                                          |
+| `REVERB_APP_ID`         | —                      | Reverb app identifier                                        |
+| `REVERB_APP_KEY`        | —                      | Reverb public key                                            |
+| `REVERB_APP_SECRET`     | —                      | Reverb secret key                                            |
+| `REVERB_HOST`           | —                      | Public domain for WebSocket                                  |
+| `REVERB_PORT`           | `443`                  | WebSocket port                                               |
+| `REVERB_SCHEME`         | `https`                | WebSocket scheme                                             |
+| `HOTSPOT_PORTAL_DOMAIN` | `guest.hotels.example` | Guest portal host (Hotspot walled-garden)                    |
+| `RADIUS_HOST`           | `100.64.0.1`           | Cloud RADIUS tunnel IP                                       |
+| `RADIUS_DB_CONNECTION`  | `radius`               | DB connection holding radcheck/radreply/radacct              |
+| `RADIUS_FAKE`           | `true`                 | `true` = log-only provisioning; `false` = live RADIUS writes |

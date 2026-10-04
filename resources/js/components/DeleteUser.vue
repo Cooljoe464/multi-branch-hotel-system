@@ -3,7 +3,14 @@ import { Form } from '@inertiajs/vue3';
 import { ref, useTemplateRef } from 'vue';
 import { Loader2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
@@ -21,9 +28,9 @@ const showDeleteModal = ref(false);
             description="Delete your account and all of its resources"
         />
         <div
-            class="space-y-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4"
+            class="border-destructive/20 bg-destructive/5 space-y-4 rounded-lg border p-4"
         >
-            <div class="relative space-y-0.5 text-destructive">
+            <div class="text-destructive relative space-y-0.5">
                 <p class="font-medium">Warning</p>
                 <p class="text-sm">
                     Please proceed with caution, this cannot be undone.
@@ -36,10 +43,16 @@ const showDeleteModal = ref(false);
             >
                 Delete account
             </Button>
-            <Dialog :open="showDeleteModal" @update:open="showDeleteModal = $event">
+            <Dialog
+                :open="showDeleteModal"
+                @update:open="showDeleteModal = $event"
+            >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Are you sure you want to delete your account?</DialogTitle>
+                        <DialogTitle
+                            >Are you sure you want to delete your
+                            account?</DialogTitle
+                        >
                     </DialogHeader>
                     <Form
                         v-bind="ProfileController.destroy.form()"

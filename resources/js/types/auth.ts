@@ -1,4 +1,4 @@
-import type { Branch, BranchContext } from './hms';
+import type { BranchContext } from './hms';
 
 export type User = {
     id: number;

@@ -14,9 +14,7 @@ withDefaults(defineProps<Props>(), {
 
 const page = usePage();
 const sidebarOpen = ref(
-    typeof page.props.sidebarOpen === 'boolean'
-        ? page.props.sidebarOpen
-        : true,
+    typeof page.props.sidebarOpen === 'boolean' ? page.props.sidebarOpen : true,
 );
 const mobileSidebarOpen = ref(false);
 
@@ -46,7 +44,10 @@ provide<SidebarState>(SIDEBAR_STATE_KEY, {
     <div v-if="variant === 'header'" class="flex min-h-screen w-full flex-col">
         <slot />
     </div>
-    <div v-else class="flex h-screen w-full overflow-hidden bg-gray-50 dark:bg-gray-900">
+    <div
+        v-else
+        class="flex h-screen w-full overflow-hidden bg-gray-50 dark:bg-gray-900"
+    >
         <slot />
     </div>
 </template>

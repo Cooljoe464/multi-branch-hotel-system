@@ -21,8 +21,13 @@ export function initEcho(): Echo {
             authEndpoint: '/broadcasting/auth',
             auth: {
                 headers: {
-                    'Authorization': `Bearer ${import.meta.env.VITE_REVERB_AUTH_TOKEN || ''}`,
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                    Authorization: `Bearer ${import.meta.env.VITE_REVERB_AUTH_TOKEN || ''}`,
+                    'X-CSRF-TOKEN':
+                        (
+                            document.querySelector(
+                                'meta[name="csrf-token"]',
+                            ) as HTMLMetaElement
+                        )?.content || '',
                 },
             },
             cluster: import.meta.env.VITE_REVERB_APP_CLUSTER || '',
