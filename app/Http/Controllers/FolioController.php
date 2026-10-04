@@ -148,7 +148,7 @@ class FolioController extends Controller
         $this->ensureBranchAccess($folio->branch);
 
         $request->validate([
-            'category' => 'required|string|in:room_rate,tax,minibar,restaurant,laundry,spa,parking,misc',
+            'category' => 'required|string|in:room_rate,tax,minibar,restaurant,laundry,spa,parking,misc,wifi',
             'description' => 'required|string|max:255',
             'amount' => 'required|integer|min:1',
             'tax_rate_bps' => 'nullable|integer|min:0|max:10000',

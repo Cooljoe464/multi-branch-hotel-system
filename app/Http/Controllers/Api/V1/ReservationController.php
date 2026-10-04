@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\AvailabilityException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\ReservationResource;
 use App\Models\Branch;
@@ -10,6 +11,7 @@ use App\Models\Reservation;
 use App\Models\RoomType;
 use App\Services\AvailabilityService;
 use App\Services\GuaranteeService;
+use App\Services\HotspotService;
 use App\Services\RateEngine;
 use App\Services\WebhookDispatcher;
 use Illuminate\Http\JsonResponse;
@@ -33,6 +35,7 @@ class ReservationController extends Controller
             'children' => 'nullable|integer|min:0|max:10',
             'rate_plan_id' => 'nullable|integer',
             'source' => 'nullable|string|max:32',
+            'hotspot_tier_id' => 'nullable|integer|exists:hotspot_tiers,id',
         ]);
 
         $roomType = RoomType::findOrFail($request->integer('room_type_id'));
@@ -81,6 +84,15 @@ class ReservationController extends Controller
             ratePlan: $plan,
             rateQuote: $quote,
         );
+
+        try {
+            (new HotspotService)->attachReservation(
+                $reservation->fresh() ?? $reservation,
+                $request->filled('hotspot_tier_id') ? $request->integer('hotspot_tier_id') : null,
+            );
+        } catch (AvailabilityException $e) {
+            return response()->json(['message' => $e->getMessage(), 'code' => $e->availabilityCode], 422);
+        }
 
         $webhooks->dispatch('reservation.created', [
             'reservation_id' => $reservation->id,

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\EnsuresBranchAccess;
 use App\Models\Branch;
 use App\Models\CallRecord;
+use App\Models\HotspotTier;
 use App\Models\MobileKey;
 use App\Models\Reservation;
 use App\Models\TelecomRate;
@@ -49,7 +50,8 @@ class TelecomController extends Controller
             'branch' => $branch->only(['id', 'name']),
             'rates' => TelecomRate::where('branch_id', $branch->id)->orderBy('destination_prefix')->get(['id', 'destination_prefix', 'rate_minor_per_min', 'is_active']),
             'calls' => CallRecord::where('branch_id', $branch->id)->latest('id')->limit(50)->get(['id', 'extension', 'destination', 'duration_secs', 'charge_minor', 'reservation_id', 'cdr_id', 'created_at']),
-            'vouchers' => WifiSession::where('branch_id', $branch->id)->latest('id')->limit(50)->get(['id', 'voucher', 'reservation_id', 'expires_at', 'revoked_at']),
+            'vouchers' => WifiSession::where('branch_id', $branch->id)->with('tier:id,name,code')->latest('id')->limit(50)->get(['id', 'voucher', 'username', 'reservation_id', 'hotspot_tier_id', 'provisioned_at', 'expires_at', 'revoked_at']),
+            'hotspot_tiers' => HotspotTier::forBranch($branch->id)->active()->orderBy('price_minor')->get(['id', 'name', 'code', 'price_minor']),
             'cdr_configured' => is_string($branch->cdr_secret) && $branch->cdr_secret !== '',
             'lookup' => $lookup,
             'confirmation' => $confirmation,

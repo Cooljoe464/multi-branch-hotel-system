@@ -59,6 +59,15 @@ interface RoomType {
     total_rate?: number;
 }
 
+interface HotspotTier {
+    id: number;
+    name: string;
+    code: string;
+    price_minor: number;
+    rate_down_kbps: number;
+    device_limit: number;
+}
+
 const props = defineProps<{
     branches: Branch[];
     defaultLocale?: string;
@@ -72,10 +81,11 @@ const checkIn = ref('');
 const checkOut = ref('');
 const adults = ref(2);
 const children = ref(0);
-const searchResults = ref<{ room_types: RoomType[]; nights: number } | null>(
+const searchResults = ref<{ room_types: RoomType[]; nights: number; hotspot_tiers?: HotspotTier[] } | null>(
     null,
 );
 const selectedRoomType = ref<RoomType | null>(null);
+const selectedHotspotTier = ref<number | null>(null);
 const termsAgreed = ref(false);
 const guestInfo = ref({
     first_name: '',
@@ -167,6 +177,7 @@ const submitBooking = async () => {
                 check_out: checkOut.value,
                 adults: adults.value,
                 children: children.value,
+                hotspot_tier_id: selectedHotspotTier.value,
                 ...guestInfo.value,
             }),
         });
@@ -742,6 +753,31 @@ const getAmenityIcon = (amenity: string) => {
                                         )
                                     }}</span
                                 >
+                            </div>
+                        </div>
+
+                        <div v-if="searchResults?.hotspot_tiers?.length" class="space-y-2 pt-2">
+                            <Label>Wi-Fi tier (free included)</Label>
+                            <div class="grid gap-2">
+                                <label
+                                    v-for="tier in searchResults.hotspot_tiers"
+                                    :key="tier.id"
+                                    class="flex cursor-pointer items-center justify-between rounded-lg border border-border p-3 text-sm"
+                                >
+                                    <span class="flex items-center gap-2">
+                                        <input
+                                            v-model="selectedHotspotTier"
+                                            type="radio"
+                                            name="hotspot_tier"
+                                            :value="tier.id"
+                                            class="accent-primary size-4"
+                                        />
+                                        <span class="font-medium">{{ tier.name }}</span>
+                                    </span>
+                                    <span class="text-muted-foreground">
+                                        {{ tier.price_minor === 0 ? 'Free' : formatCurrency(tier.price_minor) }}
+                                    </span>
+                                </label>
                             </div>
                         </div>
 

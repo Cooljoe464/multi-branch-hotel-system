@@ -34,6 +34,7 @@ class RoleSeeder extends Seeder
             'rate_overrides' => ['view', 'manage'],
             'door_lock' => ['view', 'manage', 'issue_mobile_key'],
             'telecom' => ['view', 'manage_rates'],
+            'hotspot' => ['view', 'manage', 'issue', 'revoke', 'grant_free'],
             'tape_chart' => ['view'],
             'housekeeping' => ['view', 'manage', 'assign', 'inspect', 'manage_lost_found'],
             'maintenance' => ['view', 'manage', 'manage_assets', 'manage_sla'],
@@ -235,6 +236,10 @@ class RoleSeeder extends Seeder
             'folios.transfer',
             'door_lock.issue_mobile_key',
             'telecom.view',
+            'hotspot.view',
+            'hotspot.manage',
+            'hotspot.issue',
+            'hotspot.revoke',
             'payments.charge',
             'payments.refund',
             'analytics.view',
@@ -257,6 +262,7 @@ class RoleSeeder extends Seeder
             'door_lock.issue_mobile_key',
             'telecom.view',
             'telecom.manage_rates',
+            'hotspot.grant_free',
             'menu_items.view',
             'menu_items.manage',
             'rate_plans.view',
@@ -332,6 +338,9 @@ class RoleSeeder extends Seeder
             'rate_seasons.view',
             'promo_codes.view',
             'corporate_accounts.view',
+            'hotspot.view',
+            'hotspot.issue',
+            'hotspot.revoke',
         ]);
 
         $housekeeper = Role::firstOrCreate(
@@ -385,6 +394,7 @@ class RoleSeeder extends Seeder
             'reports.view',
             'reports.export',
             'business_date.view',
+            'hotspot.view',
         ]);
 
         $auditor = Role::firstOrCreate(

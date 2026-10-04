@@ -51,6 +51,7 @@ use App\Http\Controllers\GuestProfileController;
 use App\Http\Controllers\HappyHourController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\HkScheduleController;
+use App\Http\Controllers\HotspotController;
 use App\Http\Controllers\HousekeepingController;
 use App\Http\Controllers\HousekeepingTaskController;
 use App\Http\Controllers\IdempotencyController;
@@ -170,6 +171,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('branches/{branch}/wifi/vouchers/{session}/revoke', [TelecomController::class, 'revokeVoucher'])
         ->middleware('permission:telecom.view')
         ->name('wifi.vouchers.revoke');
+
+    // Hotspot tiers + isolation export (in-hotel, 1 router/branch)
+    Route::get('branches/{branch}/hotspot', [HotspotController::class, 'index'])
+        ->middleware('permission:hotspot.view')
+        ->name('hotspot.index');
+    Route::post('branches/{branch}/hotspot/tiers', [HotspotController::class, 'store'])
+        ->middleware('permission:hotspot.manage')
+        ->name('hotspot.tiers.store');
+    Route::get('branches/{branch}/hotspot/export', [HotspotController::class, 'export'])
+        ->middleware('permission:hotspot.manage')
+        ->name('hotspot.export');
+    Route::post('reservations/{reservation}/hotspot-tier', [HotspotController::class, 'selectTier'])
+        ->middleware('permission:hotspot.issue')
+        ->name('hotspot.tier.select');
 
     Route::post('branch/switch', [BranchController::class, 'switch'])->name('branch.switch');
 

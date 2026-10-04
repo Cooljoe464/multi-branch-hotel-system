@@ -12,15 +12,15 @@ A comprehensive, enterprise-grade Property Management System (PMS) built for mul
 
 | Component | Count |
 |-----------|-------|
-| Eloquent Models | 43 |
-| Controllers | 52 |
-| Vue Pages | 85+ |
+| Eloquent Models | 45 |
+| Controllers | 53 |
+| Vue Pages | 86+ |
 | Vue Components | 30+ |
-| Services | 15 |
+| Services | 19 |
 | Events | 9 |
-| Jobs | 3 |
-| Database Migrations | 48 |
-| Database Seeders | 31 |
+| Jobs | 5 |
+| Database Migrations | 51 |
+| Database Seeders | 32 |
 
 ### Multi-Branch Support
 - Users belong to multiple branches via `user_branch` pivot table
@@ -215,7 +215,7 @@ A comprehensive, enterprise-grade Property Management System (PMS) built for mul
 | **Cashier** | POS operations, folio management, reports |
 | **Auditor** | Audit flags, reports, analytics, settings management |
 
-**28 Permission Groups** with fine-grained actions (view, manage, create, update, delete).
+**29 Permission Groups** with fine-grained actions (view, manage, create, update, delete).
 
 ---
 
@@ -237,6 +237,14 @@ A comprehensive, enterprise-grade Property Management System (PMS) built for mul
 - OTA integration (Booking.com, Expedia, etc.)
 - Rate and availability sync
 - Reservation import from channels
+
+### Hotspot (Guest Wi-Fi)
+- Free + paid tiers per branch (`hotspot_tiers`), paid posts `wifi` folio charges
+- Tier picked before reservation completes (desk create, booking wizard, CRS, API)
+- Per-guest auto-provision on check-in (`ProvisionWifiJob`, queue `network`), RADIUS + MikroTik (fake/log-backed in V1)
+- Revoke + disconnect on checkout/expiry (`DeprovisionWifiJob`, `hotspot:expire-sessions`)
+- One RouterOS per branch, staff PSK VLAN isolated from guest Hotspot VLAN; per-branch `.rsc` via `hotspot:export-rsc`
+- Full runbook: `docs/HOTSPOT.md`
 
 ---
 
@@ -304,6 +312,7 @@ All imports processed via queued jobs (`ProcessExcelImportJob`).
 - `PostRoomChargesJob` — nightly room charge posting (dedicated `night-audit` queue)
 - `CloseDailyLedgerJob` — daily ledger closing
 - `ProcessExcelImportJob` — async Excel import processing
+- `ProvisionWifiJob` / `DeprovisionWifiJob` — hotspot credential lifecycle (dedicated `network` queue)
 
 ### File Storage
 - Cloudflare R2 for logo/branding assets
@@ -312,7 +321,7 @@ All imports processed via queued jobs (`ProcessExcelImportJob`).
 ### Testing
 - Pest v5 with browser testing plugin
 - Feature and unit test structure
-- 31 database seeders for comprehensive test data
+- 32 database seeders for comprehensive test data
 
 ---
 
@@ -326,6 +335,7 @@ All imports processed via queued jobs (`ProcessExcelImportJob`).
 - **Kitchen Stations** — KDS station setup
 - **Channel Providers** — OTA integration settings
 - **Door Lock Gateways** — lock provider configuration per branch
+- **Hotspot Tiers** — per-branch Wi-Fi tiers + router `.rsc` isolation export
 
 ---
 
@@ -341,9 +351,10 @@ This is a **production-grade, enterprise-level Hotel Property Management System*
 - Yield management and dynamic pricing
 - Channel management and OTA integration
 - Door lock system integration
+- Guest Wi-Fi hotspot (free + paid tiers, auto-provision, network isolation)
 - Guest self-service portal
 - GDPR compliance
-- Role-based access control with 10 roles and 28 permission groups
+- Role-based access control with 10 roles and 29 permission groups
 - Real-time WebSocket broadcasting
 - Analytics and reporting
 - Mobile/tablet ordering support

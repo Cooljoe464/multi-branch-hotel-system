@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Exceptions\AvailabilityException;
 use App\Models\Branch;
 use App\Models\Guest;
+use App\Models\HotspotTier;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\RoomType;
 use App\Services\GuestDedupService;
+use App\Services\HotspotService;
 use App\Services\PricingService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -68,6 +70,7 @@ class BookingEngineController extends Controller
             'nights' => $nights,
             'check_in' => $checkIn,
             'check_out' => $checkOut,
+            'hotspot_tiers' => HotspotTier::forBranch($branchId)->active()->orderBy('price_minor')->get(),
         ]);
     }
 
@@ -86,6 +89,7 @@ class BookingEngineController extends Controller
             'phone' => 'nullable|string|max:50',
             'special_requests' => 'nullable|array',
             'payment_method' => 'nullable|string',
+            'hotspot_tier_id' => 'nullable|integer|exists:hotspot_tiers,id',
         ]);
 
         $branchId = $request->integer('branch_id');
@@ -99,6 +103,7 @@ class BookingEngineController extends Controller
         $lastName = $request->string('last_name')->value();
         $phone = $request->string('phone')->value();
         $specialRequests = $request->input('special_requests');
+        $hotspotTierId = $request->filled('hotspot_tier_id') ? $request->integer('hotspot_tier_id') : null;
 
         $branch = Branch::findOrFail($branchId);
         $roomType = RoomType::findOrFail($roomTypeId);
@@ -118,7 +123,7 @@ class BookingEngineController extends Controller
             return back()->withErrors(['check_out' => 'Minimum length of stay is '.$pricing['mlos'].' nights.']);
         }
 
-        return DB::transaction(function () use ($branch, $roomType, $pricing, $checkIn, $checkOut, $adults, $children, $email, $firstName, $lastName, $phone, $specialRequests) {
+        return DB::transaction(function () use ($branch, $roomType, $pricing, $checkIn, $checkOut, $adults, $children, $email, $firstName, $lastName, $phone, $specialRequests, $hotspotTierId) {
             // Silent reject: no reason leaks to the public engine.
             try {
                 (new GuestDedupService)->assertRentable($branch, null, $email);
@@ -169,6 +174,12 @@ class BookingEngineController extends Controller
                 'payment_status' => 'pending',
                 'special_requests' => $specialRequests,
             ]);
+
+            try {
+                (new HotspotService)->attachReservation($reservation->fresh() ?? $reservation, $hotspotTierId);
+            } catch (AvailabilityException $e) {
+                return back()->withErrors(['hotspot_tier_id' => $e->getMessage()]);
+            }
 
             return response()->json([
                 'reservation' => $reservation->load(['branch', 'roomType', 'guest']),

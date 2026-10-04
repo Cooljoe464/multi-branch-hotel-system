@@ -72,6 +72,7 @@ This guide explains what each role can see and do in the multi-branch hotel mana
 - **Menu Items** — view
 - **Inventory** — view
 - **Laundry** — view and manage
+- **Hotspot** — select Wi-Fi tier at booking, auto-provision on check-in, upgrade mid-stay
 
 ### Housekeeper
 - **Dashboard** — task summary
@@ -91,7 +92,7 @@ This guide explains what each role can see and do in the multi-branch hotel mana
 ### Cashier
 - **Dashboard** — revenue summary
 - **POS** — process payments
-- **Folio** — post charges, view, manage
+- **Folio** — post charges, view, manage (incl. paid Wi-Fi tiers)
 - **Reports** — payment-related reports
 
 ### Auditor
@@ -165,6 +166,15 @@ View at **Audit Flags** in the sidebar.
 ### Door Lock Integration
 Supports Assa Abloy, Salto, Dormakaba, and Duowin providers. Duowin requires a local Node.js bridge (`duowin-bridge/server.js`) for serial port card encoding.
 
+### Hotspot (Guest Wi-Fi)
+In-hotel guest Wi-Fi with free + paid tiers, one MikroTik per branch, cloud RADIUS over WireGuard. Full runbook: `docs/HOTSPOT.md`.
+1. Guest (or desk) picks a tier before the reservation completes — free included, paid posts a `wifi` folio charge
+2. Check-in auto-provisions a per-guest credential (12-char voucher)
+3. Guest joins `GUEST-WIFI`, logs in at the portal
+4. Check-out/expiry revokes + disconnects automatically
+- Company systems live on the isolated staff VLAN (PSK) — guests cannot route to them
+- Manage tiers + download the router `.rsc` at **Hotspot** in the sidebar (`hotspot.manage`)
+
 ### WebSocket Notifications (Laravel Reverb)
 Real-time updates via Laravel Reverb with Pusher fallback:
 - KDS items update live via `branch.{id}.kds` private channel
@@ -198,6 +208,7 @@ Real-time updates via Laravel Reverb with Pusher fallback:
 | Rate Overrides | `rate_overrides.view` | `rate_overrides.manage` | |
 | Audit | `audit.view` | `audit.manage` | |
 | Door Lock | `door_lock.view` | `door_lock.manage` | |
+| Hotspot | `hotspot.view` | `hotspot.manage` | Also: `hotspot.issue`, `hotspot.revoke`, `hotspot.grant_free` |
 | Tape Chart | `tape_chart.view` | — | |
 | Housekeeping | `housekeeping.view` | `housekeeping.manage` | |
 | Maintenance | `maintenance.view` | `maintenance.manage` | Also: `door_lock.manage` for lock/unlock |

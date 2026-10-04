@@ -3,13 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvailabilityException;
+use App\Jobs\DeprovisionWifiJob;
+use App\Jobs\ProvisionWifiJob;
 use App\Models\Branch;
 use App\Models\CorporateAccount;
 use App\Models\Guest;
+use App\Models\HotspotTier;
 use App\Models\PostStaySurvey;
 use App\Models\PromoCode;
 use App\Models\RatePlan;
 use App\Models\Reservation;
+use App\Models\ReservationHotspot;
 use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\TabletSession;
@@ -19,12 +23,14 @@ use App\Services\AvailabilityService;
 use App\Services\CommissionService;
 use App\Services\DoorLock\DoorLockService;
 use App\Services\GuaranteeService;
+use App\Services\HotspotService;
 use App\Services\LoyaltyService;
 use App\Services\MobileKeyService;
 use App\Services\PricingService;
 use App\Services\RateEngine;
 use App\Services\TabletService;
 use App\Services\UpsellService;
+use App\Services\WifiService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
@@ -91,6 +97,7 @@ class ReservationController extends Controller
             'branches' => $branches,
             'prefilledDate' => $request->date,
             'prefilledBranch' => $request->branch_id,
+            'hotspotTiers' => HotspotTier::forBranch($branchId)->active()->orderBy('price_minor')->get(),
         ]);
     }
 
@@ -115,6 +122,7 @@ class ReservationController extends Controller
             'rate_plan_id' => 'nullable|exists:rate_plans,id',
             'promo_code' => 'nullable|string|max:50',
             'corporate_account_id' => 'nullable|exists:corporate_accounts,id',
+            'hotspot_tier_id' => 'nullable|integer|exists:hotspot_tiers,id',
         ]);
 
         $user = $request->user();
@@ -294,6 +302,14 @@ class ReservationController extends Controller
             }
         }
 
+        // Pre-complete hotspot tier: free default auto-included, paid posts to folio.
+        try {
+            $tierId = $request->filled('hotspot_tier_id') ? $request->integer('hotspot_tier_id') : null;
+            (new HotspotService)->attachReservation($reservation->fresh() ?? $reservation, $tierId, $user);
+        } catch (AvailabilityException $e) {
+            return back()->withErrors(['hotspot_tier_id' => $e->getMessage()]);
+        }
+
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Reservation '.$reservation->confirmation_number.' created.']);
 
         return redirect()->route('reservations.show', $reservation);
@@ -313,6 +329,9 @@ class ReservationController extends Controller
             ],
             'upsells' => (new UpsellService)->quote($reservation->branch, $reservation),
             'can_grant_free_upsell' => $request->user()?->can('upsell.grant_free') ?? false,
+            'hotspotTiers' => HotspotTier::forBranch($reservation->branch_id)->active()->orderBy('price_minor')->get(),
+            'hotspotSelection' => ReservationHotspot::where('reservation_id', $reservation->id)->with('tier')->first(),
+            'can_select_hotspot' => $request->user()?->can('hotspot.issue') ?? false,
         ]);
     }
 
@@ -523,6 +542,16 @@ class ReservationController extends Controller
             ]);
         }
 
+        // Auto-provision per-guest hotspot (free default or pre-selected paid tier).
+        try {
+            ProvisionWifiJob::dispatch($reservation->id);
+        } catch (\Throwable $e) {
+            Log::warning('Hotspot provision dispatch failed', [
+                'reservation' => $reservation->confirmation_number,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         return $this->flashSuccess('Guest checked in to room '.$room->number.'.');
     }
 
@@ -552,6 +581,17 @@ class ReservationController extends Controller
             (new MobileKeyService)->revokeForReservation($reservation);
         } catch (\Throwable $e) {
             Log::warning('Mobile key revocation failed', [
+                'reservation' => $reservation->confirmation_number,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Revoke hotspot sessions + queue NAS disconnect (best-effort).
+        try {
+            (new WifiService)->revokeForReservation($reservation);
+            DeprovisionWifiJob::dispatch($reservation->id);
+        } catch (\Throwable $e) {
+            Log::warning('Hotspot deprovision failed', [
                 'reservation' => $reservation->confirmation_number,
                 'error' => $e->getMessage(),
             ]);

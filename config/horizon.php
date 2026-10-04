@@ -104,6 +104,7 @@ return [
         'redis:default' => 60,
         'redis:night-audit' => 300,
         'redis:payments' => 120,
+        'redis:network' => 120,
         'redis:ml' => 300,
         'redis:fiscal' => 300,
     ],
@@ -267,6 +268,18 @@ return [
             'timeout' => 900,
             'nice' => 0,
         ],
+        'supervisor-network' => [
+            'connection' => 'redis',
+            'queue' => ['network'],
+            'balance' => 'simple',
+            'maxProcesses' => 2,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 128,
+            'tries' => 5,
+            'timeout' => 120,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
@@ -288,6 +301,9 @@ return [
             'supervisor-imports' => [
                 'maxProcesses' => 4,
             ],
+            'supervisor-network' => [
+                'maxProcesses' => 4,
+            ],
         ],
 
         'local' => [
@@ -306,6 +322,9 @@ return [
             'supervisor-imports' => [
                 'maxProcesses' => 1,
             ],
+            'supervisor-network' => [
+                'maxProcesses' => 1,
+            ],
         ],
 
         'testing' => [
@@ -322,6 +341,9 @@ return [
                 'maxProcesses' => 1,
             ],
             'supervisor-imports' => [
+                'maxProcesses' => 1,
+            ],
+            'supervisor-network' => [
                 'maxProcesses' => 1,
             ],
         ],

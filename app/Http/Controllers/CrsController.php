@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvailabilityException;
 use App\Models\Branch;
 use App\Models\Guest;
 use App\Models\Reservation;
+use App\Services\HotspotService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -44,6 +46,7 @@ class CrsController extends Controller
             'children' => 'integer|min:0',
             'room_rate' => 'required|integer|min:0',
             'special_requests' => 'nullable|string',
+            'hotspot_tier_id' => 'nullable|integer|exists:hotspot_tiers,id',
         ]);
 
         $user = $request->user();
@@ -83,6 +86,16 @@ class CrsController extends Controller
             'source' => 'crs',
             'special_requests' => $request->input('special_requests') ? ['notes' => $request->string('special_requests')->value()] : null,
         ]);
+
+        try {
+            (new HotspotService)->attachReservation(
+                $reservation->fresh() ?? $reservation,
+                $request->filled('hotspot_tier_id') ? $request->integer('hotspot_tier_id') : null,
+                $user,
+            );
+        } catch (AvailabilityException $e) {
+            return back()->withErrors(['hotspot_tier_id' => $e->getMessage()]);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Reservation created: '.$reservation->confirmation_number]);
 

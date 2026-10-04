@@ -61,4 +61,26 @@ class WifiService
 
         return $session->fresh() ?? $session;
     }
+
+    /**
+     * Revoke all live sessions for a reservation (checkout path).
+     * Best-effort: never throws, mirrors MobileKeyService behaviour.
+     *
+     * @return int Number of sessions revoked.
+     */
+    public function revokeForReservation(Reservation $reservation): int
+    {
+        $sessions = WifiSession::where('reservation_id', $reservation->id)
+            ->whereNull('revoked_at')
+            ->get();
+
+        foreach ($sessions as $session) {
+            $session->update([
+                'revoked_at' => now(),
+                'deprovisioned_at' => $session->deprovisioned_at ?? now(),
+            ]);
+        }
+
+        return $sessions->count();
+    }
 }

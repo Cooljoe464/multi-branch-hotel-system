@@ -34,6 +34,19 @@ interface UpsellQuote {
     reason: string | null;
 }
 
+interface HotspotTier {
+    id: number;
+    name: string;
+    code: string;
+    price_minor: number;
+}
+
+interface HotspotSelection {
+    hotspot_tier_id: number;
+    fee_minor: number;
+    tier?: HotspotTier | null;
+}
+
 interface Reservation {
     id: number;
     confirmation_number: string;
@@ -64,9 +77,19 @@ const props = withDefaults(
         reservation: Reservation;
         upsells?: UpsellQuote[];
         can_grant_free_upsell?: boolean;
+        hotspotTiers?: HotspotTier[];
+        hotspotSelection?: HotspotSelection | null;
+        can_select_hotspot?: boolean;
     }>(),
-    { upsells: () => [], can_grant_free_upsell: false },
+    { upsells: () => [], can_grant_free_upsell: false, hotspotTiers: () => [], hotspotSelection: null, can_select_hotspot: false },
 );
+
+const selectedTier = ref<string>(props.hotspotSelection?.hotspot_tier_id ? String(props.hotspotSelection.hotspot_tier_id) : '');
+
+const saveTier = () => {
+    if (! selectedTier.value) return;
+    router.post(`/reservations/${props.reservation.id}/hotspot-tier`, { hotspot_tier_id: Number(selectedTier.value) });
+};
 
 defineOptions({
     layout: {
@@ -385,6 +408,25 @@ const showMove = ref(false);
                 :quotes="upsells"
                 :can-grant-free="can_grant_free_upsell"
             />
+        </div>
+
+        <div v-if="hotspotTiers.length && can_select_hotspot" class="mt-6 rounded-lg border border-border bg-card p-6">
+            <h2 class="mb-4 text-lg font-semibold text-foreground">Wi-Fi Tier</h2>
+            <p v-if="hotspotSelection?.tier" class="mb-3 text-sm text-muted-foreground">
+                Current: {{ hotspotSelection.tier.name }}
+            </p>
+            <div class="flex items-end gap-3">
+                <div class="grid gap-2">
+                    <label class="text-sm font-medium">Tier</label>
+                    <select v-model="selectedTier" class="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                        <option value="" disabled>Select tier</option>
+                        <option v-for="tier in hotspotTiers" :key="tier.id" :value="String(tier.id)">
+                            {{ tier.name }} ({{ tier.price_minor === 0 ? 'Free' : tier.price_minor }})
+                        </option>
+                    </select>
+                </div>
+                <Button @click="saveTier">Set tier</Button>
+            </div>
         </div>
     </div>
 </template>

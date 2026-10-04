@@ -39,6 +39,7 @@ class DatabaseSeeder extends Seeder
             GroupLedgerSeeder::class,
             TransferRequestSeeder::class,
             AuditFlagSeeder::class,
+            HotspotTierSeeder::class,
         ]);
     }
 }

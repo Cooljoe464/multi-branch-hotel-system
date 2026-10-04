@@ -16,15 +16,22 @@
 │               ├── PaymentService (Paystack)           │
 │               ├── PaymentGuardService                 │
 │               ├── TabletOrderService                  │
-│               ├── KotRoutingService                   │
-│               ├── AuditFlagService                    │
-│               ├── NightAuditService                   │
+│               ├── KotRoutingService                  │
+│               ├── AuditFlagService                   │
+│               ├── NightAuditService                  │
 │               ├── DoorLockService                     │
+│               ├── HotspotService (tiers + selection)  │
+│               ├── RadiusService (cloud RADIUS sync)   │
+│               ├── MikrotikService (single NAS/branch) │
+│               ├── RouterOsConfigService (.rsc export) │
 │               └── FolioLockService                    │
 │  Events ──────┬── KotItemStatusUpdated               │
 │               ├── MenuItemStockToggled               │
-│               ├── OrderStatusUpdated                 │
-│               └── RoomStatusUpdated                   │
+│               ├── OrderStatusUpdated                  │
+│               ├── RoomStatusUpdated                   │
+│               └── WifiIssued                          │
+│  Jobs ────────┬── ProvisionWifiJob (queue: network)  │
+│               └── DeprovisionWifiJob (queue: network) │
 ├─────────────────────────────────────────────────────┤
 │              Database (PostgreSQL)                    │
 │  ┌─────────────────────────────────────────────┐    │
@@ -35,6 +42,8 @@
 │  │  ├── door_lock_audit_logs                    │    │
 │  │  ├── daily_ledgers                           │    │
 │  │  ├── audit_flags                             │    │
+│  │  ├── hotspot_tiers, reservation_hotspots     │    │
+│  │  ├── wifi_sessions (tier + NAS fields)       │    │
 │  │  └── activity_log                            │    │
 │  │                                               │    │
 │  │  Feature Tables                               │    │
@@ -55,6 +64,8 @@
 │  │  Laravel Reverb (WebSockets, default)         │    │
 │  │  Pusher (WebSockets — fallback)               │    │
 │  │  Duowin Bridge (Serial Port, Node.js)       │    │
+│  │  FreeRADIUS (cloud, via WireGuard tunnel)     │    │
+│  │  MikroTik RouterOS (1 NAS per branch)         │    │
 │  │  Redis (Sessions, Cache, Queue)              │    │
 │  │  Cloudflare R2 (Backups)                     │    │
 │  └─────────────────────────────────────────────┘    │
@@ -104,7 +115,7 @@ KDS, tablet, menu, and room updates broadcast via Laravel Reverb (with Pusher fa
 
 ```
 app/
-├── Console/Commands/          # Artisan commands (RunNightAudit)
+├── Console/Commands/          # Artisan commands (RunNightAudit, HotspotExportRsc, HotspotExpireSessions)
 ├── Contracts/                 # Interfaces (LockProvider)
 ├── Events/                    # Broadcast events
 ├── Http/Controllers/
@@ -115,6 +126,10 @@ app/
 ├── Policies/                  # Authorization policies
 ├── Services/
 │   ├── DoorLock/              # AssaAbloyProvider, SaltoProvider, DuowinProvider
+│   ├── HotspotService         # Tier selection + folio posting
+│   ├── RadiusService          # Cloud FreeRADIUS sync (fake by default)
+│   ├── MikrotikService        # Single-NAS provision/kick (fake by default)
+│   ├── RouterOsConfigService  # Per-branch .rsc isolation export
 │   ├── AuditFlagService
 │   ├── KotRoutingService
 │   ├── PaymentService         # Paystack integration
@@ -133,6 +148,7 @@ resources/
 │   ├── layouts/               # AppLayout, AuthLayout, SettingsLayout
 │   ├── pages/                 # Inertia pages by domain
 │   │   ├── analytics/         # ProfitAndLoss, ChannelYield, TaxLiability
+│   │   ├── hotspot/             # Hotspot Index (tiers + .rsc export)
 │   │   ├── housekeeping/      # Mobile
 │   │   ├── kds/               # KDS Index
 │   │   ├── pos/               # Terminal

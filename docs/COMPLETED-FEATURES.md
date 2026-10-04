@@ -68,19 +68,26 @@ This document provides a comprehensive overview of all features, modules, and in
 - **Unified Lock Provider Service:** Supports multiple lock hardware vendors (Assa Abloy, Salto, Dormakaba, and Duowin).
 - **Duowin Integration:** REST API client with a local Node.js serial port bridge (`duowin-bridge/server.js`) for physical card encoder programming.
 
-## 11. Real-Time WebSockets
+## 11. Hotspot (In-Hotel Guest Wi-Fi)
+- **Free + Paid Tiers:** Per-branch `hotspot_tiers` (speed, device limit, optional quota/duration); free auto-included, paid posts a `wifi` folio debit before/at booking.
+- **Pre-Complete Selection:** Tier picker on front-desk create, public booking wizard step 4, CRS, and `hotspot_tier_id` on API reservation create.
+- **Auto-Provisioning:** `ProvisionWifiJob` (queue `network`) issues a per-guest credential on check-in; `DeprovisionWifiJob` + revocation on checkout; `hotspot:expire-sessions` sweeps expiries every 15 min.
+- **Network Isolation:** Generated per-branch RouterOS `.rsc` (`hotspot:export-rsc`) — staff PSK VLAN vs guest Hotspot VLAN, WireGuard tunnel to cloud RADIUS, guest→RFC1918/staff/admin drops.
+- **Portal:** Branch-scoped `POST /api/wifi/validate` returning tier + expiry. Full runbook in `docs/HOTSPOT.md`; tests in `tests/Feature/HotspotTest.php`.
+
+## 12. Real-Time WebSockets
 - **Pusher Broadcasting:** Real-time updates for:
   - KDS item status transitions (`KotItemStatusUpdated`).
   - Menu item stock toggling (`MenuItemStockToggled`).
   - Tablet order tracking updates (`OrderStatusUpdated`).
 - **Laravel Echo Frontend Integration:** Subscriptions wired into KDS, tablet tracking, and menu interfaces.
 
-## 12. Security, GDPR & Permissions
+## 13. Security, GDPR & Permissions
 - **Role-Based Access Control (RBAC):** Powered by Spatie Permission with granular resource permissions (`view`, `manage`) for Global Admin, Branch GM, Front Desk, Housekeeping, Kitchen Staff, Laundry Attendant, Cashier, and Auditor.
 - **GDPR Compliance:** Guest data anonymization and export tools for privacy requests.
 - **Authentication & Security:** Two-factor authentication (2FA), passkeys (WebAuthn), password confirmation, and login throttling.
 
-## 13. Testing & Quality Assurance
+## 14. Testing & Quality Assurance
 - **Unit & Feature Tests:** Comprehensive Pest test suite covering all business logic, models, controllers, and services (59+ tests).
 - **Browser Automation (Playwright):** 37 end-to-end CRUD form and journey files covering all pages, modals, workflows, and role permissions (Chrome installed in CI; `APP_URL` pinned to the local server).
 - **Static Analysis:** PHPStan configured at **Level 10** with zero errors across the entire codebase.

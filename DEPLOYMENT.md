@@ -474,3 +474,7 @@ docker run --rm -v hms-storage_data:/data -v /opt/hms/backups:/backup alpine \
 | `REVERB_HOST` | — | Public domain for WebSocket |
 | `REVERB_PORT` | `443` | WebSocket port |
 | `REVERB_SCHEME` | `https` | WebSocket scheme |
+| `HOTSPOT_PORTAL_DOMAIN` | `guest.hotels.example` | Guest portal host (Hotspot walled-garden) |
+| `RADIUS_HOST` | `100.64.0.1` | Cloud RADIUS tunnel IP |
+| `RADIUS_DB_CONNECTION` | `radius` | DB connection holding radcheck/radreply/radacct |
+| `RADIUS_FAKE` | `true` | `true` = log-only provisioning; `false` = live RADIUS writes |

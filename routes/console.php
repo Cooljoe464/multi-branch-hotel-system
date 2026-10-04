@@ -54,6 +54,9 @@ Schedule::command('dr:smoke --dry-run')->quarterly()->onOneServer()->withoutOver
 // ── Platform ──────────────────────────────────
 Schedule::job(new PartitionManagerJob)->monthly()->onOneServer()->withoutOverlapping(120);
 
+// ── Hotspot ─────────────────────────────────────
+Schedule::command('hotspot:expire-sessions')->everyFifteenMinutes()->onOneServer()->withoutOverlapping(10);
+
 // ── Intelligence ──────────────────────────────
 Schedule::job(new AnomalyScanJob)->hourly()->onOneServer()->withoutOverlapping(50);
 Schedule::job(new ForecastGenerateJob)->dailyAt('01:00')->onOneServer()->withoutOverlapping(180);

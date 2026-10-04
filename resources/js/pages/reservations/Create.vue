@@ -19,6 +19,7 @@ const props = defineProps<{
     roomTypes: Array<{ id: number; name: string; code: string; base_rate: number }>;
     availableRooms: Array<{ id: number; number: string; floor: string; room_type: { name: string } }>;
     prefilledDate: string | null;
+    hotspotTiers?: Array<{ id: number; name: string; code: string; price_minor: number; rate_down_kbps: number; device_limit: number }>;
 }>();
 
 const titleOptions = ['Mr.', 'Mrs.', 'Miss', 'Prof.', ''];
@@ -38,6 +39,7 @@ const form = reactive({
     special_requests: [],
     is_group_booking: false,
     group_id: '',
+    hotspot_tier_id: '',
 });
 
 const calculateTotal = () => {
@@ -170,6 +172,25 @@ const goBack = () => {
                     <div class="flex justify-between items-center">
                         <span class="text-lg font-medium text-foreground">Total Amount:</span>
                         <span class="text-2xl font-bold text-foreground">{{ formatCurrency(calculateTotal()) }}</span>
+                    </div>
+                </div>
+
+                <!-- Wi-Fi tier (free included, paid posts to folio) -->
+                <div v-if="hotspotTiers && hotspotTiers.length" class="rounded-lg border border-border bg-card p-6">
+                    <h2 class="text-lg font-semibold mb-4 text-foreground">Wi-Fi Tier</h2>
+                    <div class="grid gap-2">
+                        <Label>Hotspot tier</Label>
+                        <Select v-model="form.hotspot_tier_id">
+                            <SelectTrigger class="w-full">
+                                <SelectValue placeholder="Free Basic (included)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="tier in hotspotTiers" :key="tier.id" :value="String(tier.id)">
+                                    {{ tier.name }} — {{ tier.price_minor === 0 ? 'Free' : formatCurrency(tier.price_minor) }} · {{ tier.rate_down_kbps }}kbps · {{ tier.device_limit }} devices
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p class="text-xs text-muted-foreground">Free tier auto-provisions on check-in. Paid tiers post to the folio.</p>
                     </div>
                 </div>
 

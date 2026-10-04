@@ -37,6 +37,9 @@ This document lists features, modules, and scenarios that are **not covered** by
 | **Maintenance Mode** | Not Tested | Maintenance driver is configured. No tests verify maintenance mode responses. |
 | **Performance / Load Testing** | Partially Tested | Pest load group (`AvailabilityLoadTest` + race workers, nightly in CI) and a k6 staging probe (`tests/load/availability.js`, nightly + manual) cover the booking engine; no full-traffic benchmarks. |
 | **WebSocket Channel Authorization** | Not Tested | `broadcasting/auth` endpoint exists. No tests verify private channel authorization logic. |
+| **Physical RouterOS Import** | Not Tested | `RouterOsConfigService` output is asserted as text in `HotspotTest.php`. No tests import the `.rsc` on real RouterOS or verify firewall behavior on hardware. |
+| **Live RADIUS / CoA** | Not Tested | `RadiusService`/`MikrotikService` run fake (log-only) in all environments. No tests against a live FreeRADIUS DB (`radcheck`/`radreply`/`radacct`) or real CoA-disconnect. |
+| **RADIUS Accounting Ingestion** | Deferred | `bytes_used`/`last_acct_at` columns exist; the NAS→app accounting feed is not implemented. |
 
 ---
 
