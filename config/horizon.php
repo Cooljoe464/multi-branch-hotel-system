@@ -102,6 +102,10 @@ return [
 
     'waits' => [
         'redis:default' => 60,
+        'redis:night-audit' => 300,
+        'redis:payments' => 120,
+        'redis:ml' => 300,
+        'redis:fiscal' => 300,
     ],
 
     /*
@@ -253,7 +257,7 @@ return [
         ],
         'supervisor-imports' => [
             'connection' => 'redis',
-            'queue' => ['imports', 'accounting', 'crm'],
+            'queue' => ['imports', 'accounting', 'crm', 'fiscal'],
             'balance' => 'simple',
             'maxProcesses' => 2,
             'maxTime' => 0,

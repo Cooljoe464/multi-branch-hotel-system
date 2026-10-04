@@ -21,39 +21,40 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // ── Existing ──────────────────────────────────
-Schedule::command('night-audit')->dailyAt('02:00');
+Schedule::command('night-audit')->dailyAt('02:00')->onOneServer()->withoutOverlapping(120);
 
 // ── Observability ─────────────────────────────
-Schedule::job(new MonitorStuckQueuesJob)->everyFiveMinutes();
+Schedule::command('horizon:snapshot')->everyFiveMinutes()->onOneServer();
+Schedule::job(new MonitorStuckQueuesJob)->everyFiveMinutes()->onOneServer()->withoutOverlapping(10);
 
 // ── Guarantees ──────────────────────────────────
-Schedule::job(new ReleaseHoldsJob)->everyTenMinutes();
+Schedule::job(new ReleaseHoldsJob)->everyTenMinutes()->onOneServer()->withoutOverlapping(15);
 
 // ── Groups ──────────────────────────────────────
-Schedule::job(new CutoffJob)->dailyAt('01:30');
+Schedule::job(new CutoffJob)->dailyAt('01:30')->onOneServer()->withoutOverlapping(120);
 
 // ── Channels ────────────────────────────────────
-Schedule::job(new NightlyReconciliationJob)->dailyAt('02:30');
+Schedule::job(new NightlyReconciliationJob)->dailyAt('02:30')->onOneServer()->withoutOverlapping(120);
 
 // ── Revenue ─────────────────────────────────────
-Schedule::job(new SnapshotRevenueJob)->dailyAt('02:45');
+Schedule::job(new SnapshotRevenueJob)->dailyAt('02:45')->onOneServer()->withoutOverlapping(120);
 
 // ── Maintenance ─────────────────────────────────
-Schedule::job(new PmSchedulerJob)->dailyAt('05:00');
+Schedule::job(new PmSchedulerJob)->dailyAt('05:00')->onOneServer()->withoutOverlapping(120);
 
 // ── Privacy ─────────────────────────────────────
-Schedule::job(new RetentionRunJob)->dailyAt('03:15');
+Schedule::job(new RetentionRunJob)->dailyAt('03:15')->onOneServer()->withoutOverlapping(180);
 
 // ── Backups ───────────────────────────────────
-Schedule::command('backup:clean')->daily()->at('03:00');
-Schedule::command('backup:run --only-db')->daily()->at('03:30');
-Schedule::command('backup:run')->weekly()->sundays()->at('04:00');
+Schedule::command('backup:clean')->daily()->at('03:00')->onOneServer()->withoutOverlapping(120);
+Schedule::command('backup:run --only-db')->daily()->at('03:30')->onOneServer()->withoutOverlapping(180);
+Schedule::command('backup:run')->weekly()->sundays()->at('04:00')->onOneServer()->withoutOverlapping(300);
 
 // ── Platform ──────────────────────────────────
-Schedule::job(new PartitionManagerJob)->monthly();
+Schedule::job(new PartitionManagerJob)->monthly()->onOneServer()->withoutOverlapping(120);
 
 // ── Intelligence ──────────────────────────────
-Schedule::job(new AnomalyScanJob)->hourly();
-Schedule::job(new ForecastGenerateJob)->dailyAt('01:00');
-Schedule::job(new PredictiveMaintenanceJob)->dailyAt('01:30');
-Schedule::job(new HkScheduleJob)->dailyAt('04:00');
+Schedule::job(new AnomalyScanJob)->hourly()->onOneServer()->withoutOverlapping(50);
+Schedule::job(new ForecastGenerateJob)->dailyAt('01:00')->onOneServer()->withoutOverlapping(180);
+Schedule::job(new PredictiveMaintenanceJob)->dailyAt('01:30')->onOneServer()->withoutOverlapping(180);
+Schedule::job(new HkScheduleJob)->dailyAt('04:00')->onOneServer()->withoutOverlapping(180);

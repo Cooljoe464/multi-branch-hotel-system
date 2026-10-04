@@ -103,6 +103,30 @@ services:
     restart: unless-stopped
 
   # ──────────────────────────────────────────────
+  # Scheduler — Laravel cron runner (single instance;
+  # jobs themselves guard with onOneServer)
+  # ──────────────────────────────────────────────
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: php
+    command: >
+      sh -c "while true; do php artisan schedule:run --verbose --no-interaction >> /proc/1/fd/1 2>&1; sleep 60; done"
+    volumes:
+      - storage_data:/app/storage
+    depends_on:
+      - php
+      - redis
+      - postgres
+    env_file: .env
+    networks:
+      - hms-network
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+
+  # ──────────────────────────────────────────────
   # Reverb — WebSocket server
   # ──────────────────────────────────────────────
   reverb:
