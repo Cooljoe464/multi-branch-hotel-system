@@ -11,7 +11,7 @@ Pre-deployment checklist and instructions for the Multi-Branch Hotel Management 
 - **OS:** Ubuntu 22.04 LTS or newer
 - **RAM:** Minimum 2 GB (4 GB recommended for Reverb + Queue workers)
 - **Storage:** Minimum 20 GB SSD
-- **Docker:** `docker` and `docker-compose` must be installed
+- **Docker:** `docker` and `docker compose` must be installed
 - **Domain:** DNS A record pointing to the Droplet IP
 
 ### Install Docker on Droplet
@@ -20,20 +20,17 @@ Pre-deployment checklist and instructions for the Multi-Branch Hotel Management 
 # Update system
 sudo apt update && sudo apt upgrade -y
 
-# Install Docker
+# Install Docker (includes the Compose v2 plugin — do NOT install the
+# legacy standalone docker-compose binary)
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
-
-# Install Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
 
 # Add deploy user to docker group
 sudo usermod -aG docker deploy
 
 # Verify
 docker --version
-docker-compose --version
+docker compose version
 ```
 
 ### Install Certbot (SSL)
@@ -94,13 +91,18 @@ REVERB_PORT=443
 REVERB_SCHEME=https
 ```
 
-### 3. Update Nginx Domain
+### 3. Set the Domain
 
-Edit `docker/nginx/default.conf` and replace all instances of `your-domain.com` with your actual domain:
+The Nginx config is rendered from a template at boot — set the domain once:
 
 ```bash
-sed -i 's/your-domain.com/your-actual-domain.com/g' docker/nginx/default.conf
+# in .env (compose reads it for the nginx service)
+SSL_DOMAIN=your-actual-domain.com
 ```
+
+On first boot there is no Let's Encrypt cert yet, so the entrypoint
+mints a short-lived self-signed cert and nginx starts anyway. Issue
+the real cert afterwards (port 80 serves the ACME challenge):
 
 ---
 
@@ -109,14 +111,14 @@ sed -i 's/your-domain.com/your-actual-domain.com/g' docker/nginx/default.conf
 ### 1. Build and Start Services
 
 ```bash
-docker-compose build --no-cache
-docker-compose up -d
+docker compose build --no-cache
+docker compose up -d
 ```
 
 Verify all 6 containers are running:
 
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 Expected output:
@@ -134,16 +136,16 @@ hms-reverb-1        running
 ### 2. Run Initial Migration
 
 ```bash
-docker-compose exec php php artisan migrate --force
+docker compose exec php php artisan migrate --force
 ```
 
 ### 3. Cache Configuration
 
 ```bash
-docker-compose exec php php artisan config:cache
-docker-compose exec php php artisan route:cache
-docker-compose exec php php artisan event:cache
-docker-compose exec php php artisan icons:cache
+docker compose exec php php artisan config:cache
+docker compose exec php php artisan route:cache
+docker compose exec php php artisan event:cache
+docker compose exec php php artisan icons:cache
 ```
 
 ### 4. Set Up SSL (Let's Encrypt)
@@ -152,7 +154,7 @@ First, ensure your domain's DNS A record points to this Droplet.
 
 ```bash
 # Stop nginx temporarily to free port 80
-docker-compose stop nginx
+docker compose stop nginx
 
 # Generate certificate
 sudo certbot certonly --standalone \
@@ -169,7 +171,7 @@ sudo cp -r /etc/letsencrypt /opt/hms/letsencrypt
 # (The default config already points to /etc/letsencrypt/live/your-domain.com)
 
 # Restart nginx with SSL
-docker-compose up -d nginx
+docker compose up -d nginx
 ```
 
 ### 5. Set Up Certbot Auto-Renewal
@@ -182,7 +184,7 @@ sudo crontab -e
 Add:
 
 ```
-0 3 * * * cd /opt/hms && docker-compose exec -T nginx certbot renew --webroot -w /var/www/certbot && docker-compose exec -T nginx nginx -s reload >> /var/log/certbot-renewal.log 2>&1
+0 3 * * * cd /opt/hms && docker compose exec -T nginx certbot renew --webroot -w /var/www/certbot && docker compose exec -T nginx nginx -s reload >> /var/log/certbot-renewal.log 2>&1
 ```
 
 ### 6. Verify SSL
@@ -240,10 +242,27 @@ chmod 600 ~/.ssh/authorized_keys
 3. If tests pass, `deploy.yml` triggers:
    - SSH into Droplet
    - `git pull` latest code
-   - `docker-compose build --no-cache` — rebuilds PHP image with new deps
-   - `docker-compose up -d --force-recreate` — zero-downtime restart
-   - `php artisan migrate --force` — runs pending migrations
-   - Caches config, routes, events
+   - Pre-migrate database backup (`backup:run --only-db`)
+   - Maintenance mode on
+   - `docker compose build` — rebuilds PHP image with new deps
+   - `docker compose up -d --force-recreate`
+   - Wait for Postgres, then `php artisan migrate --force`
+   - `php artisan optimize` + `view:cache`, restart Horizon workers
+   - Maintenance mode off, readiness gate on `/readyz`
+
+## Rollback
+
+Every deploy takes a pre-migrate backup first. To roll back:
+
+```bash
+cd /opt/hms
+git reset --hard <previous-sha>   # or: git revert, then push
+# restore the pre-migrate backup listed by:
+docker compose exec -T php php artisan backup:list
+# then download + pg_restore per docs/DR-RUNBOOK.md, and redeploy
+```
+
+`migrate:rollback` is a last resort (never for partition/data migrations).
 
 ---
 
@@ -253,76 +272,76 @@ chmod 600 ~/.ssh/authorized_keys
 
 ```bash
 # View running containers
-docker-compose ps
+docker compose ps
 
 # View logs (all services)
-docker-compose logs -f
+docker compose logs -f
 
 # View logs (specific service)
-docker-compose logs -f php
-docker-compose logs -f reverb
-docker-compose logs -f queue
+docker compose logs -f php
+docker compose logs -f reverb
+docker compose logs -f queue
 
 # Restart a service
-docker-compose restart php
+docker compose restart php
 
 # Stop all services
-docker-compose down
+docker compose down
 
 # Stop and remove volumes (DELETES DATA)
-docker-compose down -v
+docker compose down -v
 ```
 
 ### Artisan Commands
 
 ```bash
 # Run artisan commands inside the PHP container
-docker-compose exec php php artisan <command>
+docker compose exec php php artisan <command>
 
 # Examples:
-docker-compose exec php php artisan migrate:status
-docker-compose exec php php artisan cache:clear
-docker-compose exec php php artisan queue:restart
-docker-compose exec php php artisan about
+docker compose exec php php artisan migrate:status
+docker compose exec php php artisan cache:clear
+docker compose exec php php artisan queue:restart
+docker compose exec php php artisan about
 ```
 
 ### Database Access
 
 ```bash
 # Connect to PostgreSQL
-docker-compose exec postgres psql -U postgres -d hotel_system
+docker compose exec postgres psql -U postgres -d hotel_system
 
 # Create a backup
-docker-compose exec postgres pg_dump -U postgres hotel_system > backup_$(date +%Y%m%d).sql
+docker compose exec postgres pg_dump -U postgres hotel_system > backup_$(date +%Y%m%d).sql
 
 # Restore from backup
-cat backup.sql | docker-compose exec -T postgres psql -U postgres -d hotel_system
+cat backup.sql | docker compose exec -T postgres psql -U postgres -d hotel_system
 ```
 
 ### Reverb (WebSockets)
 
 ```bash
 # Check Reverb status
-docker-compose exec php php artisan reverb:status
+docker compose exec php php artisan reverb:status
 
 # Restart Reverb
-docker-compose restart reverb
+docker compose restart reverb
 ```
 
 ### Queue Workers
 
 ```bash
 # View failed jobs
-docker-compose exec php php artisan queue:failed
+docker compose exec php php artisan queue:failed
 
 # Retry a failed job
-docker-compose exec php php artisan queue:retry <id>
+docker compose exec php php artisan queue:retry <id>
 
 # Flush all failed jobs
-docker-compose exec php php artisan queue:flush
+docker compose exec php php artisan queue:flush
 
 # Restart queue workers (zero-downtime)
-docker-compose exec php php artisan queue:restart
+docker compose exec php php artisan queue:restart
 ```
 
 ---
@@ -333,7 +352,7 @@ docker-compose exec php php artisan queue:restart
 
 ```bash
 # Check container logs
-docker-compose logs php
+docker compose logs php
 
 # Common issues:
 # - Missing .env file → copy .env.example .env and configure
@@ -345,10 +364,10 @@ docker-compose logs php
 
 ```bash
 # Verify postgres is healthy
-docker-compose ps postgres
+docker compose ps postgres
 
 # Check postgres logs
-docker-compose logs postgres
+docker compose logs postgres
 
 # Ensure DB_HOST=postgres (not 127.0.0.1) in .env
 ```
@@ -357,10 +376,10 @@ docker-compose logs postgres
 
 ```bash
 # Check Reverb is running
-docker-compose ps reverb
+docker compose ps reverb
 
 # Check Reverb logs
-docker-compose logs reverb
+docker compose logs reverb
 
 # Test WebSocket endpoint
 curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" \
@@ -378,7 +397,7 @@ echo | openssl s_client -connect your-domain.com:443 2>/dev/null | openssl x509 
 sudo certbot renew --force-renewal
 
 # Restart nginx
-docker-compose restart nginx
+docker compose restart nginx
 ```
 
 ### High memory usage
@@ -396,7 +415,12 @@ docker stats
 
 ## Backup Strategy
 
-### Automated Database Backup (Daily)
+Canonical system: **Spatie backups to R2** (nightly `--only-db` 03:30,
+weekly full Sunday 04:00, wired in `routes/console.php` and monitored
+for max age 1 day). The host-level `pg_dump` cron below is a fallback
+only — keep one source of truth to avoid restore ambiguity.
+
+### Automated Database Backup (Daily, fallback)
 
 ```bash
 # Add to crontab on Droplet
@@ -404,7 +428,7 @@ sudo crontab -e
 ```
 
 ```
-0 2 * * * cd /opt/hms && docker-compose exec -T postgres pg_dump -U postgres hotel_system | gzip > /opt/hms/backups/hotel_system_$(date +\%Y\%m\%d).sql.gz
+0 2 * * * cd /opt/hms && docker compose exec -T postgres pg_dump -U postgres hotel_system | gzip > /opt/hms/backups/hotel_system_$(date +\%Y\%m\%d).sql.gz
 ```
 
 ### Backup Storage/Uploads
@@ -419,7 +443,7 @@ docker run --rm -v hms-storage_data:/data -v /opt/hms/backups:/backup alpine \
 
 ```bash
 # Restore database
-gunzip -c backups/hotel_system_20260911.sql.gz | docker-compose exec -T postgres psql -U postgres -d hotel_system
+gunzip -c backups/hotel_system_20260911.sql.gz | docker compose exec -T postgres psql -U postgres -d hotel_system
 
 # Restore storage
 docker run --rm -v hms-storage_data:/data -v /opt/hms/backups:/backup alpine \

@@ -9,10 +9,14 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./docker/nginx/entrypoint.sh:/usr/local/bin/render-nginx.sh:ro
       - ./public:/app/public:ro
-      - certbot_certs:/etc/letsencrypt:ro
+      - certbot_certs:/etc/letsencrypt
       - certbot_www:/var/www/certbot:ro
+    environment:
+      SSL_DOMAIN: ${SSL_DOMAIN:?Set SSL_DOMAIN to the bare domain (e.g. example.com)}
+    entrypoint: ["sh", "/usr/local/bin/render-nginx.sh"]
     depends_on:
       - php
       - reverb

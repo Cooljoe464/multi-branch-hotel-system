@@ -96,29 +96,44 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            echo "── Pre-migrate database backup ──"
+            docker compose exec -T php php artisan backup:run --only-db --disable-notifications || echo "! Pre-migrate backup failed, continuing"
+
+            echo "── Maintenance mode on ──"
+            docker compose exec -T php php artisan down --render="errors.503" || true
+
             echo "── Building Docker images ──"
-            docker-compose build --no-cache
+            docker compose build
 
             echo "── Starting services ──"
-            docker-compose up -d --force-recreate --remove-orphans
+            docker compose up -d --force-recreate --remove-orphans
 
             echo "── Waiting for database to be ready ──"
-            sleep 10
+            for i in $(seq 1 30); do
+              docker compose exec -T postgres pg_isready -U "${DB_USERNAME:-postgres}" && break
+              sleep 5
+            done
 
             echo "── Running migrations ──"
-            docker-compose exec -T php php artisan migrate --force
+            docker compose exec -T php php artisan migrate --force
 
             echo "── Caching configuration ──"
-            docker-compose exec -T php php artisan config:cache
-            docker-compose exec -T php php artisan route:cache
-            docker-compose exec -T php php artisan event:cache
-            docker-compose exec -T php php artisan icons:cache 2>/dev/null || true
+            docker compose exec -T php php artisan optimize
+            docker compose exec -T php php artisan view:cache
+            docker compose exec -T php php artisan icons:cache 2>/dev/null || true
+
+            echo "── Restarting workers ──"
+            docker compose exec -T php php artisan horizon:terminate || true
+            docker compose exec -T php php artisan queue:restart
 
             echo "── Clearing old caches ──"
-            docker-compose exec -T php php artisan cache:prune-stale-tags 2>/dev/null || true
+            docker compose exec -T php php artisan cache:prune-stale-tags 2>/dev/null || true
+
+            echo "── Maintenance mode off ──"
+            docker compose exec -T php php artisan up
 
             echo "── Deployment complete ──"
-            docker-compose ps
+            docker compose ps
 
       - name: Verify deployment
         uses: appleboy/ssh-action@ca9a8e790a8f985b37c1531c506c9d3e165e5e34 # v1.1.1
@@ -128,4 +143,13 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             cd /opt/hms
-            docker-compose exec -T php php artisan about --only=Environment 2>/dev/null && echo "✓ Application healthy" || echo "✗ Application check failed"
+            for i in $(seq 1 12); do
+              if curl -fsS http://localhost/readyz | grep -q '"status":"ready"'; then
+                echo "✓ Application ready"
+                exit 0
+              fi
+              sleep 10
+            done
+            echo "✗ Readiness gate failed"
+            docker compose ps
+            exit 1
