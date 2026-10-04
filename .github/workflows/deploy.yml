@@ -31,6 +31,8 @@ jobs:
           --health-retries 5
 
     env:
+      # Test-only key: this job has no .env/key:generate step.
+      APP_KEY: base64:cqveUR/XigoAayIBpLnKWHXFpIvCwwRJ/HmaYXgUzis=
       DB_CONNECTION: pgsql
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
@@ -38,6 +40,7 @@ jobs:
       DB_USERNAME: root
       DB_PASSWORD: password
       CACHE_DRIVER: array
+      CACHE_STORE: array
       QUEUE_CONNECTION: sync
       SESSION_DRIVER: array
       BROADCAST_CONNECTION: null

@@ -47,9 +47,10 @@ jobs:
       DB_PORT: 5432
       DB_DATABASE: hotel_system_test
       DB_USERNAME: root
-      DB_PASSWORD: password
+      DB_PASSWORD: 'password'
       APP_URL: http://127.0.0.1:8000
       CACHE_DRIVER: array
+      CACHE_STORE: array
       QUEUE_CONNECTION: sync
       SESSION_DRIVER: array
       BROADCAST_CONNECTION: null
@@ -79,7 +80,7 @@ jobs:
           node-version: '22'
 
       - name: Setup Chrome
-        uses: browser-actions/setup-chrome@v1
+        uses: browser-actions/setup-chrome@v2
         with:
           install-chromedriver: false
 
@@ -126,6 +127,7 @@ jobs:
       DB_USERNAME: root
       DB_PASSWORD: 'password'
       CACHE_DRIVER: array
+      CACHE_STORE: array
       QUEUE_CONNECTION: sync
       SESSION_DRIVER: array
       BROADCAST_CONNECTION: null
