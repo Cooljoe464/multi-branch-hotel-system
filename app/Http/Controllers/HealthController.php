@@ -77,7 +77,8 @@ class HealthController extends Controller
     private function checkQueue(): array
     {
         $failed = $this->failedJobCount();
-        $threshold = (int) config('health.failed_jobs_threshold', 100);
+        $configured = config('health.failed_jobs_threshold');
+        $threshold = is_int($configured) ? $configured : 100;
 
         return ['ok' => $failed < $threshold, 'failed_jobs' => $failed];
     }
@@ -91,7 +92,9 @@ class HealthController extends Controller
      */
     private function checkReplica(): array
     {
-        $primary = config('database.connections.'.config('database.default', 'pgsql'));
+        $default = config('database.default');
+        $connection = is_string($default) && $default !== '' ? $default : 'pgsql';
+        $primary = config("database.connections.{$connection}");
         $replica = config('database.connections.replica');
 
         if (is_array($primary) && is_array($replica)
@@ -128,10 +131,13 @@ class HealthController extends Controller
     private function checkBackups(): array
     {
         try {
-            $files = array_values(array_filter(
-                Storage::disk('r2')->allFiles('/'),
-                fn ($file) => is_string($file) && str_ends_with($file, '.zip')
-            ));
+            $files = [];
+
+            foreach (Storage::disk('r2')->allFiles('/') as $file) {
+                if (str_ends_with($file, '.zip')) {
+                    $files[] = $file;
+                }
+            }
 
             if ($files === []) {
                 return ['ok' => false, 'newest_backup' => null];
@@ -140,11 +146,7 @@ class HealthController extends Controller
             sort($files);
             $newest = end($files);
 
-            if (! is_string($newest)) {
-                return ['ok' => false, 'newest_backup' => null];
-            }
-
-            $age = time() - (int) Storage::disk('r2')->lastModified($newest);
+            $age = time() - Storage::disk('r2')->lastModified($newest);
 
             return ['ok' => $age < 26 * 3600, 'newest_backup' => $newest];
         } catch (\Throwable) {
