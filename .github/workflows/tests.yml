@@ -7,6 +7,7 @@ on:
   pull_request:
   schedule:
     - cron: '0 2 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -47,6 +48,7 @@ jobs:
       DB_DATABASE: hotel_system_test
       DB_USERNAME: root
       DB_PASSWORD: ''
+      APP_URL: http://127.0.0.1:8000
       CACHE_DRIVER: array
       QUEUE_CONNECTION: sync
       SESSION_DRIVER: array
@@ -73,6 +75,11 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          install-chromedriver: false
 
       - name: Setup Application
         run: composer setup
@@ -144,3 +151,19 @@ jobs:
 
       - name: Run availability load test
         run: php artisan test --compact --group=load
+
+  k6:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Probe staging booking engine
+        run: k6 run --env BASE_URL=${{ secrets.STAGING_URL }} tests/load/availability.js

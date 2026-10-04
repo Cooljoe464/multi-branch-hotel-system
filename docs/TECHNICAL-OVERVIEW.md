@@ -150,7 +150,7 @@ routes/
 tests/
 ├── Feature/                   # Feature tests (Pest)
 ├── Unit/                      # Unit tests (models)
-└── Browser/                   # Playwright browser journey tests
+└── Feature/Browser/           # Playwright browser journey tests (Pest browser plugin)
 
 duowin-bridge/                 # Node.js serial port bridge
 ├── server.js

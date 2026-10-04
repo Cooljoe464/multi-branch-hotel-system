@@ -35,7 +35,7 @@ This document lists features, modules, and scenarios that are **not covered** by
 | **Rate Limiting** | Not Tested | Throttle middleware is used on routes. No tests verify rate limiting behavior. |
 | **CORS Configuration** | Not Tested | CORS middleware exists. No tests verify cross-origin requests. |
 | **Maintenance Mode** | Not Tested | Maintenance driver is configured. No tests verify maintenance mode responses. |
-| **Performance / Load Testing** | Not Tested | No performance benchmarks or load tests exist. |
+| **Performance / Load Testing** | Partially Tested | Pest load group (`AvailabilityLoadTest` + race workers, nightly in CI) and a k6 staging probe (`tests/load/availability.js`, nightly + manual) cover the booking engine; no full-traffic benchmarks. |
 | **WebSocket Channel Authorization** | Not Tested | `broadcasting/auth` endpoint exists. No tests verify private channel authorization logic. |
 
 ---

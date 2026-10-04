@@ -82,6 +82,6 @@ This document provides a comprehensive overview of all features, modules, and in
 
 ## 13. Testing & Quality Assurance
 - **Unit & Feature Tests:** Comprehensive Pest test suite covering all business logic, models, controllers, and services (59+ tests).
-- **Browser Automation (Playwright):** 61 end-to-end CRUD form and journey tests covering all pages, modals, workflows, and role permissions.
+- **Browser Automation (Playwright):** 37 end-to-end CRUD form and journey files covering all pages, modals, workflows, and role permissions (Chrome installed in CI; `APP_URL` pinned to the local server).
 - **Static Analysis:** PHPStan configured at **Level 10** with zero errors across the entire codebase.
 - **Code Style:** Laravel Pint formatting enforced across all PHP source files.
