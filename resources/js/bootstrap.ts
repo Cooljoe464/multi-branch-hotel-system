@@ -4,6 +4,7 @@ import Pusher from 'pusher-js';
 declare global {
     interface Window {
         Pusher: typeof Pusher;
+        initEcho: () => Echo<any>;
     }
 }
 
@@ -11,7 +12,7 @@ if (typeof window !== 'undefined') {
     window.Pusher = Pusher;
 }
 
-export function initEcho(): Echo {
+export function initEcho(): Echo<any> {
     const broadcaster = import.meta.env.VITE_BROADCAST_DRIVER || 'pusher';
 
     if (broadcaster === 'reverb') {

@@ -43,7 +43,7 @@ const props = defineProps<{
         id: number;
         number: string;
         floor: string;
-        room_type: { name: string };
+        room_type: { id: number; name: string };
     }>;
     prefilledDate: string | null;
     hotspotTiers?: Array<{

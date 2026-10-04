@@ -186,7 +186,11 @@ function goToPage(page: number) {
                     <Label for="rate_override">Rate Override (cents)</Label>
                     <Input
                         id="rate_override"
-                        v-model.number="form.rate_override"
+                        :model-value="form.rate_override ?? undefined"
+                        @update:model-value="
+                            form.rate_override =
+                                $event === '' ? null : Number($event)
+                        "
                         type="number"
                         min="0"
                         placeholder="Use base rate"
@@ -207,7 +211,10 @@ function goToPage(page: number) {
                     <Label for="mlos">MLOS (nights)</Label>
                     <Input
                         id="mlos"
-                        v-model.number="form.mlos"
+                        :model-value="form.mlos ?? undefined"
+                        @update:model-value="
+                            form.mlos = $event === '' ? null : Number($event)
+                        "
                         type="number"
                         min="1"
                         max="30"

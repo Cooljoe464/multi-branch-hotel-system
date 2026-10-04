@@ -42,6 +42,7 @@ interface ReservationData {
 
 interface Cell {
     date: string;
+    status: string;
     is_check_in: boolean;
     is_check_out: boolean;
     reservation: ReservationData | null;

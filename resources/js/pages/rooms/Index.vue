@@ -129,7 +129,7 @@ const submitCreate = () => {
 const openEdit = (room: Room) => {
     selectedRoom.value = room;
     editForm.value = {
-        room_type_id: room.room_type.id,
+        room_type_id: String(room.room_type.id),
         floor: room.floor,
         wing: room.wing,
         is_accessible: room.is_accessible,
@@ -416,7 +416,7 @@ const goToPage = (page: number) => {
                             <Select
                                 :model-value="String(editForm.room_type_id)"
                                 @update:model-value="
-                                    editForm.room_type_id = $event
+                                    editForm.room_type_id = String($event ?? '')
                                 "
                                 aria-label="Room Type"
                             >

@@ -56,6 +56,11 @@ export type DoorLockAuditLog = {
     updated_at: string;
 };
 
+export interface RoomType {
+    id: number;
+    name: string;
+}
+
 export type RateOverride = {
     id: number;
     branch_id: number;

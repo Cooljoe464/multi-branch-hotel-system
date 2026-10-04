@@ -64,7 +64,7 @@ const chartOptions = computed(() => {
             },
         },
         tooltip: {
-            theme: isDark ? 'dark' : 'light',
+            theme: (isDark ? 'dark' : 'light') as 'dark' | 'light',
             y: {
                 formatter: (val: number) => `${val}%`,
             },

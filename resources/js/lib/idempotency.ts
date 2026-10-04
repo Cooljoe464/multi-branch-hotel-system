@@ -45,11 +45,9 @@ export function initIdempotencyHeader(): void {
  * Inertia form with a stable idempotency key for its lifetime: retries and
  * double-clicks replay under the same key instead of posting twice.
  */
-export function useIdempotentForm<TForm extends Record<string, unknown>>(
-    initial: TForm,
-) {
+export function useIdempotentForm(initial: object) {
     const key = newKey();
-    const form = useForm<TForm>(initial);
+    const form = useForm(initial);
 
     const withKey = { headers: { [HEADER]: key } };
 

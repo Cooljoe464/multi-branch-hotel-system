@@ -20,6 +20,7 @@ interface CityLedgerAccount {
     email: string;
     credit_limit: number;
     balance_owing: number;
+    payment_terms_days: number;
     is_active: boolean;
     transactions: any[];
 }

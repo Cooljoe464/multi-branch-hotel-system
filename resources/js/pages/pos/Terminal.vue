@@ -79,9 +79,7 @@ const selectedItem = computed(() => {
 const subtotal = computed(() =>
     orderItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0),
 );
-const taxRate = computed(
-    () => ((props.outlet as Record<string, unknown>).tax_rate as number) ?? 0,
-);
+const taxRate = computed(() => props.outlet.tax_rate ?? 0);
 const tax = computed(() => Math.round(subtotal.value * (taxRate.value / 100)));
 const total = computed(() => subtotal.value + tax.value);
 
@@ -99,6 +97,7 @@ const page = usePage();
 const branchSymbol = computed(
     () => (page.props.branch?.current as any)?.currency_symbol || '$',
 );
+const currencySymbol = computed(() => branchSymbol.value);
 const resolveSymbol = (code?: string) =>
     getCurrencySymbol(code || 'NGN') || branchSymbol.value;
 const formatPrice = (cents: number, currencyCode?: string) =>
@@ -141,7 +140,18 @@ const canSubmit = computed(() => {
 
 const submit = () => {
     if (!canSubmit.value) return;
-    const payload: Record<string, unknown> = {
+    const payload: {
+        mode: string;
+        items: Array<{
+            menu_item_id: number | null;
+            name: string;
+            quantity: number;
+            price: number;
+        }>;
+        reservation_id?: number;
+        guest_title?: string;
+        guest_name?: string;
+    } = {
         mode: guestMode.value,
         items: orderItems.value.map((i) => ({
             menu_item_id: i.menu_item_id,

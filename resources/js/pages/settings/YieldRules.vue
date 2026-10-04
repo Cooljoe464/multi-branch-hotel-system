@@ -154,7 +154,11 @@ function goToPage(page: number) {
                 <div class="grid gap-2">
                     <Label>MLOS Override</Label>
                     <Input
-                        v-model.number="form.mlos_override"
+                        :model-value="form.mlos_override ?? undefined"
+                        @update:model-value="
+                            form.mlos_override =
+                                $event === '' ? null : Number($event)
+                        "
                         type="number"
                         min="1"
                         max="30"

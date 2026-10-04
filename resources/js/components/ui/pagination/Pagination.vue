@@ -7,7 +7,7 @@ type PaginatedData = {
     data: unknown[];
     current_page: number;
     last_page: number;
-    per_page: number;
+    per_page?: number;
     total: number;
 };
 
@@ -25,8 +25,13 @@ const emit = defineEmits<{
     (e: 'page-change', page: number): void;
 }>();
 
-const showingFrom = computed(() => (props.data.current_page - 1) * props.data.per_page + 1);
-const showingTo = computed(() => Math.min(props.data.current_page * props.data.per_page, props.data.total));
+const perPage = computed(() => props.data.per_page ?? 25);
+const showingFrom = computed(
+    () => (props.data.current_page - 1) * perPage.value + 1,
+);
+const showingTo = computed(() =>
+    Math.min(props.data.current_page * perPage.value, props.data.total),
+);
 
 const visiblePages = computed(() => {
     const { current_page, last_page } = props.data;

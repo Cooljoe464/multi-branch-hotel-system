@@ -145,18 +145,36 @@ function reload() {
             </div>
             <div class="grid gap-2">
                 <Label>Min LOS</Label>
-                <Input v-model.number="form.min_los" type="number" min="1" />
+                <Input
+                    :model-value="form.min_los ?? undefined"
+                    type="number"
+                    min="1"
+                    @update:model-value="
+                        form.min_los = $event === '' ? null : Number($event)
+                    "
+                />
             </div>
             <div class="grid gap-2">
                 <Label>Max LOS</Label>
-                <Input v-model.number="form.max_los" type="number" min="1" />
+                <Input
+                    :model-value="form.max_los ?? undefined"
+                    type="number"
+                    min="1"
+                    @update:model-value="
+                        form.max_los = $event === '' ? null : Number($event)
+                    "
+                />
             </div>
             <div class="grid gap-2">
                 <Label>Min advance (hours)</Label>
                 <Input
-                    v-model.number="form.min_advance_hours"
+                    :model-value="form.min_advance_hours ?? undefined"
                     type="number"
                     min="0"
+                    @update:model-value="
+                        form.min_advance_hours =
+                            $event === '' ? null : Number($event)
+                    "
                 />
             </div>
             <div class="flex items-end gap-4">

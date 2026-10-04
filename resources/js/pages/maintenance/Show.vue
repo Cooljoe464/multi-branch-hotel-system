@@ -4,7 +4,10 @@ import { computed } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/lib/dates';
-import { formatCurrency as formatCurrencyRaw } from '@/lib/format';
+import {
+    formatCurrency as formatCurrencyRaw,
+    getCurrencySymbol,
+} from '@/lib/format';
 
 defineOptions({
     layout: {
@@ -195,11 +198,11 @@ const getPriorityBadgeClass = (priority: string) => {
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-muted-foreground">Started:</dt>
-                        <dd>{{ formatDateTime(ticket.started_at) }}</dd>
+                        <dd>{{ formatDateTime(ticket.started_at ?? '') }}</dd>
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-muted-foreground">Completed:</dt>
-                        <dd>{{ formatDateTime(ticket.completed_at) }}</dd>
+                        <dd>{{ formatDateTime(ticket.completed_at ?? '') }}</dd>
                     </div>
                 </dl>
             </div>

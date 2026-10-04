@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, reactive, watch } from 'vue';
+import type { AcceptableValue } from 'reka-ui';
 import { Loader2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,14 +99,16 @@ const rateForm = reactive({
     source: 'manual',
 });
 
-function onGlobalCurrencyChange(value: string) {
-    form.currency_code = value;
-    form.currency_symbol = CURRENCY_MAP[value] ?? '$';
+function onGlobalCurrencyChange(value: AcceptableValue) {
+    const code = String(value);
+    form.currency_code = code;
+    form.currency_symbol = CURRENCY_MAP[code] ?? '$';
 }
 
-function onBranchCurrencyChange(index: number, value: string) {
-    form.branch_currencies[index].currency_code = value;
-    form.branch_currencies[index].currency_symbol = CURRENCY_MAP[value] ?? '$';
+function onBranchCurrencyChange(index: number, value: AcceptableValue) {
+    const code = String(value);
+    form.branch_currencies[index].currency_code = code;
+    form.branch_currencies[index].currency_symbol = CURRENCY_MAP[code] ?? '$';
 }
 
 function submit() {

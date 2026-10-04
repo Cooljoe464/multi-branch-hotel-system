@@ -12,6 +12,7 @@ interface Guest {
     id: number;
     first_name: string;
     last_name: string;
+    full_name?: string | null;
     email: string;
     phone: string | null;
     vip_status: string;

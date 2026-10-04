@@ -80,6 +80,7 @@ interface Reservation {
     amount_paid: number;
     payment_status: string;
     special_requests: string[] | null;
+    created_at: string;
     branch: Branch;
     room: Room | null;
     room_type: RoomType;

@@ -56,6 +56,7 @@ interface Folio {
     notes: string | null;
     balance: number;
     is_settled: boolean;
+    currency_code?: string | null;
     created_at: string;
     closed_at: string | null;
     parent_folio_id: number | null;
@@ -134,6 +135,7 @@ const splitForm = ref({
 });
 
 import { formatCurrency as formatCurrencyRaw } from '@/lib/format';
+import { formatDate, formatDateTime } from '@/lib/dates';
 const page = usePage();
 const branchSymbol = computed(
     () => (page.props.branch?.current as any)?.currency_symbol || '$',
@@ -329,6 +331,10 @@ const checkout = () => {
 const goBack = () => {
     window.history.back();
 };
+
+const printBill = () => {
+    window.print();
+};
 </script>
 
 <template>
@@ -362,7 +368,7 @@ const goBack = () => {
                 </div>
             </div>
             <div class="flex flex-wrap gap-2">
-                <Button variant="outline" @click="() => window.print()"
+                <Button variant="outline" @click="() => printBill()"
                     >Print Bill</Button
                 >
                 <Button

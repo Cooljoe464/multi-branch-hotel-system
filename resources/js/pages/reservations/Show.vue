@@ -64,6 +64,7 @@ interface Reservation {
     room_rate: number;
     total_amount: number;
     amount_paid: number;
+    currency_code?: string | null;
     payment_status: string;
     special_requests: string[] | null;
     room: Room | null;
@@ -341,14 +342,20 @@ const showMove = ref(false);
                     <div class="flex justify-between">
                         <dt class="text-muted-foreground">Actual Check-in:</dt>
                         <dd class="text-foreground">
-                            {{ formatDateTime(reservation.actual_check_in_at) }}
+                            {{
+                                formatDateTime(
+                                    reservation.actual_check_in_at ?? '',
+                                )
+                            }}
                         </dd>
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-muted-foreground">Actual Check-out:</dt>
                         <dd class="text-foreground">
                             {{
-                                formatDateTime(reservation.actual_check_out_at)
+                                formatDateTime(
+                                    reservation.actual_check_out_at ?? '',
+                                )
                             }}
                         </dd>
                     </div>

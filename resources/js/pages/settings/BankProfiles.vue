@@ -18,6 +18,8 @@ interface BankProfile {
     bank_name: string;
     account_number: string;
     account_name: string;
+    swift_code?: string | null;
+    sort_code?: string | null;
     currency_code: string;
     is_default: boolean;
 }
@@ -76,7 +78,11 @@ const submit = () => {
 };
 const openEdit = (bp: BankProfile) => {
     editing.value = bp;
-    form.value = { ...bp };
+    form.value = {
+        ...bp,
+        swift_code: bp.swift_code ?? '',
+        sort_code: bp.sort_code ?? '',
+    };
     showModal.value = true;
 };
 const deleteItem = (bp: BankProfile) => {

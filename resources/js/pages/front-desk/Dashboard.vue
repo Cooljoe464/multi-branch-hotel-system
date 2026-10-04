@@ -35,6 +35,7 @@ interface Reservation {
     check_out_date: string;
     status: string;
     room_rate: number;
+    currency_code?: string | null;
     adults: number;
     children: number;
     room: Room | null;
@@ -250,7 +251,8 @@ function totalGuests(reservation: Reservation): number {
                                     {{
                                         formatPrice(
                                             reservation.room_rate,
-                                            reservation.currency_code,
+                                            reservation.currency_code ??
+                                                undefined,
                                         )
                                     }}
                                 </p>

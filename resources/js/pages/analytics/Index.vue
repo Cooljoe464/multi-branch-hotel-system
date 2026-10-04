@@ -9,7 +9,7 @@ import KpiCard from '@/components/analytics/KpiCard.vue';
 import RevenueChart from '@/components/analytics/RevenueChart.vue';
 import OccupancyChart from '@/components/analytics/OccupancyChart.vue';
 import RoomTypeBreakdown from '@/components/analytics/RoomTypeBreakdown.vue';
-import { analytics } from '@/routes';
+import analytics from '@/routes/analytics';
 
 const page = usePage();
 const currencySymbol = computed(
