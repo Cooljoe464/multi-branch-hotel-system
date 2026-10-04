@@ -238,16 +238,17 @@ chmod 600 ~/.ssh/authorized_keys
 ## How Deployment Works
 
 1. Push to `main` branch
-2. GitHub Actions runs `tests.yml` — tests against PostgreSQL
-3. If tests pass, `deploy.yml` triggers:
-   - SSH into Droplet
+2. GitHub Actions runs `tests.yml` — Pint, PHPStan (level 10), then tests against PostgreSQL + Redis (hotspot provisioning forced log-only via `RADIUS_FAKE=true`; browser journeys run on installed Chrome)
+3. If checks pass, `deploy.yml` triggers:
+   - Re-runs the Lint + Types + Tests gate, then SSH into Droplet
    - `git pull` latest code
    - Pre-migrate database backup (`backup:run --only-db`)
    - Maintenance mode on
    - `docker compose build` — rebuilds PHP image with new deps
    - `docker compose up -d --force-recreate`
    - Wait for Postgres, then `php artisan migrate --force`
-   - `php artisan optimize` + `view:cache`, restart Horizon workers
+   - `php artisan db:seed --class=HotspotTierSeeder --force` — idempotent Free + Premium Wi-Fi tiers per branch
+   - `php artisan optimize` + `view:cache`, restart Horizon workers (incl. the `network` queue supervisor)
    - Maintenance mode off, readiness gate on `/readyz`
 
 ## Rollback

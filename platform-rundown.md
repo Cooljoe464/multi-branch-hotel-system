@@ -19,7 +19,7 @@ A comprehensive, enterprise-grade Property Management System (PMS) built for mul
 | Services | 19 |
 | Events | 9 |
 | Jobs | 5 |
-| Database Migrations | 51 |
+| Database Migrations | 52 |
 | Database Seeders | 32 |
 
 ### Multi-Branch Support
@@ -313,6 +313,10 @@ All imports processed via queued jobs (`ProcessExcelImportJob`).
 - `CloseDailyLedgerJob` — daily ledger closing
 - `ProcessExcelImportJob` — async Excel import processing
 - `ProvisionWifiJob` / `DeprovisionWifiJob` — hotspot credential lifecycle (dedicated `network` queue)
+
+### CI/CD
+- `tests.yml` — Pint, PHPStan level 10, Pest (incl. browser journeys), load + k6 on schedule
+- `deploy.yml` — re-runs the Lint + Types + Tests gate, then SSH deploy with pre-migrate backup, `migrate --force`, idempotent `HotspotTierSeeder`, Horizon restart
 
 ### File Storage
 - Cloudflare R2 for logo/branding assets

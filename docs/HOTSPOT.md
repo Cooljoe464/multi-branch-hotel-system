@@ -65,6 +65,11 @@ Upgrades mid-stay: **Reservations → Show → Wi-Fi Tier** (permission `hotspot
 - Horizon supervisor `supervisor-network` serves queue `network` (tries 5, 120s timeout).
 - `hotspot:expire-sessions` runs every 15 minutes (`routes/console.php`).
 
+## CI & deploy
+
+- CI (`tests.yml`) sets `RADIUS_FAKE=true`, so provisioning jobs stay log-only in tests.
+- Deploy (`deploy.yml`) re-runs the Lint + Types + Tests gate, then seeds tiers idempotently after migrating: `php artisan db:seed --class=HotspotTierSeeder --force`. Existing branches get Free + Premium tiers automatically; per-branch secrets still live in `branches.settings`.
+
 ## Testing
 
 `tests/Feature/HotspotTest.php` covers: free default with no charge, paid folio posting + idempotent re-select, check-in provision → checkout deprovision jobs, `.rsc` isolation assertions (hotspot only on guest bridge, RFC1918/staff drops, RADIUS + WireGuard present), portal branch-scoping + revoked rejection. RADIUS/MikroTik run fake in tests (`RADIUS_FAKE=true` default).
