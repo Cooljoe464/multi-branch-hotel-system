@@ -47,7 +47,7 @@ jobs:
       DB_PORT: 5432
       DB_DATABASE: hotel_system_test
       DB_USERNAME: root
-      DB_PASSWORD: ''
+      DB_PASSWORD: password
       APP_URL: http://127.0.0.1:8000
       CACHE_DRIVER: array
       QUEUE_CONNECTION: sync
@@ -99,7 +99,7 @@ jobs:
         env:
           POSTGRES_DB: hotel_system_test
           POSTGRES_USER: root
-          POSTGRES_PASSWORD: ''
+          POSTGRES_PASSWORD: password
         ports:
           - 5432:5432
         options: >-
