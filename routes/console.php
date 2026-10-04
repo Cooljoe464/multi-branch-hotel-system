@@ -49,6 +49,7 @@ Schedule::job(new RetentionRunJob)->dailyAt('03:15')->onOneServer()->withoutOver
 Schedule::command('backup:clean')->daily()->at('03:00')->onOneServer()->withoutOverlapping(120);
 Schedule::command('backup:run --only-db')->daily()->at('03:30')->onOneServer()->withoutOverlapping(180);
 Schedule::command('backup:run')->weekly()->sundays()->at('04:00')->onOneServer()->withoutOverlapping(300);
+Schedule::command('dr:smoke --dry-run')->quarterly()->onOneServer()->withoutOverlapping(60);
 
 // ── Platform ──────────────────────────────────
 Schedule::job(new PartitionManagerJob)->monthly()->onOneServer()->withoutOverlapping(120);

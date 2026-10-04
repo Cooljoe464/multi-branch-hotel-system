@@ -55,6 +55,8 @@ class DrSmoke extends Command
 
         $minutes = (int) ceil((microtime(true) - $started) / 60);
 
+        // RPO 1440 = daily --only-db cadence. File uploads ride the
+        // weekly full backup (RPO 7d) — see docs/DR-RUNBOOK.md.
         DrDrill::create([
             'drill_date' => now()->toDateString(),
             'mode' => $this->option('dry-run') ? 'dry-run' : 'restore',
