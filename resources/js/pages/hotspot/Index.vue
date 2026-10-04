@@ -15,7 +15,7 @@ const props = defineProps<{
     nas_configured: boolean;
 }>();
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'Hotspot', href: `/branches/${props.branch.id}/hotspot` }] } });
+defineOptions({ layout: { breadcrumbs: [{ title: 'Hotspot', href: '/front-desk' }] } });
 
 const form = ref({ name: '', code: '', price_minor: 0, rate_up_kbps: 2048, rate_down_kbps: 4096, device_limit: 2 });
 
