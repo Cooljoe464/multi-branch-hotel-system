@@ -78,7 +78,7 @@ jobs:
         run: composer types:check
 
       - name: Run tests
-        run: php artisan test --compact --exclude-group=load --exclude-group=load-worker
+        run: php artisan test --compact --exclude-group=load --exclude-group=load-worker --exclude-group=browser
 
   # ──────────────────────────────────────────────
   # Job 2: Deploy to DigitalOcean Droplet

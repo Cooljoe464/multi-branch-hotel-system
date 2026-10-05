@@ -71,7 +71,7 @@ jobs:
         with:
           php-version: '8.4'
           tools: composer:v2
-          extensions: pdo_pgsql, pgsql, redis
+          extensions: pdo_pgsql, pgsql, redis, bcmath, intl, zip, gd
           coverage: none
 
       - name: Setup Node
@@ -120,6 +120,8 @@ jobs:
           --health-retries 5
 
     env:
+      # Test-only key: this job has no .env/key:generate step.
+      APP_KEY: base64:cqveUR/XigoAayIBpLnKWHXFpIvCwwRJ/HmaYXgUzis=
       DB_CONNECTION: pgsql
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
@@ -147,11 +149,14 @@ jobs:
         with:
           php-version: '8.4'
           tools: composer:v2
-          extensions: pdo_pgsql, pgsql, redis
+          extensions: pdo_pgsql, pgsql, redis, bcmath, intl, zip, gd
           coverage: none
 
       - name: Setup Application
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Migrate test database
+        run: php artisan migrate --force
 
       - name: Run availability load test
         run: php artisan test --compact --group=load

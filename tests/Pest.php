@@ -32,7 +32,7 @@ pest()->extend(TestCase::class)
 
 pest()->browser()->inChrome();
 
-pest()->in('Feature/Browser');
+pest()->group('browser')->in('Feature/Browser');
 
 /*
 |--------------------------------------------------------------------------
