@@ -42,6 +42,10 @@ return new class extends Migration
     public function down(): void
     {
         foreach (['pos_charges', 'folio_disputes', 'transaction_splits'] as $table) {
+            if (! Schema::hasColumn($table, 'business_date')) {
+                continue;
+            }
+
             Schema::table($table, function (Blueprint $table) {
                 $table->dropColumn('business_date');
             });

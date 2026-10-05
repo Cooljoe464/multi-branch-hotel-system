@@ -63,31 +63,41 @@ return new class extends Migration
     {
         if (Schema::hasTable('reservations')) {
             Schema::table('reservations', function (Blueprint $table) {
-                $table->dropIndex(['room_type_id']);
-                $table->dropIndex(['guest_id']);
-                $table->dropIndex(['confirmation_number']);
+                foreach (['reservations_room_type_id_index', 'reservations_guest_id_index', 'reservations_confirmation_number_index'] as $index) {
+                    if (Schema::hasIndex('reservations', $index)) {
+                        $table->dropIndex($index);
+                    }
+                }
             });
         }
 
         if (Schema::hasTable('channel_rates')) {
             Schema::table('channel_rates', function (Blueprint $table) {
-                $table->dropIndex(['channel_provider_id']);
-                $table->dropIndex(['room_type_id']);
-                $table->dropIndex(['rate_plan_id']);
+                foreach (['channel_rates_channel_provider_id_index', 'channel_rates_room_type_id_index', 'channel_rates_rate_plan_id_index'] as $index) {
+                    if (Schema::hasIndex('channel_rates', $index)) {
+                        $table->dropIndex($index);
+                    }
+                }
             });
         }
 
         if (Schema::hasTable('transactions')) {
             Schema::table('transactions', function (Blueprint $table) {
-                $table->dropIndex(['folio_id']);
-                $table->dropIndex(['type']);
+                foreach (['transactions_folio_id_index', 'transactions_type_index'] as $index) {
+                    if (Schema::hasIndex('transactions', $index)) {
+                        $table->dropIndex($index);
+                    }
+                }
             });
         }
 
         if (Schema::hasTable('maintenance_tickets')) {
             Schema::table('maintenance_tickets', function (Blueprint $table) {
-                $table->dropIndex(['branch_id']);
-                $table->dropIndex(['status']);
+                foreach (['maintenance_tickets_branch_id_index', 'maintenance_tickets_status_index'] as $index) {
+                    if (Schema::hasIndex('maintenance_tickets', $index)) {
+                        $table->dropIndex($index);
+                    }
+                }
             });
         }
     }

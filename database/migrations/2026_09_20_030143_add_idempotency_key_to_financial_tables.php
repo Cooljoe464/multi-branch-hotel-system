@@ -19,8 +19,14 @@ return new class extends Migration
     public function down(): void
     {
         foreach (['transactions', 'reservations', 'payment_transactions', 'folios'] as $tableName) {
+            if (! Schema::hasColumn($tableName, 'idempotency_key')) {
+                continue;
+            }
+
             Schema::table($tableName, function (Blueprint $table) use ($tableName) {
-                $table->dropIndex($tableName.'_idempotency_key_index');
+                if (Schema::hasIndex($tableName, $tableName.'_idempotency_key_index')) {
+                    $table->dropIndex($tableName.'_idempotency_key_index');
+                }
                 $table->dropColumn('idempotency_key');
             });
         }

@@ -41,9 +41,17 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasColumn('reservations', 'guarantee_status')) {
+            return;
+        }
+
         Schema::table('reservations', function (Blueprint $table) {
-            $table->dropIndex(['branch_id', 'guarantee_status']);
-            $table->dropIndex(['hold_expires_at']);
+            if (Schema::hasIndex('reservations', 'reservations_branch_id_guarantee_status_index')) {
+                $table->dropIndex('reservations_branch_id_guarantee_status_index');
+            }
+            if (Schema::hasIndex('reservations', 'reservations_hold_expires_at_index')) {
+                $table->dropIndex('reservations_hold_expires_at_index');
+            }
             $table->dropColumn([
                 'guarantee_status',
                 'deposit_due_minor',

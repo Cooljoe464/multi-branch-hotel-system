@@ -28,20 +28,35 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('transactions', function (Blueprint $table) {
-            $table->dropIndex('transactions_folio_id_business_date_index');
-            $table->dropColumn('business_date');
-        });
-
-        foreach (['reservations', 'pos_charges', 'payment_transactions'] as $postingTable) {
-            Schema::table($postingTable, function (Blueprint $table) use ($postingTable) {
-                $table->dropIndex($postingTable.'_branch_id_business_date_index');
+        // Guarded: the partition-prep migration (and partial rollbacks) may
+        // already have dropped these columns, which drops their indexes
+        // implicitly in Postgres. Rollbacks must be order-independent.
+        if (Schema::hasColumn('transactions', 'business_date')) {
+            Schema::table('transactions', function (Blueprint $table) {
+                if (Schema::hasIndex('transactions', 'transactions_folio_id_business_date_index')) {
+                    $table->dropIndex('transactions_folio_id_business_date_index');
+                }
                 $table->dropColumn('business_date');
             });
         }
 
-        Schema::table('branches', function (Blueprint $table) {
-            $table->dropColumn('current_business_date');
-        });
+        foreach (['reservations', 'pos_charges', 'payment_transactions'] as $postingTable) {
+            if (! Schema::hasColumn($postingTable, 'business_date')) {
+                continue;
+            }
+
+            Schema::table($postingTable, function (Blueprint $table) use ($postingTable) {
+                if (Schema::hasIndex($postingTable, $postingTable.'_branch_id_business_date_index')) {
+                    $table->dropIndex($postingTable.'_branch_id_business_date_index');
+                }
+                $table->dropColumn('business_date');
+            });
+        }
+
+        if (Schema::hasColumn('branches', 'current_business_date')) {
+            Schema::table('branches', function (Blueprint $table) {
+                $table->dropColumn('current_business_date');
+            });
+        }
     }
 };

@@ -24,6 +24,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasColumn('payment_transactions', 'driver')) {
+            return;
+        }
+
         Schema::table('payment_transactions', function (Blueprint $table) {
             $table->dropUnique(['driver', 'webhook_event_id']);
             $table->dropIndex(['parent_id', 'kind']);

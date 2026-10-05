@@ -188,21 +188,24 @@ class DoubleBookingTest extends TestCase
 
     public function test_overlapping_detection_across_same_room_reservations(): void
     {
+        $baseIn = now()->addDays(10)->format('Y-m-d');
+        $baseOut = now()->addDays(13)->format('Y-m-d');
+
         app(AvailabilityService::class)->reserve(
             $this->branch,
             $this->roomType,
-            '2026-10-01',
-            '2026-10-04',
+            $baseIn,
+            $baseOut,
             $this->engineAttributes(),
             $this->room->id,
             (string) Str::uuid(),
         );
 
         $overlappingDates = [
-            ['2026-10-03', '2026-10-06'],
-            ['2026-09-30', '2026-10-02'],
-            ['2026-09-30', '2026-10-06'],
-            ['2026-10-02', '2026-10-03'],
+            [now()->addDays(12)->format('Y-m-d'), now()->addDays(15)->format('Y-m-d')],
+            [now()->addDays(7)->format('Y-m-d'), now()->addDays(11)->format('Y-m-d')],
+            [now()->addDays(7)->format('Y-m-d'), now()->addDays(15)->format('Y-m-d')],
+            [now()->addDays(9)->format('Y-m-d'), now()->addDays(12)->format('Y-m-d')],
         ];
 
         foreach ($overlappingDates as [$checkIn, $checkOut]) {
