@@ -12,6 +12,12 @@ class AssaAbloyProvider implements LockProvider
 {
     public function issueKey(DoorLockGateway $gateway, DoorLockAuditLog $log): bool
     {
+        $apiKey = $gateway->apiKey();
+
+        if ($apiKey === null) {
+            return $log->markFailed('Gateway API key is not configured.');
+        }
+
         $payload = [
             'encoderId' => $log->room->number,
             'guestName' => $log->reservation->guest_name ?? 'Guest',
@@ -25,7 +31,7 @@ class AssaAbloyProvider implements LockProvider
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$gateway->api_key,
+                'Authorization' => 'Bearer '.$apiKey,
                 'Content-Type' => 'application/json',
             ])->timeout(15)->post($gateway->api_base_url.'/v1/credentials', $payload);
 
@@ -62,9 +68,15 @@ class AssaAbloyProvider implements LockProvider
             return $log->markFailed('No credential ID to revoke');
         }
 
+        $apiKey = $gateway->apiKey();
+
+        if ($apiKey === null) {
+            return $log->markFailed('Gateway API key is not configured.');
+        }
+
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$gateway->api_key,
+                'Authorization' => 'Bearer '.$apiKey,
                 'Content-Type' => 'application/json',
             ])->timeout(15)->delete($gateway->api_base_url.'/v1/credentials/'.$log->credential_id);
 
@@ -88,13 +100,19 @@ class AssaAbloyProvider implements LockProvider
             return $log->markFailed('No credential ID to extend');
         }
 
+        $apiKey = $gateway->apiKey();
+
+        if ($apiKey === null) {
+            return $log->markFailed('Gateway API key is not configured.');
+        }
+
         $payload = [
             'validUntil' => $log->valid_until->toIso8601String(),
         ];
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$gateway->api_key,
+                'Authorization' => 'Bearer '.$apiKey,
                 'Content-Type' => 'application/json',
             ])->timeout(15)->put($gateway->api_base_url.'/v1/credentials/'.$log->credential_id, $payload);
 

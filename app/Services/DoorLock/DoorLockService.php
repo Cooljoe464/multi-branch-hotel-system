@@ -21,6 +21,7 @@ class DoorLockService
         'assa_abloy' => AssaAbloyProvider::class,
         'salto' => SaltoProvider::class,
         'duowin' => DuowinProvider::class,
+        'dormakaba' => DormakabaProvider::class,
     ];
 
     public function forBranch(Branch $branch): self

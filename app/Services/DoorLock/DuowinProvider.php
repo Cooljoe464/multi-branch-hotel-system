@@ -12,6 +12,12 @@ class DuowinProvider implements LockProvider
 {
     public function issueKey(DoorLockGateway $gateway, DoorLockAuditLog $log): bool
     {
+        $apiKey = $gateway->apiKey();
+
+        if ($apiKey === null) {
+            return $log->markFailed('Gateway API key is not configured.');
+        }
+
         $payload = [
             'room_number' => $log->room->number,
             'guest_name' => $log->reservation->guest_name ?? 'Guest',
@@ -26,7 +32,7 @@ class DuowinProvider implements LockProvider
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$gateway->api_key,
+                'Authorization' => 'Bearer '.$apiKey,
                 'Content-Type' => 'application/json',
             ])->timeout(15)->post($gateway->api_base_url.'/encode', $payload);
 
@@ -65,9 +71,15 @@ class DuowinProvider implements LockProvider
             return false;
         }
 
+        $apiKey = $gateway->apiKey();
+
+        if ($apiKey === null) {
+            return $log->markFailed('Gateway API key is not configured.');
+        }
+
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$gateway->api_key,
+                'Authorization' => 'Bearer '.$apiKey,
                 'Content-Type' => 'application/json',
             ])->timeout(15)->post($gateway->api_base_url.'/revoke', [
                 'card_id' => $log->credential_id,
@@ -96,6 +108,12 @@ class DuowinProvider implements LockProvider
             return false;
         }
 
+        $apiKey = $gateway->apiKey();
+
+        if ($apiKey === null) {
+            return $log->markFailed('Gateway API key is not configured.');
+        }
+
         $payload = [
             'card_id' => $log->credential_id,
             'valid_until' => $log->valid_until->toIso8601String(),
@@ -103,7 +121,7 @@ class DuowinProvider implements LockProvider
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$gateway->api_key,
+                'Authorization' => 'Bearer '.$apiKey,
                 'Content-Type' => 'application/json',
             ])->timeout(15)->post($gateway->api_base_url.'/extend', $payload);
 

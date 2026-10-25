@@ -126,19 +126,28 @@ class DoorLockAuditLog extends Model
         return $query->where('status', 'success');
     }
 
+    /**
+     * Both markers carry the *operation* outcome to the provider, not
+     * the write result: callers return them straight through, so a
+     * rejected key must read as false even though the audit row saved.
+     */
     public function markSuccess(string $credentialId): bool
     {
-        return $this->update([
+        $this->update([
             'status' => 'success',
             'credential_id' => $credentialId,
         ]);
+
+        return true;
     }
 
     public function markFailed(string $errorMessage): bool
     {
-        return $this->update([
+        $this->update([
             'status' => 'failed',
             'payload' => array_merge($this->payload ?? [], ['error' => $errorMessage]),
         ]);
+
+        return false;
     }
 }
