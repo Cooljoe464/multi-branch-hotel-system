@@ -45,6 +45,7 @@ FROM php:8.4-fpm-alpine AS php
 RUN apk add --no-cache \
     supervisor \
     libpq-dev \
+    libzip-dev \
     icu-libs \
     fcgi
 
@@ -55,7 +56,8 @@ RUN docker-php-ext-install \
     bcmath \
     intl \
     opcache \
-    pcntl
+    pcntl \
+    zip
 
 # Install Redis extension via PECL
 RUN apk add --no-cache $PHPIZE_DEPS \

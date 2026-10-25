@@ -50,7 +50,7 @@ services:
     postgres:
         image: postgres:18-alpine
         volumes:
-            - postgres_data:/var/lib/postgresql/data
+            - postgres_data:/var/lib/postgresql
         environment:
             POSTGRES_DB: ${DB_DATABASE:-hotel_system}
             POSTGRES_USER: ${DB_USERNAME:-postgres}
