@@ -18,20 +18,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | OCR vendor
-    |--------------------------------------------------------------------------
-    |
-    | Empty endpoint disables vendor OCR: captures stay manual with
-    | ocr_pending status. Configure per environment, never commit keys.
-    |
-    */
-    'ocr' => [
-        'endpoint' => env('OCR_ENDPOINT'),
-        'key' => env('OCR_API_KEY'),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Retention defaults (days) by data class, overridable per policy.
     |--------------------------------------------------------------------------
     */

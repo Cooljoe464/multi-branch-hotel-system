@@ -2,12 +2,15 @@
 
 namespace App\Providers;
 
+use App\Events\FolioClosed;
+use App\Listeners\QueueEinvoiceForClosedFolio;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -30,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureRateLimiting();
+        $this->configureFiscalEmission();
 
         Gate::before(function (User $user, string $ability): ?bool {
             if ($user->is_global_admin) {
@@ -38,6 +42,14 @@ class AppServiceProvider extends ServiceProvider
 
             return null;
         });
+    }
+
+    /**
+     * Settled folios queue their FIRS e-invoice exactly once.
+     */
+    protected function configureFiscalEmission(): void
+    {
+        Event::listen(FolioClosed::class, QueueEinvoiceForClosedFolio::class);
     }
 
     /**

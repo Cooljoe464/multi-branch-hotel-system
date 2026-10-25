@@ -7,6 +7,7 @@ use App\Models\FiscalDocument;
 use App\Models\TaxComponent;
 use App\Models\TaxExemption;
 use App\Models\TaxProfile;
+use App\Services\Fiscal\FiscalService;
 use App\Services\FolioService;
 use App\Services\TaxService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -134,14 +135,16 @@ it('issues the IRN and records failures with retry', function () {
     config(['services.firs.api_key' => 'test-key']);
     Http::fake(['*' => Http::response(['irn' => 'FIRS-IRN-1'], 200)]);
 
-    $folio = (new FolioService)->createStaffFolio($this->branch->id, 'Fiscal Guest');
+    $service = new FolioService;
+    $folio = $service->createStaffFolio($this->branch->id, 'Fiscal Guest');
+    $service->postDebit($folio, 'rooms', 'Room charge', 25000, null, 750);
 
     $document = FiscalDocument::create([
         'branch_id' => $this->branch->id,
         'folio_id' => $folio->id,
         'provider' => 'firs',
         'status' => FiscalDocument::STATUS_PENDING,
-        'payload' => ['invoice' => 'INV-1'],
+        'payload' => app(FiscalService::class)->payloadFor($folio),
         'idempotency_key' => 'fiscal-test-2',
     ]);
 
@@ -164,14 +167,16 @@ it('fails the document after exhausting retries', function () {
     config(['services.firs.api_key' => 'test-key']);
     Http::fake(['*' => Http::response('boom', 500)]);
 
-    $folio = (new FolioService)->createStaffFolio($this->branch->id, 'Fiscal Guest');
+    $service = new FolioService;
+    $folio = $service->createStaffFolio($this->branch->id, 'Fiscal Guest');
+    $service->postDebit($folio, 'rooms', 'Room charge', 25000, null, 750);
 
     $document = FiscalDocument::create([
         'branch_id' => $this->branch->id,
         'folio_id' => $folio->id,
         'provider' => 'firs',
         'status' => FiscalDocument::STATUS_PENDING,
-        'payload' => ['invoice' => 'INV-1'],
+        'payload' => app(FiscalService::class)->payloadFor($folio),
         'idempotency_key' => 'fiscal-test-3',
     ]);
 
