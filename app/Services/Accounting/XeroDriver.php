@@ -14,12 +14,14 @@ use Illuminate\Support\Facades\Http;
  */
 class XeroDriver implements AccountingExporter
 {
+    public function __construct(private AccountingOAuthManager $oauth) {}
+
     /**
      * @param  array{debits: int, credits: int, lines: list<array{chart_code: string, external_account: string, debit_minor: int, credit_minor: int}>}  $batch
      */
     public function export(AccountingLink $link, string $businessDate, array $batch): string
     {
-        $tokens = $link->readTokens();
+        $tokens = $this->oauth->tokens($link);
         $access = $tokens['access_token'] ?? null;
         $tenant = $tokens['tenant_id'] ?? null;
 

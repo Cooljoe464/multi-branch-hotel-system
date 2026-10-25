@@ -63,6 +63,12 @@ class AccountingLink extends Model
     {
         $enc = $this->getAttribute('oauth_enc');
 
+        // Legacy bytea rows surfaced as streams before the text migration.
+        if (is_resource($enc)) {
+            $contents = stream_get_contents($enc);
+            $enc = is_string($contents) ? $contents : null;
+        }
+
         if (! is_string($enc) || $enc === '') {
             return [];
         }

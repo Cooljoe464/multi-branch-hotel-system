@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvailabilityException;
 use App\Http\Controllers\Concerns\EnsuresBranchAccess;
 use App\Jobs\ExportDailyJournalJob;
 use App\Models\AccountingExport;
 use App\Models\AccountingLink;
 use App\Models\Branch;
 use App\Models\ChartAccount;
+use App\Services\Accounting\AccountingOAuthManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -114,5 +116,68 @@ class AccountingExportController extends Controller
 
         return redirect()->route('accounting.index', $branch)
             ->with('toast', ['type' => 'success', 'message' => 'Export requeued.']);
+    }
+
+    /**
+     * Start the vendor consent screen: mint the one-time state and send
+     * the browser to the ledger's authorize endpoint.
+     */
+    public function connect(Request $request, Branch $branch, string $provider): RedirectResponse
+    {
+        $this->ensureBranchAccess($branch);
+
+        abort_unless(in_array($provider, AccountingLink::PROVIDERS, true), 404);
+
+        $link = AccountingLink::firstOrNew(['branch_id' => $branch->id, 'provider' => $provider]);
+        $link->is_active = true;
+        $link->save();
+
+        try {
+            $url = app(AccountingOAuthManager::class)->authorizeUrl($link);
+        } catch (AvailabilityException $e) {
+            return redirect()->route('accounting.index', $branch)
+                ->with('toast', ['type' => 'error', 'message' => $e->getMessage()]);
+        }
+
+        return redirect()->away($url);
+    }
+
+    /**
+     * Vendor redirect target: verify the state belongs to a link this
+     * user may touch, exchange the code, store the tokens.
+     */
+    public function callback(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'state' => 'required|string',
+            'code' => 'required|string',
+            'realmId' => 'nullable|string',
+        ]);
+
+        $state = $request->string('state')->value();
+        $oauth = app(AccountingOAuthManager::class);
+        $link = $oauth->pendingLink($state);
+
+        if (! $link instanceof AccountingLink) {
+            return redirect()->route('dashboard')
+                ->with('toast', ['type' => 'error', 'message' => 'The connect session expired. Start the connection again.']);
+        }
+
+        $this->ensureBranchAccess($link->branch);
+
+        try {
+            $oauth->complete(
+                $link,
+                $state,
+                $request->string('code')->value(),
+                $request->string('realmId')->value() ?: null,
+            );
+        } catch (AvailabilityException $e) {
+            return redirect()->route('accounting.index', $link->branch)
+                ->with('toast', ['type' => 'error', 'message' => $e->getMessage()]);
+        }
+
+        return redirect()->route('accounting.index', $link->branch)
+            ->with('toast', ['type' => 'success', 'message' => 'Ledger connected. Map the chart, then export.']);
     }
 }

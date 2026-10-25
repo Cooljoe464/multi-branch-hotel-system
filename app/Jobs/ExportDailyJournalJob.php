@@ -95,7 +95,7 @@ class ExportDailyJournalJob implements ShouldBeUnique, ShouldQueue
             return ['export' => $existing, 'duplicate' => true];
         }
 
-        $externalId = (new AccountingDriverManager)->driver($this->provider)->export($link, $this->businessDate, [
+        $externalId = app(AccountingDriverManager::class)->driver($this->provider)->export($link, $this->businessDate, [
             'debits' => $totals['debits'],
             'credits' => $totals['credits'],
             'lines' => $lines,

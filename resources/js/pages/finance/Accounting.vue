@@ -72,6 +72,8 @@ const createLink = () =>
         provider: newProvider.value,
         sandbox: true,
     });
+const connectUrl = (provider: string) =>
+    `/branches/${props.branch.id}/accounting/connect/${provider}`;
 const saveMap = (linkId: number) =>
     router.put(`/branches/${props.branch.id}/accounting/links/${linkId}`, {
         account_map: mapForm.value[linkId] ?? {},
@@ -140,9 +142,21 @@ const statusClass = (status: string) =>
                             >{{ link.mapped }} mapped</Badge
                         >
                     </div>
-                    <Button size="sm" @click="saveMap(link.id)"
-                        >Save Mapping</Button
-                    >
+                    <div class="flex items-center gap-2">
+                        <Button
+                            v-if="link.provider !== 'fake'"
+                            as-child
+                            size="sm"
+                            variant="outline"
+                        >
+                            <a :href="connectUrl(link.provider)">{{
+                                link.connected ? 'Reconnect' : 'Connect'
+                            }}</a>
+                        </Button>
+                        <Button size="sm" @click="saveMap(link.id)"
+                            >Save Mapping</Button
+                        >
+                    </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div

@@ -376,6 +376,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('branches/{branch}/accounting/exports/{export}/retry', [AccountingExportController::class, 'retry'])
         ->middleware('permission:accounting_export.retry')
         ->name('accounting.exports.retry');
+    Route::get('branches/{branch}/accounting/connect/{provider}', [AccountingExportController::class, 'connect'])
+        ->middleware('permission:accounting_export.manage')
+        ->name('accounting.connect');
+    Route::get('accounting/oauth/callback', [AccountingExportController::class, 'callback'])
+        ->middleware('permission:accounting_export.manage')
+        ->name('accounting.oauth.callback');
 
     // Commissions (accrual inbox, payout builder, disputes)
     Route::get('branches/{branch}/commissions', [CommissionController::class, 'index'])
