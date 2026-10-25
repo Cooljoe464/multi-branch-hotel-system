@@ -45,4 +45,41 @@ return [
         'api_key' => env('FIRS_API_KEY'),
     ],
 
+    // Identity OCR vendor (NIN/passport scans). Empty endpoint disables
+    // vendor OCR and captures stay manual with ocr_pending status.
+    // Overridable per platform through the SecretManager key ocr.api_key.
+    'ocr' => [
+        'endpoint' => env('OCR_ENDPOINT'),
+        'key' => env('OCR_API_KEY'),
+    ],
+
+    // Accounting ledger OAuth apps. Per-branch client credentials live in
+    // branch_secrets (xero.client_id, xero.client_secret, …) and win over
+    // these environment-wide defaults.
+    'xero' => [
+        'client_id' => env('XERO_CLIENT_ID'),
+        'client_secret' => env('XERO_CLIENT_SECRET'),
+    ],
+
+    'quickbooks' => [
+        'client_id' => env('QUICKBOOKS_CLIENT_ID'),
+        'client_secret' => env('QUICKBOOKS_CLIENT_SECRET'),
+    ],
+
+    'sage' => [
+        'client_id' => env('SAGE_CLIENT_ID'),
+        'client_secret' => env('SAGE_CLIENT_SECRET'),
+    ],
+
+    // PBX/telephony vendor adapter. 'null' is the vendor-less placeholder:
+    // CDRs only arrive through the signed webhook until a real driver
+    // (3CX, Asterisk, …) is registered in PbxDriverManager.
+    'pbx' => [
+        'driver' => env('PBX_DRIVER', 'null'),
+    ],
+
+    'whatsapp' => [
+        'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v20.0'),
+    ],
+
 ];

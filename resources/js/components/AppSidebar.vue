@@ -326,6 +326,27 @@ const allNavItems = computed<NavItem[]>(() => [
         ],
     },
     {
+        title: 'Concierge',
+        href: branchLink('/concierge'),
+        icon: MessagesSquare,
+        children: [
+            {
+                title: 'WhatsApp Inbox',
+                href: branchLink('/concierge'),
+                icon: MessagesSquare,
+                permission: 'concierge.view',
+                requiresBranch: true,
+            },
+            {
+                title: 'KB Entries',
+                href: branchLink('/concierge?tab=kb'),
+                icon: FileText,
+                permission: 'concierge.manage_kb',
+                requiresBranch: true,
+            },
+        ],
+    },
+    {
         title: 'Administration',
         href: '/admin/branches/create',
         icon: Building2,
@@ -371,6 +392,12 @@ const allNavItems = computed<NavItem[]>(() => [
                 href: '/settings/payment-guard',
                 icon: ShieldAlert,
                 permission: 'settings.manage',
+            },
+            {
+                title: 'WhatsApp Cloud API',
+                href: '/settings/whatsapp',
+                icon: MessagesSquare,
+                permission: 'branches.manage',
             },
             {
                 title: 'Developers',

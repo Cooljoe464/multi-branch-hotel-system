@@ -34,6 +34,7 @@ class RequireIdempotencyKey
         'health',
         'up',
         'api.webhooks.*',
+        'webhooks.*',
         'guest.payment.callback',
         'tablet.menu',
     ];

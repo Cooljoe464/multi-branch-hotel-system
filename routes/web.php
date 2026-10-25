@@ -25,6 +25,7 @@ use App\Http\Controllers\ChartAccountController;
 use App\Http\Controllers\CityLedgerController;
 use App\Http\Controllers\CommercialController;
 use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\ConciergeController;
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CrsController;
 use App\Http\Controllers\DashboardController;
@@ -102,6 +103,7 @@ use App\Http\Controllers\UpsellAcceptanceController;
 use App\Http\Controllers\UpsellOfferController;
 use App\Http\Controllers\VoidRefundController;
 use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\WhatsAppWebhookController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\YieldRuleController;
 use Illuminate\Support\Facades\Route;
@@ -142,6 +144,10 @@ Route::post('surveys/{reservation}', [SurveyController::class, 'store'])->name('
 // Guest Payment
 Route::post('guest/folio/{confirmationNumber}/pay', [GuestPaymentController::class, 'initiate'])->name('guest.payment.initiate');
 Route::get('guest/folio/{confirmationNumber}/pay/callback', [GuestPaymentController::class, 'callback'])->name('guest.payment.callback');
+
+// WhatsApp Cloud API webhook (Meta calls these; signature-verified per branch)
+Route::get('webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])->name('webhooks.whatsapp.verify');
+Route::post('webhooks/whatsapp', [WhatsAppWebhookController::class, 'store'])->name('webhooks.whatsapp.store');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
@@ -1194,6 +1200,41 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('identity-documents/{document}/reveal', [IdentityDocumentController::class, 'reveal'])
         ->middleware('permission:guests.view')
         ->name('identity.reveal');
+
+    // WhatsApp AI concierge inbox, handoff, drafts, and knowledge base
+    Route::get('branches/{branch}/concierge', [ConciergeController::class, 'index'])
+        ->middleware('permission:concierge.view')
+        ->name('concierge.index');
+    Route::post('branches/{branch}/concierge/threads/{thread}/messages', [ConciergeController::class, 'reply'])
+        ->middleware('permission:concierge.reply')
+        ->name('concierge.reply');
+    Route::post('branches/{branch}/concierge/threads/{thread}/takeover', [ConciergeController::class, 'takeOver'])
+        ->middleware('permission:concierge.reply')
+        ->name('concierge.takeover');
+    Route::post('branches/{branch}/concierge/threads/{thread}/handback', [ConciergeController::class, 'handBack'])
+        ->middleware('permission:concierge.reply')
+        ->name('concierge.handback');
+    Route::post('branches/{branch}/concierge/threads/{thread}/close', [ConciergeController::class, 'close'])
+        ->middleware('permission:concierge.reply')
+        ->name('concierge.close');
+    Route::post('branches/{branch}/concierge/threads/{thread}/actions/{action}/apply', [ConciergeController::class, 'applyAction'])
+        ->middleware('permission:concierge.reply')
+        ->name('concierge.actions.apply');
+    Route::post('branches/{branch}/concierge/threads/{thread}/actions/{action}/reject', [ConciergeController::class, 'rejectAction'])
+        ->middleware('permission:concierge.reply')
+        ->name('concierge.actions.reject');
+    Route::put('branches/{branch}/concierge/settings', [ConciergeController::class, 'updateSettings'])
+        ->middleware('permission:concierge.manage_kb')
+        ->name('concierge.settings.update');
+    Route::post('branches/{branch}/concierge/kb', [ConciergeController::class, 'storeKb'])
+        ->middleware('permission:concierge.manage_kb')
+        ->name('concierge.kb.store');
+    Route::put('branches/{branch}/concierge/kb/{entry}', [ConciergeController::class, 'updateKb'])
+        ->middleware('permission:concierge.manage_kb')
+        ->name('concierge.kb.update');
+    Route::delete('branches/{branch}/concierge/kb/{entry}', [ConciergeController::class, 'destroyKb'])
+        ->middleware('permission:concierge.manage_kb')
+        ->name('concierge.kb.destroy');
 
     // Admin — Branch Wizard
     Route::get('admin/branches/create', [BranchWizardController::class, 'index'])

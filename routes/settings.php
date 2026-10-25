@@ -7,6 +7,7 @@ use App\Http\Controllers\Settings\FxRateController;
 use App\Http\Controllers\Settings\PaymentGuardController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\WhatsAppController;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
 
@@ -77,6 +78,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('settings/cashier-outlets/{cashier}', [CashierOutletController::class, 'update'])
             ->middleware('permission:outlets.manage')
             ->name('settings.cashier-outlets.update');
+    });
+
+    // WhatsApp Cloud API (Global Admin only)
+    Route::middleware(['auth', 'verified'])->group(function () {
+        Route::get('settings/whatsapp', [WhatsAppController::class, 'edit'])
+            ->middleware('permission:branches.manage')
+            ->name('settings.whatsapp.edit');
+        Route::put('settings/whatsapp', [WhatsAppController::class, 'update'])
+            ->middleware('permission:branches.manage')
+            ->name('settings.whatsapp.update');
     });
 });
 
