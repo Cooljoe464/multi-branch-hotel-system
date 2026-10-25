@@ -46,11 +46,11 @@ it('can access permitted pages via direct navigation', function () {
     $this->actingAs($this->user)->get('/dashboard')->assertOk();
     $this->actingAs($this->user)->get('/rooms')->assertOk();
     $this->actingAs($this->user)->get('/housekeeping')->assertOk();
+    $this->actingAs($this->user)->get('/maintenance')->assertOk();
 });
 
 it('is denied access to restricted pages', function () {
     $this->actingAs($this->user)->get('/reservations')->assertForbidden();
-    $this->actingAs($this->user)->get('/maintenance')->assertForbidden();
     $this->actingAs($this->user)->get('/folios')->assertForbidden();
     $this->actingAs($this->user)->get('/analytics')->assertForbidden();
     $this->actingAs($this->user)->get('/reports')->assertForbidden();

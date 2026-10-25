@@ -8,6 +8,7 @@ use App\Models\User;
 use Database\Seeders\ChartSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Laravel\Fortify\Features;
@@ -20,7 +21,7 @@ abstract class TestCase extends BaseTestCase
 
         // Reference data every posting path requires: without chart
         // accounts and posting rules, folio charges cannot journal.
-        if (! ChartAccount::query()->exists()) {
+        if (Schema::hasTable('chart_accounts') && ! ChartAccount::query()->exists()) {
             $this->seed(ChartSeeder::class);
         }
     }

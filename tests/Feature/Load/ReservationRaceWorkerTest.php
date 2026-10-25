@@ -10,6 +10,10 @@ use App\Models\User;
 uses()->group('load-worker');
 
 it('attempts one contested booking', function () {
+    if (getenv('LOAD_RESULT_DIR') === false) {
+        $this->markTestSkipped('Worker-only test; run through AvailabilityLoadTest.');
+    }
+
     $dir = (string) getenv('LOAD_RESULT_DIR');
     $tag = (string) getenv('LOAD_WORKER');
     $beat = fn (string $step) => file_put_contents("{$dir}/{$tag}.beat", $step."\n", FILE_APPEND);

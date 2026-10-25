@@ -229,7 +229,7 @@ const allNavItems = computed<NavItem[]>(() => [
                 title: 'Forecast',
                 href: branchLink('/forecast'),
                 icon: TrendingUp,
-                permission: 'analytics.view',
+                permission: 'forecast.view',
                 requiresBranch: true,
             },
         ],

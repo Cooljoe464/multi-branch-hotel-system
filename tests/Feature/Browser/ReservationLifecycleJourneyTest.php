@@ -42,7 +42,7 @@ it('creates a reservation via the staff form', function () {
         ->wait(3)
         ->assertPathIs('/dashboard');
 
-    $page->click('Reservations')->wait(2);
+    $page->click('Operations')->wait(1)->click('Reservations')->wait(2);
 
     $page->click('New Reservation')->wait(2)
         ->assertSee('New Reservation')
@@ -89,6 +89,8 @@ it('navigates from reservation list to detail page', function () {
         ->type('password', 'password')
         ->press('Log in')
         ->wait(3)
+        ->click('Operations')
+        ->wait(1)
         ->click('Reservations')
         ->wait(2)
         ->assertSee($reservation->confirmation_number)
@@ -115,6 +117,8 @@ it('checks in a reservation with room assignment via HTTP', function () {
         ->type('password', 'password')
         ->press('Log in')
         ->wait(3)
+        ->click('Operations')
+        ->wait(1)
         ->click('Reservations')
         ->wait(2)
         ->click('View')
@@ -151,6 +155,8 @@ it('shows check out button only when reservation is checked in', function () {
         ->type('password', 'password')
         ->press('Log in')
         ->wait(3)
+        ->click('Operations')
+        ->wait(1)
         ->click('Reservations')
         ->wait(2)
         ->click('View')
@@ -169,6 +175,8 @@ it('completes full reservation lifecycle from create to check out', function () 
         ->type('password', 'password')
         ->press('Log in')
         ->wait(3)
+        ->click('Operations')
+        ->wait(1)
         ->click('Reservations')
         ->wait(2)
         ->click('New Reservation')
@@ -242,6 +250,8 @@ it('cancels a confirmed reservation and releases room', function () {
         ->type('password', 'password')
         ->press('Log in')
         ->wait(3)
+        ->click('Operations')
+        ->wait(1)
         ->click('Reservations')
         ->wait(2)
         ->click('View')

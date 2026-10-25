@@ -27,6 +27,8 @@ it('navigates to import rooms page from sidebar', function () {
         ->press('Log in')
         ->wait(3)
         ->assertPathIs('/dashboard')
+        ->click('Administration')
+        ->wait(1)
         ->click('Import Rooms')
         ->wait(3)
         ->assertSee('Import Rooms');
@@ -38,6 +40,9 @@ it('shows download template link on import rooms page', function () {
         ->type('password', 'password')
         ->press('Log in')
         ->wait(3)
+        ->assertPathIs('/dashboard')
+        ->click('Administration')
+        ->wait(1)
         ->click('Import Rooms')
         ->wait(3)
         ->assertSee('Download Template');

@@ -709,7 +709,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Demand forecasting + AI price proposals
     Route::get('branches/{branch}/forecast', [ForecastController::class, 'index'])
-        ->middleware(['permission:analytics.view', 'replica'])
+        ->middleware(['permission:forecast.view', 'replica'])
         ->name('forecast.index');
     Route::post('branches/{branch}/price-recommendations/{recommendation}/approve', [PriceRecommendationController::class, 'approve'])
         ->middleware('permission:yield_rules.approve_ai_price')
@@ -1050,6 +1050,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('crs', [CrsController::class, 'store'])
         ->middleware('permission:crs.manage')
         ->name('crs.store');
+    Route::post('crs/reservations', [CrsController::class, 'store'])
+        ->middleware('permission:crs.manage')
+        ->name('crs.reservations.store');
 
     // Audit Flags
     Route::get('audit/flags', [AuditFlagController::class, 'index'])

@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\DailyLedger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Redis;
 
 uses(RefreshDatabase::class);
 
@@ -14,6 +15,8 @@ it('reports liveness without authentication', function () {
 });
 
 it('reports readiness with check details', function () {
+    Redis::shouldReceive('ping')->once()->andReturn('PONG');
+
     $response = $this->get('/readyz');
 
     $response->assertStatus(200)->assertJsonStructure([

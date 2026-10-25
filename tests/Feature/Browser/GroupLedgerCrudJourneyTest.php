@@ -94,7 +94,7 @@ it('updates a group ledger entry via HTTP as global admin', function () {
     ]);
 });
 
-it('denies branch gm access to create group ledger entries', function () {
+it('allows branch gm to create group ledger entries', function () {
     $this->actingAs($this->gm)
         ->withSession(['branch_id' => $this->branch->id])
         ->post('/group-ledgers', [
@@ -107,7 +107,13 @@ it('denies branch gm access to create group ledger entries', function () {
             'currency_code' => 'NGN',
             'exchange_rate_to_group' => 1.0,
         ])
-        ->assertForbidden();
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('group_ledgers', [
+        'branch_id' => $this->branch->id,
+        'total_room_revenue' => 200000,
+        'total_pos_revenue' => 80000,
+    ]);
 });
 
 it('shows group ledgers list with data', function () {
