@@ -13,6 +13,8 @@ use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\UpsellAcceptance;
 use App\Models\UpsellOffer;
+use App\Services\Concierge\Ai\ConciergeAiProvider;
+use App\Services\Concierge\Ai\ConciergeAiResponse;
 use App\Services\ConciergeService;
 use App\Services\RateEngine;
 use App\Services\WhatsAppCloudApiService;
@@ -95,6 +97,9 @@ beforeEach(function () {
 
     Http::fake([
         'graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.outbound']]], 200),
+        // No concierge AI provider is configured in tests; the orchestrator
+        // must fall back to the deterministic heuristic driver.
+        'api.openai.com/*' => Http::response('', 500),
     ]);
 });
 
@@ -308,6 +313,52 @@ it('switches to human-only mode instantly when the branch kill switch is off', f
     expect($thread->messages()->where('role', ConciergeMessage::ROLE_GUEST)->count())->toBe(1);
     expect($thread->messages()->where('role', ConciergeMessage::ROLE_ASSISTANT)->count())->toBe(0);
     Http::assertNothingSent();
+});
+
+it('answers from the branch knowledge base through the model-backed concierge driver', function () {
+    $entry = ConciergeKbEntry::create([
+        'branch_id' => $this->branch->id,
+        'topic' => 'Wi-Fi',
+        'question' => 'What is the Wi-Fi password?',
+        'answer' => 'Connect to GUEST-WIFI with password HOTEL2026.',
+        'keywords' => ['wifi', 'internet', 'password'],
+        'active' => true,
+    ]);
+
+    $fake = new class($entry->id) implements ConciergeAiProvider
+    {
+        public function __construct(private int $entryId) {}
+
+        public function complete(string $systemPrompt, array $messages, ?array $tools = null, ?string $model = null): ConciergeAiResponse
+        {
+            return new ConciergeAiResponse(json_encode([
+                'intent' => 'faq',
+                'confidence' => 0.9,
+                'kb_entry_id' => $this->entryId,
+                'args' => [],
+            ]));
+        }
+    };
+
+    $service = ConciergeService::make($fake);
+
+    $inbound = $service->handleInbound($this->branch, [
+        'from' => $this->waId,
+        'id' => 'wamid.ai.1',
+        'type' => 'text',
+        'text' => ['body' => 'What is the wifi password?'],
+    ]);
+
+    expect($inbound)->not->toBeNull();
+
+    $thread = ConciergeThread::where('whatsapp_wa_id', $this->waId)->firstOrFail();
+    $reply = $thread->messages()->where('role', ConciergeMessage::ROLE_ASSISTANT)->firstOrFail();
+
+    expect($reply->body)
+        ->toContain('GUEST-WIFI')
+        ->toContain('AI assistant');
+
+    expect($thread->messages()->where('role', ConciergeMessage::ROLE_GUEST)->count())->toBe(1);
 });
 
 it('rejects webhook payloads with an invalid signature', function () {

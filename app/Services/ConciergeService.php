@@ -17,9 +17,10 @@ use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\UpsellOffer;
 use App\Models\User;
+use App\Services\Concierge\Ai\ConciergeAiProvider;
 use App\Services\Concierge\ConciergeDriver;
 use App\Services\Concierge\ConciergeIntent;
-use App\Services\Concierge\HeuristicConciergeDriver;
+use App\Services\Concierge\ModelConciergeDriver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -41,9 +42,12 @@ class ConciergeService
         private readonly ConciergeDriver $driver,
     ) {}
 
-    public static function make(): self
+    public static function make(?ConciergeAiProvider $provider = null): self
     {
-        return new self(new WhatsAppCloudApiService, new HeuristicConciergeDriver);
+        return new self(
+            new WhatsAppCloudApiService,
+            new ModelConciergeDriver($provider ?? app(ConciergeAiManager::class)->provider()),
+        );
     }
 
     /**

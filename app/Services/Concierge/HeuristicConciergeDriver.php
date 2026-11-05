@@ -34,7 +34,7 @@ class HeuristicConciergeDriver implements ConciergeDriver
 
     private const GREETING_WORDS = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings'];
 
-    public function interpret(ConciergeThread $thread, string $body): ConciergeIntent
+    public function interpret(ConciergeThread $thread, string $body, array $history = []): ConciergeIntent
     {
         $normalized = $this->normalize($body);
 
