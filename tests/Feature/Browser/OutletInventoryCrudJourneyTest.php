@@ -5,9 +5,9 @@ use App\Models\InventoryItem;
 use App\Models\Outlet;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(DatabaseMigrations::class);
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->seed(RoleSeeder::class);

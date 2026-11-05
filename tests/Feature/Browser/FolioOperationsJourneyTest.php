@@ -7,9 +7,9 @@ use App\Models\RoomType;
 use App\Models\User;
 use App\Services\FolioService;
 use Database\Seeders\RoleSeeder;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(DatabaseMigrations::class);
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->seed(RoleSeeder::class);
@@ -49,9 +49,9 @@ it('views folio list with data', function () {
         ->press('Log in')
         ->wait(3)
         ->assertPathIs('/dashboard')
-        ->click('Finance')
+        ->click('[data-testid="nav-group-finance"]')
         ->wait(1)
-        ->click('Folios')
+        ->click('[data-testid="nav-link-folios"]')
         ->wait(2)
         ->assertSee('Folios')
         ->assertSee($this->folio->folio_number)

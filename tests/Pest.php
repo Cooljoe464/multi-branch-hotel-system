@@ -16,6 +16,9 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->in('Feature');
 
+pest()->browser()->inChrome();
+pest()->browser()->timeout(30000);
+
 /*
 |--------------------------------------------------------------------------
 | Browser Tests
@@ -29,8 +32,6 @@ pest()->extend(TestCase::class)
 | channel option instead of downloading bundled Chromium.
 |
 */
-
-pest()->browser()->inChrome();
 
 pest()->group('browser')->in('Feature/Browser');
 

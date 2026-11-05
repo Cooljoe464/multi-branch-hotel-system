@@ -4,9 +4,9 @@ use App\Models\Branch;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\RoomType;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(DatabaseMigrations::class);
+uses(RefreshDatabase::class);
 
 it('loads the booking engine page', function () {
     Branch::factory()->create();

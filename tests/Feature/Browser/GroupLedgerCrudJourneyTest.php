@@ -4,9 +4,9 @@ use App\Models\Branch;
 use App\Models\GroupLedger;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(DatabaseMigrations::class);
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->seed(RoleSeeder::class);
@@ -94,7 +94,9 @@ it('updates a group ledger entry via HTTP as global admin', function () {
     ]);
 });
 
-it('allows branch gm to create group ledger entries', function () {
+it('denies branch gm to create group ledger entries', function () {
+    // The Branch GM holds group_ledger.view only; ledger writes require
+    // the group_ledger.manage permission held by property-level admins.
     $this->actingAs($this->gm)
         ->withSession(['branch_id' => $this->branch->id])
         ->post('/group-ledgers', [
@@ -107,12 +109,10 @@ it('allows branch gm to create group ledger entries', function () {
             'currency_code' => 'NGN',
             'exchange_rate_to_group' => 1.0,
         ])
-        ->assertRedirect();
+        ->assertForbidden();
 
-    $this->assertDatabaseHas('group_ledgers', [
+    $this->assertDatabaseMissing('group_ledgers', [
         'branch_id' => $this->branch->id,
-        'total_room_revenue' => 200000,
-        'total_pos_revenue' => 80000,
     ]);
 });
 

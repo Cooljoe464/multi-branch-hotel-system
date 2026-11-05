@@ -3,9 +3,9 @@
 use App\Models\Branch;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(DatabaseMigrations::class);
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->seed(RoleSeeder::class);
@@ -27,9 +27,9 @@ it('navigates to import rooms page from sidebar', function () {
         ->press('Log in')
         ->wait(3)
         ->assertPathIs('/dashboard')
-        ->click('Administration')
+        ->click('[data-testid="nav-group-administration"]')
         ->wait(1)
-        ->click('Import Rooms')
+        ->click('[data-testid="nav-link-import-rooms"]')
         ->wait(3)
         ->assertSee('Import Rooms');
 });
@@ -41,9 +41,9 @@ it('shows download template link on import rooms page', function () {
         ->press('Log in')
         ->wait(3)
         ->assertPathIs('/dashboard')
-        ->click('Administration')
+        ->click('[data-testid="nav-group-administration"]')
         ->wait(1)
-        ->click('Import Rooms')
+        ->click('[data-testid="nav-link-import-rooms"]')
         ->wait(3)
         ->assertSee('Download Template');
 });

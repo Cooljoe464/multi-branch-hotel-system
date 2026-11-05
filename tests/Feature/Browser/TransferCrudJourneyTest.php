@@ -4,15 +4,15 @@ use App\Models\Branch;
 use App\Models\TransferRequest;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(DatabaseMigrations::class);
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->seed(RoleSeeder::class);
 
     $this->branch = Branch::factory()->create();
-    $this->otherBranch = Branch::factory()->create();
+    $this->otherBranch = Branch::factory()->create(['tenant_id' => $this->branch->tenant_id]);
 
     $this->admin = User::factory()->create([
         'branch_id' => $this->branch->id,
