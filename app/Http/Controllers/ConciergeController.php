@@ -163,10 +163,14 @@ class ConciergeController extends Controller
         $this->ensureBranchAccess($branch);
         $this->ensureThread($branch, $thread);
 
-        $suggester = new ConciergeReplySuggester(app(ConciergeAiManager::class)->provider());
+        $manager = app(ConciergeAiManager::class);
+
+        $suggestion = $manager->isConfigured()
+            ? (new ConciergeReplySuggester($manager->provider()))->suggest($thread)
+            : null;
 
         return response()->json([
-            'suggestion' => $suggester->suggest($thread),
+            'suggestion' => $suggestion,
         ]);
     }
 

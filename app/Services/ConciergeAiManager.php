@@ -34,8 +34,7 @@ class ConciergeAiManager
 
     public function provider(): ConciergeAiProvider
     {
-        $name = config('services.concierge_ai.provider');
-        $name = is_string($name) && $name !== '' ? $name : 'openai';
+        $name = $this->name();
 
         $class = self::PROVIDERS[$name] ?? null;
 
@@ -53,6 +52,31 @@ class ConciergeAiManager
             is_string($group['api_key'] ?? null) ? $group['api_key'] : null,
             is_string($group['model'] ?? null) ? $group['model'] : null,
         );
+    }
+
+    /**
+     * Whether the configured provider has credentials. An unconfigured
+     * branch must not pay a network timeout on every guest turn before
+     * falling back, so callers check this first.
+     */
+    public function isConfigured(): bool
+    {
+        $name = $this->name();
+
+        if (! isset(self::PROVIDERS[$name])) {
+            return false;
+        }
+
+        $apiKey = $this->group($name)['api_key'] ?? null;
+
+        return is_string($apiKey) && trim($apiKey) !== '';
+    }
+
+    private function name(): string
+    {
+        $name = config('services.concierge_ai.provider');
+
+        return is_string($name) && $name !== '' ? $name : 'openai';
     }
 
     /**

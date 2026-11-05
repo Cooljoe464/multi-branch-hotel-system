@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Services\Concierge\Ai\ConciergeAiProvider;
 use App\Services\Concierge\ConciergeDriver;
 use App\Services\Concierge\ConciergeIntent;
+use App\Services\Concierge\HeuristicConciergeDriver;
 use App\Services\Concierge\ModelConciergeDriver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -46,10 +47,20 @@ class ConciergeService
 
     public static function make(?ConciergeAiProvider $provider = null): self
     {
-        return new self(
-            new WhatsAppCloudApiService,
-            new ModelConciergeDriver($provider ?? app(ConciergeAiManager::class)->provider()),
-        );
+        return new self(new WhatsAppCloudApiService, self::driver($provider));
+    }
+
+    private static function driver(?ConciergeAiProvider $provider): ConciergeDriver
+    {
+        if ($provider !== null) {
+            return new ModelConciergeDriver($provider);
+        }
+
+        $manager = app(ConciergeAiManager::class);
+
+        return $manager->isConfigured()
+            ? new ModelConciergeDriver($manager->provider())
+            : new HeuristicConciergeDriver;
     }
 
     /**

@@ -87,7 +87,7 @@ class OpenAiCompatibleConciergeProvider implements ConciergeAiProvider
 
     private function client(?string $model): PendingRequest
     {
-        $client = Http::baseUrl($this->baseUrl)->acceptJson()->asJson()->timeout(30);
+        $client = Http::baseUrl($this->baseUrl)->acceptJson()->asJson()->connectTimeout(5)->timeout(15);
 
         if ($this->apiKey !== null) {
             $client = $client->withToken($this->apiKey);

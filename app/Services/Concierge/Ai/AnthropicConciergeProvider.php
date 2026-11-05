@@ -25,6 +25,8 @@ class AnthropicConciergeProvider implements ConciergeAiProvider
     public function complete(string $systemPrompt, array $messages, ?array $tools = null, ?string $model = null): ConciergeAiResponse
     {
         $response = Http::baseUrl($this->baseUrl)
+            ->connectTimeout(5)
+            ->timeout(15)
             ->withHeaders([
                 'x-api-key' => (string) ($this->apiKey ?? ''),
                 'anthropic-version' => self::VERSION,

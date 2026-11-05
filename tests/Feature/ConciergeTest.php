@@ -545,6 +545,24 @@ it('returns no draft when the AI provider is unavailable', function () {
     expect($thread->messages()->count())->toBe(0);
 });
 
+it('skips the AI provider entirely when it is not configured', function () {
+    $thread = ConciergeThread::factory()->forBranch($this->branch->id)->handoff()->create([
+        'whatsapp_wa_id' => $this->waId,
+    ]);
+
+    config([
+        'services.concierge_ai.provider' => 'openai',
+        'services.concierge_ai.providers.openai.api_key' => null,
+    ]);
+
+    $this->actingAs($this->admin)
+        ->postJson(route('concierge.suggest', ['branch' => $this->branch->id, 'thread' => $thread->id]))
+        ->assertOk()
+        ->assertJson(['suggestion' => null]);
+
+    Http::assertNothingSent();
+});
+
 it('rejects webhook payloads with an invalid signature', function () {
     $payload = conciergePayload($this->phoneNumberId, $this->waId, 'wamid.bad.1', 'Hello');
 
