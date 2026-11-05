@@ -361,6 +361,39 @@ it('answers from the branch knowledge base through the model-backed concierge dr
     expect($thread->messages()->where('role', ConciergeMessage::ROLE_GUEST)->count())->toBe(1);
 });
 
+it('honours guest opt-out from marketing and stops the concierge flow', function () {
+    $guest = Guest::factory()->create(['phone' => $this->waId]);
+
+    $thread = ConciergeThread::factory()->create([
+        'branch_id' => $this->branch->id,
+        'guest_id' => $guest->id,
+        'whatsapp_wa_id' => $this->waId,
+    ]);
+
+    Consent::create([
+        'guest_id' => $guest->id,
+        'channel' => 'whatsapp',
+        'purpose' => 'marketing',
+        'granted' => true,
+        'at' => now(),
+    ]);
+
+    $inbound = ConciergeService::make()->handleInbound($this->branch, [
+        'from' => $this->waId,
+        'id' => 'wamid.optout.1',
+        'type' => 'text',
+        'text' => ['body' => 'STOP'],
+    ]);
+
+    expect($inbound)->not->toBeNull();
+
+    expect(Consent::granted($guest->id, 'whatsapp', 'marketing'))->toBeFalse();
+
+    $reply = $thread->messages()->where('role', ConciergeMessage::ROLE_ASSISTANT)->firstOrFail();
+
+    expect($reply->body)->toContain('opted out');
+});
+
 it('rejects webhook payloads with an invalid signature', function () {
     $payload = conciergePayload($this->phoneNumberId, $this->waId, 'wamid.bad.1', 'Hello');
 

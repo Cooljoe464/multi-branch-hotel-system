@@ -37,6 +37,8 @@ class ConciergeService
 
     public const HANDOFF_REPLY = 'I have passed this to our front desk team and someone will reply here shortly.';
 
+    private const OPT_OUT_PATTERN = '/\b(?:stop|stop messaging|stop messages|unsubscribe|unsubscribe me|opt ?out|optout|end marketing)\b/i';
+
     public function __construct(
         private readonly WhatsAppCloudApiService $whatsapp,
         private readonly ConciergeDriver $driver,
@@ -102,6 +104,12 @@ class ConciergeService
             return $inbound;
         }
 
+        if ($this->isOptOut($body)) {
+            $this->handleOptOut($thread);
+
+            return $inbound;
+        }
+
         $intent = $this->driver->interpret($thread, $body);
 
         try {
@@ -143,6 +151,29 @@ class ConciergeService
         }
 
         return $thread;
+    }
+
+    private function handleOptOut(ConciergeThread $thread): void
+    {
+        if ($thread->guest_id !== null) {
+            Consent::query()
+                ->where('guest_id', $thread->guest_id)
+                ->where('channel', 'whatsapp')
+                ->where('purpose', 'marketing')
+                ->update(['granted' => false, 'at' => now()]);
+        }
+
+        $this->sendAssistant(
+            $thread,
+            'You have opted out of marketing messages from our hotel. Reply "agent" anytime to talk to our team.',
+        );
+    }
+
+    private function isOptOut(string $body): bool
+    {
+        $normalized = mb_strtolower(trim((string) preg_replace('/\s+/', ' ', $body) ?? ''));
+
+        return preg_match(self::OPT_OUT_PATTERN, $normalized) === 1;
     }
 
     private function linkIdentity(ConciergeThread $thread, string $waId): void
