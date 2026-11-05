@@ -717,15 +717,22 @@ class ConciergeService
         return $message;
     }
 
+    public function handOff(ConciergeThread $thread, string $reason): ConciergeThread
+    {
+        $thread->update([
+            'status' => ConciergeThread::STATUS_HANDOFF,
+            'handoff_at' => now(),
+        ]);
+
+        event(new HandoffRequested($thread, $reason));
+
+        return $thread;
+    }
+
     private function requestHandoff(ConciergeThread $thread, string $reason, ?string $reply = null): ?ConciergeMessage
     {
         if ($thread->status !== ConciergeThread::STATUS_HANDOFF) {
-            $thread->update([
-                'status' => ConciergeThread::STATUS_HANDOFF,
-                'handoff_at' => now(),
-            ]);
-
-            event(new HandoffRequested($thread, $reason));
+            $this->handOff($thread, $reason);
         }
 
         return $reply !== null ? $this->sendAssistant($thread, $reply, [['name' => 'handoff', 'reason' => $reason]]) : null;

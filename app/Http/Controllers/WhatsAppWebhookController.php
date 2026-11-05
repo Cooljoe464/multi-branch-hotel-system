@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessWhatsAppDeliveryStatusJob;
 use App\Jobs\ProcessWhatsAppWebhookJob;
 use App\Models\Branch;
 use App\Services\WhatsAppCloudApiService;
@@ -93,10 +94,35 @@ class WhatsAppWebhookController extends Controller
                     continue;
                 }
 
+                $inbound = [];
+                $statuses = [];
+
+                foreach ($messages as $message) {
+                    $statusValue = $message['status'] ?? null;
+                    $statusName = is_string($statusValue) ? $statusValue : (is_array($statusValue) ? (is_string($statusValue['status'] ?? null) ? $statusValue['status'] : null) : null);
+
+                    if ($statusName !== null) {
+                        $statuses[] = [
+                            'message_id' => is_string($statusValue['message_id'] ?? null) ? $statusValue['message_id'] : (is_string($message['id'] ?? null) ? $message['id'] : null),
+                            'status' => $statusName,
+                        ];
+
+                        continue;
+                    }
+
+                    $inbound[] = $message;
+                }
+
                 $contacts = is_array($value['contacts'] ?? null) ? $value['contacts'] : [];
                 $contact = $this->normalizeContact($contacts[0] ?? null);
 
-                ProcessWhatsAppWebhookJob::dispatch($branch->id, $messages, $contact);
+                if ($inbound !== []) {
+                    ProcessWhatsAppWebhookJob::dispatch($branch->id, $inbound, $contact);
+                }
+
+                if ($statuses !== []) {
+                    ProcessWhatsAppDeliveryStatusJob::dispatch($branch->id, $statuses);
+                }
             }
         }
 

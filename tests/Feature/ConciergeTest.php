@@ -394,6 +394,91 @@ it('honours guest opt-out from marketing and stops the concierge flow', function
     expect($reply->body)->toContain('opted out');
 });
 
+it('records delivery status updates without treating them as guest turns', function () {
+    $thread = ConciergeThread::factory()->forBranch($this->branch->id)->create([
+        'whatsapp_wa_id' => $this->waId,
+    ]);
+
+    $assistant = ConciergeMessage::factory()->create([
+        'concierge_thread_id' => $thread->id,
+        'role' => ConciergeMessage::ROLE_ASSISTANT,
+        'body' => 'Connect to GUEST-WIFI.',
+        'whatsapp_message_id' => 'wamid.ai.outbound.1',
+    ]);
+
+    $statusPayload = [
+        'object' => 'whatsapp_business_account',
+        'entry' => [[
+            'id' => 'waba-1',
+            'changes' => [[
+                'field' => 'messages',
+                'value' => [
+                    'messaging_product' => 'whatsapp',
+                    'metadata' => ['display_phone_number' => '2348000000000', 'phone_number_id' => $this->phoneNumberId],
+                    'messages' => [[
+                        'from' => $this->waId,
+                        'id' => 'wamid.ai.outbound.1',
+                        'timestamp' => (string) now()->timestamp,
+                        'status' => [
+                            'timestamp' => (string) now()->timestamp,
+                            'recipient_wa_id' => $this->waId,
+                            'message_id' => 'wamid.ai.outbound.1',
+                            'status' => 'delivered',
+                        ],
+                    ]],
+                ],
+            ]],
+        ]],
+    ];
+
+    conciergeSend($this, $statusPayload)->assertOk();
+
+    expect($assistant->fresh()->metadata['whatsapp_status'] ?? null)->toBe('delivered')
+        ->and($thread->messages()->where('role', ConciergeMessage::ROLE_GUEST)->count())->toBe(0);
+});
+
+it('hands off the concierge thread when a delivery fails', function () {
+    $thread = ConciergeThread::factory()->forBranch($this->branch->id)->create([
+        'whatsapp_wa_id' => $this->waId,
+    ]);
+
+    ConciergeMessage::factory()->create([
+        'concierge_thread_id' => $thread->id,
+        'role' => ConciergeMessage::ROLE_ASSISTANT,
+        'body' => 'Connect to GUEST-WIFI.',
+        'whatsapp_message_id' => 'wamid.ai.outbound.2',
+    ]);
+
+    $statusPayload = [
+        'object' => 'whatsapp_business_account',
+        'entry' => [[
+            'id' => 'waba-1',
+            'changes' => [[
+                'field' => 'messages',
+                'value' => [
+                    'messaging_product' => 'whatsapp',
+                    'metadata' => ['display_phone_number' => '2348000000000', 'phone_number_id' => $this->phoneNumberId],
+                    'messages' => [[
+                        'from' => $this->waId,
+                        'id' => 'wamid.ai.outbound.2',
+                        'timestamp' => (string) now()->timestamp,
+                        'status' => [
+                            'timestamp' => (string) now()->timestamp,
+                            'recipient_wa_id' => $this->waId,
+                            'message_id' => 'wamid.ai.outbound.2',
+                            'status' => 'failed',
+                        ],
+                    ]],
+                ],
+            ]],
+        ]],
+    ];
+
+    conciergeSend($this, $statusPayload)->assertOk();
+
+    expect($thread->fresh()->status)->toBe(ConciergeThread::STATUS_HANDOFF);
+});
+
 it('rejects webhook payloads with an invalid signature', function () {
     $payload = conciergePayload($this->phoneNumberId, $this->waId, 'wamid.bad.1', 'Hello');
 
