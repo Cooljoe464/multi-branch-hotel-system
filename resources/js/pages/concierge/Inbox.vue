@@ -13,6 +13,7 @@ import {
     PlayCircle,
     Search,
     Send,
+    Sparkles,
     User,
     UserCog,
     X,
@@ -115,6 +116,8 @@ const search = ref('');
 const body = ref('');
 const chatScroll = ref<HTMLElement | null>(null);
 const sending = ref(false);
+const suggesting = ref(false);
+const suggestionError = ref<string | null>(null);
 
 const editing = ref<KbEntry | null>(null);
 const kbDialogOpen = ref(false);
@@ -246,6 +249,51 @@ const sendReply = () => {
     );
 };
 
+const suggestReply = async () => {
+    if (!props.selected || suggesting.value) return;
+
+    suggesting.value = true;
+    suggestionError.value = null;
+
+    try {
+        const token =
+            document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+                ?.content ?? '';
+
+        const response = await fetch(
+            `/branches/${props.branch.id}/concierge/threads/${props.selected.id}/suggest`,
+            {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': token,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({}),
+            },
+        );
+
+        if (!response.ok) {
+            throw new Error('Suggestion request failed.');
+        }
+
+        const data = (await response.json()) as { suggestion: string | null };
+
+        if (data.suggestion) {
+            body.value = data.suggestion;
+        } else {
+            suggestionError.value =
+                'No draft available right now. Write the reply yourself.';
+        }
+    } catch {
+        suggestionError.value =
+            'Could not draft a reply right now. Write it yourself.';
+    } finally {
+        suggesting.value = false;
+    }
+};
+
 const toggleKillSwitch = () => {
     router.put(
         `/branches/${props.branch.id}/concierge/settings`,
@@ -282,6 +330,13 @@ const scrollToBottom = async () => {
 watch(
     () => props.selected?.messages.length,
     () => void scrollToBottom(),
+);
+
+watch(
+    () => props.selected?.id,
+    () => {
+        suggestionError.value = null;
+    },
 );
 
 onMounted(() => void scrollToBottom());
@@ -674,39 +729,61 @@ const deleteEntry = (entry: KbEntry) => {
                     <div v-if="!can.reply" class="text-muted-foreground text-sm">
                         You can view this conversation but not reply.
                     </div>
-                    <form
-                        v-else
-                        class="flex items-end gap-2"
-                        @submit.prevent="sendReply"
-                    >
-                        <textarea
-                            v-model="body"
-                            rows="2"
-                            class="border-input bg-background text-foreground placeholder:text-muted-foreground w-full resize-none rounded-md border px-3 py-2 text-sm focus:outline-none"
-                            :placeholder="
-                                selected.status === 'handoff'
-                                    ? 'Reply as front desk…'
-                                    : 'Take over to reply manually, or let the AI answer.'
-                            "
-                            :disabled="selected.status !== 'handoff'"
-                        />
-                        <Button
-                            type="submit"
-                            :disabled="
-                                sending ||
-                                body.trim() === '' ||
-                                selected.status !== 'handoff'
-                            "
+                    <template v-else>
+                        <div
+                            v-if="selected.status === 'handoff'"
+                            class="mb-2 flex items-center justify-between gap-2"
                         >
-                            <Send class="mr-1 size-4" /> Send
-                        </Button>
-                    </form>
-                    <p
-                        v-if="selected.status !== 'handoff' && can.reply"
-                        class="text-muted-foreground mt-1 text-xs"
-                    >
-                        The AI assistant is handling this thread. Take over to type a manual reply.
-                    </p>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                :disabled="suggesting"
+                                @click="suggestReply"
+                            >
+                                <Sparkles class="size-4" />
+                                {{ suggesting ? 'Drafting…' : 'Draft with AI' }}
+                            </Button>
+                            <p
+                                v-if="suggestionError"
+                                class="text-muted-foreground text-xs"
+                            >
+                                {{ suggestionError }}
+                            </p>
+                        </div>
+                        <form
+                            class="flex items-end gap-2"
+                            @submit.prevent="sendReply"
+                        >
+                            <textarea
+                                v-model="body"
+                                rows="2"
+                                class="border-input bg-background text-foreground placeholder:text-muted-foreground w-full resize-none rounded-md border px-3 py-2 text-sm focus:outline-none"
+                                :placeholder="
+                                    selected.status === 'handoff'
+                                        ? 'Reply as front desk…'
+                                        : 'Take over to reply manually, or let the AI answer.'
+                                "
+                                :disabled="selected.status !== 'handoff'"
+                            />
+                            <Button
+                                type="submit"
+                                :disabled="
+                                    sending ||
+                                    body.trim() === '' ||
+                                    selected.status !== 'handoff'
+                                "
+                            >
+                                <Send class="mr-1 size-4" /> Send
+                            </Button>
+                        </form>
+                        <p
+                            v-if="selected.status !== 'handoff'"
+                            class="text-muted-foreground mt-1 text-xs"
+                        >
+                            The AI assistant is handling this thread. Take over to type a manual reply.
+                        </p>
+                    </template>
                 </div>
             </section>
 

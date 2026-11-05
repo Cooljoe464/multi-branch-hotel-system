@@ -479,6 +479,72 @@ it('hands off the concierge thread when a delivery fails', function () {
     expect($thread->fresh()->status)->toBe(ConciergeThread::STATUS_HANDOFF);
 });
 
+it('drafts an agent reply without sending anything', function () {
+    ConciergeKbEntry::create([
+        'branch_id' => $this->branch->id,
+        'topic' => 'Wi-Fi',
+        'question' => 'What is the Wi-Fi password?',
+        'answer' => 'Connect to GUEST-WIFI with password HOTEL2026.',
+        'keywords' => ['wifi', 'internet', 'password'],
+        'active' => true,
+    ]);
+
+    $guest = Guest::factory()->create(['phone' => $this->waId]);
+
+    $thread = ConciergeThread::factory()->forBranch($this->branch->id)->handoff()->create([
+        'guest_id' => $guest->id,
+        'whatsapp_wa_id' => $this->waId,
+    ]);
+
+    ConciergeMessage::factory()->fromGuest()->create([
+        'concierge_thread_id' => $thread->id,
+        'body' => 'What is the wifi password?',
+    ]);
+
+    config([
+        'services.concierge_ai.provider' => 'openai',
+        'services.concierge_ai.providers.openai.base_url' => 'https://concierge.test/v1',
+        'services.concierge_ai.providers.openai.api_key' => 'test-key',
+        'services.concierge_ai.providers.openai.model' => 'gpt-4o-mini',
+    ]);
+
+    Http::fake([
+        'concierge.test/*' => Http::response([
+            'choices' => [[
+                'message' => ['content' => 'Connect to GUEST-WIFI with password HOTEL2026.'],
+            ]],
+        ], 200),
+        'graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.outbound']]], 200),
+    ]);
+
+    $this->actingAs($this->admin)
+        ->postJson(route('concierge.suggest', ['branch' => $this->branch->id, 'thread' => $thread->id]))
+        ->assertOk()
+        ->assertJson(['suggestion' => 'Connect to GUEST-WIFI with password HOTEL2026.']);
+
+    expect($thread->messages()->count())->toBe(1);
+
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'graph.facebook.com'));
+});
+
+it('returns no draft when the AI provider is unavailable', function () {
+    $thread = ConciergeThread::factory()->forBranch($this->branch->id)->handoff()->create([
+        'whatsapp_wa_id' => $this->waId,
+    ]);
+
+    config([
+        'services.concierge_ai.provider' => 'openai',
+        'services.concierge_ai.providers.openai.api_key' => 'test-key',
+    ]);
+
+    $this->actingAs($this->admin)
+        ->postJson(route('concierge.suggest', ['branch' => $this->branch->id, 'thread' => $thread->id]))
+        ->assertOk()
+        ->assertJson(['suggestion' => null]);
+
+    expect($thread->messages()->count())->toBe(0);
+});
+
 it('rejects webhook payloads with an invalid signature', function () {
     $payload = conciergePayload($this->phoneNumberId, $this->waId, 'wamid.bad.1', 'Hello');
 

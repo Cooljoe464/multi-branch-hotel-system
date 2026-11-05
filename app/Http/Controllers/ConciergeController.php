@@ -8,9 +8,12 @@ use App\Models\ConciergeAction;
 use App\Models\ConciergeKbEntry;
 use App\Models\ConciergeMessage;
 use App\Models\ConciergeThread;
+use App\Services\Concierge\ConciergeReplySuggester;
+use App\Services\ConciergeAiManager;
 use App\Services\ConciergeService;
 use App\Services\WhatsAppCloudApiService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -153,6 +156,18 @@ class ConciergeController extends Controller
         (ConciergeService::make())->replyAsAgent($thread, $request->string('body')->value(), $user);
 
         return $this->backToThread($branch, $thread, 'Reply sent.');
+    }
+
+    public function suggest(Branch $branch, ConciergeThread $thread): JsonResponse
+    {
+        $this->ensureBranchAccess($branch);
+        $this->ensureThread($branch, $thread);
+
+        $suggester = new ConciergeReplySuggester(app(ConciergeAiManager::class)->provider());
+
+        return response()->json([
+            'suggestion' => $suggester->suggest($thread),
+        ]);
     }
 
     public function takeOver(Branch $branch, ConciergeThread $thread, Request $request): RedirectResponse

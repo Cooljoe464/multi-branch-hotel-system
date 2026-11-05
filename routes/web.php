@@ -1217,6 +1217,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('branches/{branch}/concierge/threads/{thread}/messages', [ConciergeController::class, 'reply'])
         ->middleware('permission:concierge.reply')
         ->name('concierge.reply');
+    Route::post('branches/{branch}/concierge/threads/{thread}/suggest', [ConciergeController::class, 'suggest'])
+        ->middleware('permission:concierge.reply')
+        ->name('concierge.suggest');
     Route::post('branches/{branch}/concierge/threads/{thread}/takeover', [ConciergeController::class, 'takeOver'])
         ->middleware('permission:concierge.reply')
         ->name('concierge.takeover');
