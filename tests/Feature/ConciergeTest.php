@@ -19,6 +19,7 @@ use App\Services\ConciergeService;
 use App\Services\RateEngine;
 use App\Services\WhatsAppCloudApiService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
@@ -392,6 +393,31 @@ it('honours guest opt-out from marketing and stops the concierge flow', function
     $reply = $thread->messages()->where('role', ConciergeMessage::ROLE_ASSISTANT)->firstOrFail();
 
     expect($reply->body)->toContain('opted out');
+});
+
+it('hands off when the outbound WhatsApp send fails synchronously', function () {
+    ConciergeKbEntry::create([
+        'branch_id' => $this->branch->id,
+        'topic' => 'Wi-Fi',
+        'question' => 'What is the Wi-Fi password?',
+        'answer' => 'Connect to GUEST-WIFI with password HOTEL2026.',
+        'keywords' => ['wifi', 'internet', 'password'],
+        'active' => true,
+    ]);
+
+    Http::swap(new Factory);
+
+    Http::fake([
+        'graph.facebook.com/*' => Http::response('', 500),
+        'api.openai.com/*' => Http::response('', 500),
+    ]);
+
+    conciergeSend($this, conciergePayload($this->phoneNumberId, $this->waId, 'wamid.sendfail.1', 'What is the wifi password?'))
+        ->assertOk();
+
+    $thread = ConciergeThread::where('whatsapp_wa_id', $this->waId)->firstOrFail();
+
+    expect($thread->status)->toBe(ConciergeThread::STATUS_HANDOFF);
 });
 
 it('records delivery status updates without treating them as guest turns', function () {

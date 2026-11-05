@@ -730,6 +730,10 @@ class ConciergeService
 
     public function handOff(ConciergeThread $thread, string $reason): ConciergeThread
     {
+        if ($thread->status === ConciergeThread::STATUS_HANDOFF) {
+            return $thread;
+        }
+
         $thread->update([
             'status' => ConciergeThread::STATUS_HANDOFF,
             'handoff_at' => now(),
@@ -764,6 +768,8 @@ class ConciergeService
                 'thread_id' => $thread->id,
                 'error' => $e->getMessage(),
             ]);
+
+            $this->handOff($thread, 'delivery_failed');
         }
     }
 
