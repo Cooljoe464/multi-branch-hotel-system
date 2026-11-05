@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
 
@@ -69,7 +71,17 @@ test('users can logout', function () {
 test('users are rate limited', function () {
     $user = User::factory()->create();
 
-    RateLimiter::increment(md5('login'.implode('|', [$user->email, '127.0.0.1'])), amount: 5);
+    // The application default is relaxed in the testing environment so the
+    // login journey tests are not throttled mid-flow. Re-register a strict
+    // limiter here to keep the rate-limit behaviour covered.
+    RateLimiter::for('login', function (Request $request) {
+        return Limit::perMinute(1)->by($request->ip());
+    });
+
+    $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'wrong-password',
+    ]);
 
     $response = $this->post(route('login.store'), [
         'email' => $user->email,
