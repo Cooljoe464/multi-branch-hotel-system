@@ -350,7 +350,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:tax.manage')
         ->name('tax-profiles.deactivate');
 
-    // Chart of accounts + trial balance
+    // Fiscal documents (NRS e-invoicing)
     Route::get('branches/{branch}/fiscal-documents', [FiscalDocumentController::class, 'index'])
         ->middleware('permission:fiscal.view')
         ->name('fiscal-documents.index');
