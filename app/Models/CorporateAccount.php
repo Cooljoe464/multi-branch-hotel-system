@@ -16,6 +16,8 @@ use Illuminate\Support\Carbon;
  * @property int $branch_id
  * @property string $name
  * @property string $code
+ * @property string|null $billing_address
+ * @property string|null $tax_id
  * @property int|null $negotiated_plan_id
  * @property int $discount_bps
  * @property string|null $ledger_account
@@ -28,6 +30,8 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'branch_id',
     'name',
+    'billing_address',
+    'tax_id',
     'code',
     'negotiated_plan_id',
     'discount_bps',
@@ -42,6 +46,7 @@ class CorporateAccount extends Model
             'negotiated_plan_id' => 'integer',
             'discount_bps' => 'integer',
             'is_active' => 'boolean',
+            'tax_id' => 'encrypted',
         ];
     }
 

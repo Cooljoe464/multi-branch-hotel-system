@@ -133,7 +133,7 @@ it('backfills a default profile from the legacy branch rate', function () {
 it('issues the IRN and records failures with retry', function () {
     config(['services.firs.endpoint' => 'https://firs.example.test/invoices']);
     config(['services.firs.api_key' => 'test-key']);
-    Http::fake(['*' => Http::response(['irn' => 'FIRS-IRN-1'], 200)]);
+    Http::fake(['*' => Http::response(['irn' => 'FIRS-IRN-1', 'state' => 'cleared'], 200)]);
 
     $service = new FolioService;
     $folio = $service->createStaffFolio($this->branch->id, 'Fiscal Guest');

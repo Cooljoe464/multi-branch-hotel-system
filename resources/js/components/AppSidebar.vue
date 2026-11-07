@@ -71,6 +71,13 @@ const branchId = computed(() => page.props.branch?.current?.id ?? null);
 const branchLink = (path: string) =>
     branchId.value !== null ? `/branches/${branchId.value}${path}` : '#';
 
+function navItemTestId(item: NavItem): string {
+    const slug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const prefix = item.children ? 'nav-group-' : 'nav-link-';
+
+    return `${prefix}${slug}`;
+}
+
 const isFrontDesk = computed(() => hasRole('front_desk'));
 
 const allNavItems = computed<NavItem[]>(() => [
@@ -515,6 +522,7 @@ function childLinkClasses(href: NavItem['href']): string {
                     <Link
                         v-if="!item.children"
                         :href="item.href"
+                        :data-testid="navItemTestId(item)"
                         :class="standaloneLinkClasses(item.href)"
                         :title="item.title"
                         @click="closeMobileSidebar"
@@ -535,6 +543,7 @@ function childLinkClasses(href: NavItem['href']): string {
                         <CollapsibleTrigger as-child>
                             <button
                                 type="button"
+                                :data-testid="navItemTestId(item)"
                                 :class="groupButtonClasses(item)"
                                 :title="item.title"
                                 @click="toggleGroup(item)"
@@ -562,6 +571,7 @@ function childLinkClasses(href: NavItem['href']): string {
                                 v-for="child in visibleChildren(item)"
                                 :key="child.title"
                                 :href="child.href"
+                                :data-testid="navItemTestId(child)"
                                 :class="childLinkClasses(child.href)"
                                 :title="child.title"
                                 @click="closeMobileSidebar"

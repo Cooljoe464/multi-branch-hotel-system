@@ -1,16 +1,21 @@
 <?php
 
+use App\Contracts\EInvoiceEmitter;
 use App\Jobs\EmitEinvoiceJob;
 use App\Jobs\OcrDocumentJob;
 use App\Models\Branch;
+use App\Models\CorporateAccount;
 use App\Models\FiscalDocument;
 use App\Models\Folio;
 use App\Models\Guest;
 use App\Models\GuestIdentityDocument;
+use App\Models\Reservation;
 use App\Services\Fiscal\FirsEmitter;
+use App\Services\Fiscal\FiscalService;
 use App\Services\FolioService;
 use App\Services\Security\SecretManager;
 use App\Services\Security\VendorRateLimiter;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -69,7 +74,12 @@ it('emits through a branch-scoped secret that overrides the environment', functi
     $secrets->set($this->branch, FirsEmitter::SECRET_ENDPOINT, 'https://firs.example.test/invoices');
     $secrets->set($this->branch, FirsEmitter::SECRET_API_KEY, 'branch-key');
 
-    Http::fake(['*' => Http::response(['irn' => 'FIRS-IRN-9'], 200)]);
+    Http::fake(['*' => Http::response([
+        'irn' => 'FIRS-IRN-9',
+        'state' => 'cleared',
+        'digitalStamp' => 'stamp-9',
+        'qrData' => 'qr-9',
+    ], 200)]);
 
     $service = new FolioService;
     $folio = fiscalFolio($this->branch, $service);
@@ -82,9 +92,141 @@ it('emits through a branch-scoped secret that overrides the environment', functi
     $document->refresh();
 
     expect($document->status)->toBe(FiscalDocument::STATUS_ISSUED)
-        ->and($document->irn)->toBe('FIRS-IRN-9');
+        ->and($document->irn)->toBe('FIRS-IRN-9')
+        ->and($document->digital_stamp)->toBe('stamp-9')
+        ->and($document->qr_data)->toBe('qr-9')
+        ->and($document->response_hash)->toMatch('/^[a-f0-9]{64}$/')
+        ->and($document->submitted_at)->not->toBeNull()
+        ->and($document->cleared_at)->not->toBeNull();
 
     Http::assertSent(fn ($request) => str_contains($request->header('Authorization')[0] ?? '', 'branch-key'));
+});
+
+it('keeps a provider reference submitted until the status endpoint confirms clearance', function () {
+    config(['services.firs.endpoint' => 'https://firs.example.test/invoices']);
+    config(['services.firs.status_endpoint' => 'https://firs.example.test/status/{reference}']);
+    config(['services.firs.api_key' => 'test-key']);
+    Http::fake([
+        'https://firs.example.test/invoices' => Http::response(['irn' => 'FIRS-PENDING-1'], 202),
+        'https://firs.example.test/status/FIRS-PENDING-1' => Http::response([
+            'irn' => 'FIRS-PENDING-1',
+            'state' => 'cleared',
+            'digitalStamp' => 'stamp-1',
+        ], 200),
+    ]);
+
+    $document = FiscalDocument::create([
+        'branch_id' => $this->branch->id,
+        'provider' => 'firs',
+        'status' => FiscalDocument::STATUS_READY,
+        'payload' => [
+            'invoiceNumber' => 'INV-1',
+            'invoiceDate' => now()->toDateString(),
+            'supplier' => ['name' => 'Hotel'],
+            'lines' => [['description' => 'Room', 'amount' => 1000]],
+            'totalAmount' => 1000,
+        ],
+        'idempotency_key' => 'fiscal-pending-1',
+    ]);
+
+    (new EmitEinvoiceJob($document->id))->handle();
+    expect($document->refresh()->status)->toBe(FiscalDocument::STATUS_SUBMITTED);
+
+    (new EmitEinvoiceJob($document->id))->handle();
+    expect($document->refresh()->status)->toBe(FiscalDocument::STATUS_CLEARED)
+        ->and($document->digital_stamp)->toBe('stamp-1');
+});
+
+it('creates a retry-safe credit note linked to its cleared original invoice', function () {
+    Queue::fake();
+    $emitter = Mockery::mock(FirsEmitter::class);
+    $emitter->shouldReceive('provider')->andReturn('firs');
+    $emitter->shouldReceive('capabilities')->andReturn([
+        'submit' => true,
+        'status' => true,
+        'credit_note' => true,
+        'reconcile' => true,
+    ]);
+    app()->instance(EInvoiceEmitter::class, $emitter);
+
+    $original = FiscalDocument::create([
+        'branch_id' => $this->branch->id,
+        'provider' => 'firs',
+        'status' => FiscalDocument::STATUS_CLEARED,
+        'irn' => 'INV-IRN-1',
+        'payload' => ['totalAmount' => 10000],
+        'idempotency_key' => 'original-invoice-1',
+    ]);
+    $service = app(FiscalService::class);
+    $payload = [
+        'creditNoteNumber' => 'CN-1',
+        'lines' => [['description' => 'Refund', 'amount' => 2500]],
+        'totalAmount' => 2500,
+    ];
+
+    $creditNote = $service->issueCreditNote($original, $payload);
+    $again = $service->issueCreditNote($original, $payload);
+
+    expect($creditNote->id)->toBe($again->id)
+        ->and($creditNote->document_type)->toBe('credit_note')
+        ->and($creditNote->original_document_id)->toBe($original->id)
+        ->and($creditNote->payload['originalInvoiceReference'])->toBe('INV-IRN-1');
+    Queue::assertPushed(EmitEinvoiceJob::class, 1);
+});
+
+it('does not allow changing a fiscal invoice payload after it is ready', function () {
+    $document = FiscalDocument::create([
+        'branch_id' => $this->branch->id,
+        'provider' => 'firs',
+        'status' => FiscalDocument::STATUS_READY,
+        'payload' => ['invoiceNumber' => 'INV-LOCKED'],
+        'idempotency_key' => 'fiscal-immutable-1',
+    ]);
+
+    expect(fn () => $document->update(['payload' => ['invoiceNumber' => 'INV-CHANGED']]))
+        ->toThrow(QueryException::class);
+});
+
+it('holds corporate invoices until a valid buyer tax identity is available', function () {
+    Queue::fake();
+    config(['services.firs.endpoint' => 'https://firs.example.test/invoices']);
+    config(['services.firs.api_key' => 'test-key']);
+
+    $corporate = CorporateAccount::create([
+        'branch_id' => $this->branch->id,
+        'name' => 'Example Group Ltd',
+        'code' => 'EXAMPLE',
+        'billing_address' => '10 Marina Road, Lagos',
+        'tax_id' => null,
+        'is_active' => true,
+    ]);
+    $reservation = Reservation::factory()->create([
+        'branch_id' => $this->branch->id,
+        'corporate_account_id' => $corporate->id,
+    ]);
+    $folioService = new FolioService;
+    $folio = $folioService->createFolio($this->branch->id, $reservation->id);
+    $folioService->postDebit($folio, 'rooms', 'Room charge', 10000);
+    $folioService->recordPayment($folio, 10750, 'card', null, 'B2B-PAY-1');
+    $folioService->checkout($folio);
+
+    $fiscal = app(FiscalService::class);
+    $document = $fiscal->queueFor($folio->fresh());
+
+    expect($document)->not->toBeNull()
+        ->and($document->status)->toBe(FiscalDocument::STATUS_DRAFT)
+        ->and($document->last_error)->toContain('13-digit Tax ID')
+        ->and($document->payload['buyer']['name'])->toBe('Example Group Ltd')
+        ->and($document->payload['buyer']['address'])->toBe('10 Marina Road, Lagos');
+    Queue::assertNotPushed(EmitEinvoiceJob::class);
+
+    $corporate->update(['tax_id' => '1234567890123']);
+    $released = $fiscal->releaseHeldDocument($document);
+
+    expect($released->status)->toBe(FiscalDocument::STATUS_READY)
+        ->and($released->payload['buyer']['taxId'])->toBe('1234567890123')
+        ->and($released->last_error)->toBeNull();
+    Queue::assertPushed(EmitEinvoiceJob::class, 1);
 });
 
 it('refuses to sign a malformed payload instead of sending it', function () {

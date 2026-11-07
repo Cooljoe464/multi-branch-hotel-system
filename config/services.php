@@ -43,6 +43,9 @@ return [
     'firs' => [
         'endpoint' => env('FIRS_ENDPOINT'),
         'api_key' => env('FIRS_API_KEY'),
+        'status_endpoint' => env('FIRS_STATUS_ENDPOINT'),
+        'credit_note_endpoint' => env('FIRS_CREDIT_NOTE_ENDPOINT'),
+        'reconcile_endpoint' => env('FIRS_RECONCILE_ENDPOINT'),
     ],
 
     // Identity OCR vendor (NIN/passport scans). Empty endpoint disables

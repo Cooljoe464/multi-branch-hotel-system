@@ -33,6 +33,7 @@ use App\Http\Controllers\DevelopersController;
 use App\Http\Controllers\DiningTableController;
 use App\Http\Controllers\DoNotRentController;
 use App\Http\Controllers\DsarController;
+use App\Http\Controllers\FiscalDocumentController;
 use App\Http\Controllers\FolioController;
 use App\Http\Controllers\FolioDisputeController;
 use App\Http\Controllers\FolioWindowController;
@@ -226,6 +227,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('branches/{branch}/commercial/corporate', [CommercialController::class, 'storeCorporate'])
         ->middleware('permission:corporate_accounts.manage')
         ->name('commercial.corporate.store');
+    Route::put('branches/{branch}/commercial/corporate/{corporate}', [CommercialController::class, 'updateCorporate'])
+        ->middleware('permission:corporate_accounts.manage')
+        ->name('commercial.corporate.update');
     Route::delete('branches/{branch}/commercial/corporate/{corporate}', [CommercialController::class, 'destroyCorporate'])
         ->middleware('permission:corporate_accounts.manage')
         ->name('commercial.corporate.destroy');
@@ -345,6 +349,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('branches/{branch}/tax-profiles/{profile}/deactivate', [TaxProfileController::class, 'deactivate'])
         ->middleware('permission:tax.manage')
         ->name('tax-profiles.deactivate');
+
+    // Chart of accounts + trial balance
+    Route::get('branches/{branch}/fiscal-documents', [FiscalDocumentController::class, 'index'])
+        ->middleware('permission:fiscal.view')
+        ->name('fiscal-documents.index');
+    Route::post('branches/{branch}/fiscal-documents/{document}/release', [FiscalDocumentController::class, 'release'])
+        ->middleware('permission:fiscal.retry')
+        ->name('fiscal-documents.release');
 
     // Chart of accounts + trial balance
     Route::get('branches/{branch}/chart', [ChartAccountController::class, 'index'])

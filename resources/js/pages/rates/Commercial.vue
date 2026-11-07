@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,6 +46,8 @@ interface Corporate {
     id: number;
     name: string;
     code: string;
+    billing_address: string | null;
+    tax_id: string | null;
     negotiated_plan_id: number | null;
     negotiated_plan: Plan | null;
     discount_bps: number;
@@ -92,15 +95,50 @@ const promoForm = useForm({
 const corporateForm = useForm({
     name: '',
     code: '',
+    billing_address: '',
+    tax_id: '',
     negotiated_plan_id: null as number | null,
     discount_bps: 0,
     ledger_account: '',
 });
+const editingCorporateId = ref<number | null>(null);
 
 const base = `/branches/${props.branch.id}/commercial`;
 
 function refresh() {
     router.get(`${base}`, {}, { preserveState: true });
+}
+
+function saveCorporate(): void {
+    const options = {
+        onSuccess: () => {
+            corporateForm.reset();
+            editingCorporateId.value = null;
+            refresh();
+        },
+    };
+
+    if (editingCorporateId.value !== null) {
+        corporateForm.put(
+            `${base}/corporate/${editingCorporateId.value}`,
+            options,
+        );
+
+        return;
+    }
+
+    corporateForm.post(`${base}/corporate`, options);
+}
+
+function editCorporate(corporate: Corporate): void {
+    editingCorporateId.value = corporate.id;
+    corporateForm.name = corporate.name;
+    corporateForm.code = corporate.code;
+    corporateForm.billing_address = corporate.billing_address ?? '';
+    corporateForm.tax_id = corporate.tax_id ?? '';
+    corporateForm.negotiated_plan_id = corporate.negotiated_plan_id;
+    corporateForm.discount_bps = corporate.discount_bps;
+    corporateForm.ledger_account = corporate.ledger_account ?? '';
 }
 </script>
 
@@ -115,6 +153,13 @@ function refresh() {
                 Seasons, promo codes and corporate accounts that feed the rate
                 engine.
             </p>
+            <Button
+                class="mt-3"
+                variant="outline"
+                @click="router.visit(`/branches/${branch.id}/fiscal-documents`)"
+            >
+                Held fiscal invoices
+            </Button>
         </div>
 
         <section class="space-y-3">
@@ -354,14 +399,7 @@ function refresh() {
         <section class="space-y-3">
             <h2 class="text-lg font-medium">Corporate accounts</h2>
             <form
-                @submit.prevent="
-                    corporateForm.post(`${base}/corporate`, {
-                        onSuccess: () => {
-                            corporateForm.reset();
-                            refresh();
-                        },
-                    })
-                "
+                @submit.prevent="saveCorporate"
                 class="grid grid-cols-2 gap-3 rounded-lg border p-4 md:grid-cols-4"
             >
                 <div class="grid gap-2">
@@ -371,6 +409,20 @@ function refresh() {
                 <div class="grid gap-2">
                     <Label>Code</Label
                     ><Input v-model="corporateForm.code" required />
+                </div>
+                <div class="grid gap-2 md:col-span-2">
+                    <Label>Billing address</Label
+                    ><Input v-model="corporateForm.billing_address" required />
+                </div>
+                <div class="grid gap-2">
+                    <Label>Tax ID (13 digits)</Label>
+                    <Input
+                        v-model="corporateForm.tax_id"
+                        inputmode="numeric"
+                        minlength="13"
+                        maxlength="13"
+                        pattern="[0-9]{13}"
+                    />
                 </div>
                 <div class="grid gap-2">
                     <Label>Negotiated plan</Label>
@@ -411,7 +463,23 @@ function refresh() {
                     ><Input v-model="corporateForm.ledger_account" />
                 </div>
                 <div class="flex items-end">
-                    <Button type="submit">Add account</Button>
+                    <Button type="submit">
+                        {{
+                            editingCorporateId ? 'Save account' : 'Add account'
+                        }}
+                    </Button>
+                    <Button
+                        v-if="editingCorporateId"
+                        class="ml-2"
+                        type="button"
+                        variant="outline"
+                        @click="
+                            corporateForm.reset();
+                            editingCorporateId = null;
+                        "
+                    >
+                        Cancel
+                    </Button>
                 </div>
             </form>
             <div class="rounded-lg border">
@@ -421,6 +489,7 @@ function refresh() {
                             <th class="p-3">Code</th>
                             <th class="p-3">Name</th>
                             <th class="p-3">Plan / discount</th>
+                            <th class="p-3">Tax ID</th>
                             <th class="p-3"></th>
                         </tr>
                     </thead>
@@ -438,7 +507,21 @@ function refresh() {
                                     `${(c.discount_bps / 100).toFixed(0)}% off`
                                 }}
                             </td>
+                            <td class="p-3">
+                                {{
+                                    c.tax_id
+                                        ? `••••${c.tax_id.slice(-4)}`
+                                        : 'Missing'
+                                }}
+                            </td>
                             <td class="p-3 text-right">
+                                <Button
+                                    class="mr-2"
+                                    variant="outline"
+                                    size="sm"
+                                    @click="editCorporate(c)"
+                                    >Edit</Button
+                                >
                                 <Button
                                     variant="outline"
                                     size="sm"

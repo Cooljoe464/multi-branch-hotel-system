@@ -10,10 +10,8 @@ use App\Models\FiscalDocument;
  * authority's reference (IRN) on the document. Never throws for
  * transport problems: return a failed result so the job can retry.
  */
-interface EInvoiceEmitter
+interface EInvoiceEmitter extends EInvoiceProvider
 {
-    public function provider(): string;
-
     /**
      * @return array{ok: bool, irn: ?string, error: ?string}
      */

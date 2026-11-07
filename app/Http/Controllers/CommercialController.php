@@ -126,6 +126,8 @@ class CommercialController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:50',
+            'billing_address' => 'required|string|max:1000',
+            'tax_id' => ['nullable', 'string', 'regex:/^[0-9]{13}$/'],
             'negotiated_plan_id' => 'nullable|exists:rate_plans,id',
             'discount_bps' => 'nullable|integer|min:0|max:10000',
             'ledger_account' => 'nullable|string|max:255',
@@ -140,6 +142,8 @@ class CommercialController extends Controller
             'branch_id' => $branch->id,
             'name' => $request->string('name')->value(),
             'code' => strtoupper($request->string('code')->value()),
+            'billing_address' => $request->string('billing_address')->value(),
+            'tax_id' => $request->string('tax_id')->value() ?: null,
             'negotiated_plan_id' => $request->input('negotiated_plan_id'),
             'discount_bps' => $request->integer('discount_bps', 0),
             'ledger_account' => $request->string('ledger_account')->value() ?: null,
@@ -147,6 +151,36 @@ class CommercialController extends Controller
         ]);
 
         return $this->flashSuccess('Corporate account created.');
+    }
+
+    public function updateCorporate(Request $request, Branch $branch, CorporateAccount $corporate): RedirectResponse
+    {
+        $this->ensureBranchAccess($branch);
+        abort_unless($corporate->branch_id === $branch->id, 404);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:50',
+            'billing_address' => 'required|string|max:1000',
+            'tax_id' => ['nullable', 'string', 'regex:/^[0-9]{13}$/'],
+            'negotiated_plan_id' => 'nullable|exists:rate_plans,id',
+            'discount_bps' => 'nullable|integer|min:0|max:10000',
+            'ledger_account' => 'nullable|string|max:255',
+        ]);
+
+        if ($request->filled('negotiated_plan_id')) {
+            $plan = RatePlan::forBranch($branch->id)->find($request->integer('negotiated_plan_id'));
+            abort_unless($plan !== null, 422, 'The negotiated plan must belong to this property.');
+        }
+
+        $corporate->update([
+            ...$validated,
+            'code' => strtoupper($validated['code']),
+            'discount_bps' => $validated['discount_bps'] ?? 0,
+            'ledger_account' => $validated['ledger_account'] ?: null,
+        ]);
+
+        return $this->flashSuccess('Corporate account updated.');
     }
 
     public function destroyCorporate(Branch $branch, CorporateAccount $corporate): RedirectResponse
