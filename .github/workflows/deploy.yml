@@ -119,12 +119,12 @@ jobs:
 
             echo "── Waiting for database to be ready ──"
             for i in $(seq 1 30); do
-              docker compose exec -T postgres pg_isready -U "${DB_USERNAME:-postgres}" && break
+              docker compose exec -T postgres sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' && break
               sleep 5
             done
 
             echo "── Running migrations ──"
-            docker compose exec -T php php artisan migrate --force
+            docker compose exec -T php php artisan migrate --database=migration --force
 
             echo "── Seeding hotspot tiers (idempotent) ──"
             docker compose exec -T php php artisan db:seed --class=HotspotTierSeeder --force

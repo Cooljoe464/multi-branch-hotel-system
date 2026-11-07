@@ -10,7 +10,6 @@
 # ──────────────────────────────────────────────
 Dockerfile
 docker-compose.yml
-docker/
 
 # ──────────────────────────────────────────────
 # Dependencies (rebuilt in container)
@@ -50,6 +49,5 @@ pest.config.js
 # ──────────────────────────────────────────────
 *.md
 LICENSE
-docker
 .ai
 .claude

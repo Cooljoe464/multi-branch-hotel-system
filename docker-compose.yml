@@ -17,8 +17,10 @@ services:
             SSL_DOMAIN: ${SSL_DOMAIN:?Set SSL_DOMAIN to the bare domain (e.g. example.com)}
         entrypoint: ['sh', '/usr/local/bin/render-nginx.sh']
         depends_on:
-            - php
-            - reverb
+            php:
+                condition: service_healthy
+            reverb:
+                condition: service_started
         networks:
             - hms-network
         restart: unless-stopped
@@ -31,35 +33,48 @@ services:
             context: .
             dockerfile: Dockerfile
             target: php
+        environment:
+            RUN_MIGRATIONS: 'true'
         volumes:
             - storage_data:/app/storage
             - certbot_www:/var/www/certbot:ro
         depends_on:
             postgres:
                 condition: service_healthy
-            redis:
+            valkey-cache:
+                condition: service_healthy
+            valkey-queue:
                 condition: service_healthy
         env_file: .env
         networks:
             - hms-network
+        healthcheck:
+            test: ['CMD-SHELL', 'test -f /tmp/hms-migrations-ready && php-fpm -t >/dev/null 2>&1']
+            interval: 5s
+            timeout: 5s
+            retries: 30
+            start_period: 90s
         restart: unless-stopped
 
     # ──────────────────────────────────────────────
     # PostgreSQL — Database
     # ──────────────────────────────────────────────
     postgres:
-        image: postgres:18-alpine
+        image: postgres:18.6-alpine
         volumes:
             - postgres_data:/var/lib/postgresql
+            - ./docker/postgres/10-application-role.sh:/docker-entrypoint-initdb.d/10-application-role.sh:ro
         environment:
             POSTGRES_DB: ${DB_DATABASE:-hotel_system}
-            POSTGRES_USER: ${DB_USERNAME:-postgres}
-            POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+            POSTGRES_USER: ${DB_MIGRATION_USERNAME:?Set DB_MIGRATION_USERNAME}
+            POSTGRES_PASSWORD: ${DB_MIGRATION_PASSWORD:?Set DB_MIGRATION_PASSWORD}
+            DB_USERNAME: ${DB_USERNAME:?Set DB_USERNAME}
+            DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
         healthcheck:
             test:
                 [
                     'CMD-SHELL',
-                    'pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE:-hotel_system}',
+                    'pg_isready -U ${DB_MIGRATION_USERNAME:?Set DB_MIGRATION_USERNAME} -d ${DB_DATABASE:-hotel_system}',
                 ]
             interval: 5s
             timeout: 5s
@@ -69,20 +84,45 @@ services:
         restart: unless-stopped
 
     # ──────────────────────────────────────────────
-    # Redis — Cache / Queue / Session / Broadcast
+    # Valkey cache — disposable cache, session, and lock data
     # ──────────────────────────────────────────────
-    redis:
-        image: redis:7-alpine
+    valkey-cache:
+        image: valkey/valkey:8.1.10-alpine3.24
+        environment:
+            REDIS_PASSWORD: ${REDIS_PASSWORD:?Set a strong REDIS_PASSWORD}
+            REDIS_CACHE_PASSWORD: ${REDIS_CACHE_PASSWORD:-${REDIS_PASSWORD:?Set a strong REDIS_PASSWORD}}
         volumes:
-            - redis_data:/data
+            - valkey_cache_data:/data
         command: >
-            redis-server
+            valkey-server
               --maxmemory 256mb
               --maxmemory-policy allkeys-lru
-              --appendonly yes
-              --requirepass ${REDIS_PASSWORD:?Set a strong REDIS_PASSWORD}
+              --requirepass ${REDIS_CACHE_PASSWORD:-${REDIS_PASSWORD:?Set a strong REDIS_PASSWORD}}
         healthcheck:
-            test: ['CMD', 'redis-cli', 'ping']
+            test: ['CMD-SHELL', 'valkey-cli -a "$${REDIS_CACHE_PASSWORD:-$${REDIS_PASSWORD}}" ping | grep PONG']
+            interval: 5s
+            timeout: 3s
+            retries: 5
+        networks:
+            - hms-network
+        restart: unless-stopped
+
+    # Valkey queue — durable jobs cannot be evicted by cache pressure.
+    valkey-queue:
+        image: valkey/valkey:8.1.10-alpine3.24
+        environment:
+            REDIS_PASSWORD: ${REDIS_PASSWORD:?Set a strong REDIS_PASSWORD}
+            REDIS_QUEUE_PASSWORD: ${REDIS_QUEUE_PASSWORD:-${REDIS_PASSWORD:?Set a strong REDIS_PASSWORD}}
+        volumes:
+            - valkey_queue_data:/data
+        command: >
+            valkey-server
+              --maxmemory 512mb
+              --maxmemory-policy noeviction
+              --appendonly yes
+              --requirepass ${REDIS_QUEUE_PASSWORD:-${REDIS_PASSWORD:?Set a strong REDIS_PASSWORD}}
+        healthcheck:
+            test: ['CMD-SHELL', 'valkey-cli -a "$${REDIS_QUEUE_PASSWORD:-$${REDIS_PASSWORD}}" ping | grep PONG']
             interval: 5s
             timeout: 3s
             retries: 5
@@ -103,9 +143,14 @@ services:
         volumes:
             - storage_data:/app/storage
         depends_on:
-            - php
-            - redis
-            - postgres
+            php:
+                condition: service_healthy
+            valkey-cache:
+                condition: service_healthy
+            valkey-queue:
+                condition: service_healthy
+            postgres:
+                condition: service_healthy
         env_file: .env
         networks:
             - hms-network
@@ -125,9 +170,14 @@ services:
         volumes:
             - storage_data:/app/storage
         depends_on:
-            - php
-            - redis
-            - postgres
+            php:
+                condition: service_healthy
+            valkey-cache:
+                condition: service_healthy
+            valkey-queue:
+                condition: service_healthy
+            postgres:
+                condition: service_healthy
         env_file: .env
         networks:
             - hms-network
@@ -149,8 +199,10 @@ services:
         volumes:
             - storage_data:/app/storage
         depends_on:
-            - php
-            - redis
+            php:
+                condition: service_healthy
+            valkey-cache:
+                condition: service_healthy
         env_file: .env
         networks:
             - hms-network
@@ -161,7 +213,8 @@ services:
 # ──────────────────────────────────────────────
 volumes:
     postgres_data:
-    redis_data:
+    valkey_cache_data:
+    valkey_queue_data:
     storage_data:
     certbot_certs:
     certbot_www:

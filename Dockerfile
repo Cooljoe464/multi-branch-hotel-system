@@ -1,7 +1,7 @@
 # ──────────────────────────────────────────────
 # Stage 1: Install PHP dependencies
 # ──────────────────────────────────────────────
-FROM composer:2 AS composer
+FROM composer:2.10 AS composer
 
 WORKDIR /app
 
@@ -11,11 +11,14 @@ RUN composer install \
     --no-interaction \
     --no-scripts \
     --no-autoloader \
+    --ignore-platform-req=ext-gd \
+    --ignore-platform-req=ext-pcntl \
     --prefer-dist
 
 COPY . .
 
-RUN composer dump-autoload \
+RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs \
+    && composer dump-autoload \
     --optimize \
     --no-dev \
     --classmap-authoritative
@@ -23,37 +26,61 @@ RUN composer dump-autoload \
 # ──────────────────────────────────────────────
 # Stage 2: Build frontend assets
 # ──────────────────────────────────────────────
-FROM node:22-alpine AS node
+FROM node:22.22-alpine3.24 AS node
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+# Wayfinder runs artisan during the Vite build, so make the same application
+# source and Composer dependencies available in this stage along with PHP CLI.
+RUN apk add --no-cache \
+    php84 \
+    php84-ctype \
+    php84-curl \
+    php84-dom \
+    php84-fileinfo \
+    php84-mbstring \
+    php84-openssl \
+    php84-pdo \
+    php84-phar \
+    php84-session \
+    php84-tokenizer \
+    php84-xml \
+    php84-zip \
+    && ln -s /usr/bin/php84 /usr/local/bin/php
+
+COPY --from=composer /app /app
+
 RUN npm ci --no-audit --no-fund
 
-COPY vite.config.js tailwind.config.ts tsconfig.json ./
-COPY resources/css resources/css
-COPY resources/js resources/js
+RUN php artisan wayfinder:generate --with-form
 
 RUN npm run build
 
 # ──────────────────────────────────────────────
 # Stage 3: PHP-FPM runtime
 # ──────────────────────────────────────────────
-FROM php:8.4-fpm-alpine AS php
+FROM php:8.4-fpm-alpine3.24 AS php
 
 # System dependencies for extensions + supervisor
 RUN apk add --no-cache \
     supervisor \
     libpq-dev \
     libzip-dev \
+    icu-dev \
     icu-libs \
+    freetype-dev \
+    libjpeg-turbo-dev \
+    libpng-dev \
     fcgi
 
 # Install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg
+
 RUN docker-php-ext-install \
     pdo_pgsql \
     pgsql \
     bcmath \
+    gd \
     intl \
     opcache \
     pcntl \
@@ -95,7 +122,8 @@ COPY . .
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Set permissions
-RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache \
+RUN mkdir -p /app/bootstrap/cache /app/storage/framework/cache /app/storage/framework/sessions /app/storage/framework/views /app/storage/logs \
+    && chown -R www-data:www-data /app/storage /app/bootstrap/cache \
     && chmod -R 775 /app/storage /app/bootstrap/cache
 
 # Copy entrypoint script

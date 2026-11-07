@@ -17,22 +17,30 @@ services:
             DB_HOST: postgres
             DB_PORT: 5432
             DB_DATABASE: hotel_system
-            DB_USERNAME: root
+            DB_USERNAME: hotel_app
             DB_PASSWORD: secret
-            REDIS_HOST: redis
+            DB_MIGRATION_USERNAME: ${DB_MIGRATION_USERNAME:-hotel_migrator}
+            DB_MIGRATION_PASSWORD: ${DB_MIGRATION_PASSWORD:-secret}
+            REDIS_HOST: valkey-cache
             REDIS_PORT: 6379
+            REDIS_CACHE_HOST: valkey-cache
+            REDIS_QUEUE_HOST: valkey-queue
+            REDIS_QUEUE_CONNECTION: queue
             REVERB_HOST: reverb
             REVERB_PORT: 8080
             REVERB_SCHEME: http
             REVERB_SERVER_HOST: 0.0.0.0
         command: >
             sh -lc "php artisan config:clear
-            && php artisan migrate --force
+            && php artisan db:provision-runtime-role --no-interaction
+            && php artisan migrate --database=migration --force
             && php -S 0.0.0.0:8000 -t public"
         depends_on:
             postgres:
                 condition: service_healthy
-            redis:
+            valkey-cache:
+                condition: service_healthy
+            valkey-queue:
                 condition: service_healthy
         restart: unless-stopped
 
@@ -52,10 +60,15 @@ services:
             DB_HOST: postgres
             DB_PORT: 5432
             DB_DATABASE: hotel_system
-            DB_USERNAME: root
+            DB_USERNAME: hotel_app
             DB_PASSWORD: secret
-            REDIS_HOST: redis
+            DB_MIGRATION_USERNAME: ${DB_MIGRATION_USERNAME:-hotel_migrator}
+            DB_MIGRATION_PASSWORD: ${DB_MIGRATION_PASSWORD:-secret}
+            REDIS_HOST: valkey-cache
             REDIS_PORT: 6379
+            REDIS_CACHE_HOST: valkey-cache
+            REDIS_QUEUE_HOST: valkey-queue
+            REDIS_QUEUE_CONNECTION: queue
             REVERB_HOST: reverb
             REVERB_PORT: 8080
             REVERB_SCHEME: http
@@ -65,7 +78,9 @@ services:
                 condition: service_started
             postgres:
                 condition: service_healthy
-            redis:
+            valkey-cache:
+                condition: service_healthy
+            valkey-queue:
                 condition: service_healthy
         restart: unless-stopped
 
@@ -85,10 +100,15 @@ services:
             DB_HOST: postgres
             DB_PORT: 5432
             DB_DATABASE: hotel_system
-            DB_USERNAME: root
+            DB_USERNAME: hotel_app
             DB_PASSWORD: secret
-            REDIS_HOST: redis
+            DB_MIGRATION_USERNAME: ${DB_MIGRATION_USERNAME:-hotel_migrator}
+            DB_MIGRATION_PASSWORD: ${DB_MIGRATION_PASSWORD:-secret}
+            REDIS_HOST: valkey-cache
             REDIS_PORT: 6379
+            REDIS_CACHE_HOST: valkey-cache
+            REDIS_QUEUE_HOST: valkey-queue
+            REDIS_QUEUE_CONNECTION: queue
             REVERB_HOST: reverb
             REVERB_PORT: 8080
             REVERB_SCHEME: http
@@ -102,7 +122,9 @@ services:
                 condition: service_started
             postgres:
                 condition: service_healthy
-            redis:
+            valkey-cache:
+                condition: service_healthy
+            valkey-queue:
                 condition: service_healthy
         restart: unless-stopped
 
@@ -124,10 +146,15 @@ services:
             DB_HOST: postgres
             DB_PORT: 5432
             DB_DATABASE: hotel_system
-            DB_USERNAME: root
+            DB_USERNAME: hotel_app
             DB_PASSWORD: secret
-            REDIS_HOST: redis
+            DB_MIGRATION_USERNAME: ${DB_MIGRATION_USERNAME:-hotel_migrator}
+            DB_MIGRATION_PASSWORD: ${DB_MIGRATION_PASSWORD:-secret}
+            REDIS_HOST: valkey-cache
             REDIS_PORT: 6379
+            REDIS_CACHE_HOST: valkey-cache
+            REDIS_QUEUE_HOST: valkey-queue
+            REDIS_QUEUE_CONNECTION: queue
             REVERB_HOST: reverb
             REVERB_PORT: 8080
             REVERB_SCHEME: http
@@ -138,46 +165,67 @@ services:
                 condition: service_started
             postgres:
                 condition: service_healthy
-            redis:
+            valkey-cache:
+                condition: service_healthy
+            valkey-queue:
                 condition: service_healthy
         restart: unless-stopped
 
     postgres:
-        image: postgres:18-alpine
+        image: postgres:18.6-alpine
         environment:
             POSTGRES_DB: hotel_system
-            POSTGRES_USER: root
-            POSTGRES_PASSWORD: secret
+            POSTGRES_USER: ${DB_MIGRATION_USERNAME:-hotel_migrator}
+            POSTGRES_PASSWORD: ${DB_MIGRATION_PASSWORD:-secret}
+            DB_USERNAME: hotel_app
+            DB_PASSWORD: secret
         volumes:
             - postgres_local_data:/var/lib/postgresql
+            - ./docker/postgres/10-application-role.sh:/docker-entrypoint-initdb.d/10-application-role.sh:ro
         ports:
             - '5433:5432'
         healthcheck:
-            test: ['CMD-SHELL', 'pg_isready -U root -d hotel_system']
+            test: ['CMD-SHELL', 'pg_isready -U ${DB_MIGRATION_USERNAME:-hotel_migrator} -d hotel_system']
             interval: 5s
             timeout: 5s
             retries: 10
         restart: unless-stopped
 
-    redis:
-        image: redis:7-alpine
+    valkey-cache:
+        image: valkey/valkey:8.1.10-alpine3.24
         command: >
-            sh -c 'if [ "$$REDIS_PASSWORD" = "null" ] || [ -z "$$REDIS_PASSWORD" ]; then
-            redis-server --appendonly yes;
-            else
-            redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes;
-            fi'
-        env_file: .env
+            sh -c 'valkey-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+            --requirepass "$$REDIS_CACHE_PASSWORD"'
+        environment:
+            REDIS_PASSWORD: ${REDIS_PASSWORD:-secret}
+            REDIS_CACHE_PASSWORD: ${REDIS_CACHE_PASSWORD:-${REDIS_PASSWORD:-secret}}
         volumes:
-            - redis_local_data:/data
+            - valkey_cache_local_data:/data
         ports:
             - '6380:6379'
         healthcheck:
             test:
                 [
                     'CMD-SHELL',
-                    'if [ "$$REDIS_PASSWORD" = "null" ] || [ -z "$$REDIS_PASSWORD" ]; then redis-cli ping; else redis-cli -a "$$REDIS_PASSWORD" ping; fi | grep PONG',
+                    'valkey-cli -a "$$REDIS_CACHE_PASSWORD" ping | grep PONG',
                 ]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+        restart: unless-stopped
+
+    valkey-queue:
+        image: valkey/valkey:8.1.10-alpine3.24
+        command: >
+            sh -c 'valkey-server --maxmemory 512mb --maxmemory-policy noeviction --appendonly yes
+            --requirepass "$$REDIS_QUEUE_PASSWORD"'
+        environment:
+            REDIS_PASSWORD: ${REDIS_PASSWORD:-secret}
+            REDIS_QUEUE_PASSWORD: ${REDIS_QUEUE_PASSWORD:-${REDIS_PASSWORD:-secret}}
+        volumes:
+            - redis_local_data:/data
+        healthcheck:
+            test: ['CMD-SHELL', 'valkey-cli -a "$$REDIS_QUEUE_PASSWORD" ping | grep PONG']
             interval: 5s
             timeout: 5s
             retries: 10
@@ -185,4 +233,5 @@ services:
 
 volumes:
     postgres_local_data:
+    valkey_cache_local_data:
     redis_local_data:
