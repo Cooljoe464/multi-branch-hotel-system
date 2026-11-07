@@ -8,11 +8,16 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ReadFromReplica;
 use App\Http\Middleware\RequireIdempotencyKey;
 use App\Http\Middleware\SetBranchContext;
+use App\Http\Middleware\SetSanctumActorContext;
+use App\Http\Middleware\SetWebActorContext;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Session\Middleware\StartSession;
 use Inertia\Inertia;
 use Laravel\Sanctum\Http\Middleware\CheckAbilities;
 use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
@@ -45,10 +50,24 @@ return Application::configure(basePath: dirname(__DIR__))
             'replica' => ReadFromReplica::class,
         ]);
 
+        $middleware->prependToPriorityList(
+            SubstituteBindings::class,
+            SetBranchContext::class,
+        );
+        $middleware->prependToPriorityList(
+            AuthenticatesRequests::class,
+            SetSanctumActorContext::class,
+        );
+        $middleware->appendToPriorityList(
+            StartSession::class,
+            SetWebActorContext::class,
+        );
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
             SetBranchContext::class,
+            SetWebActorContext::class,
             RequireIdempotencyKey::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);

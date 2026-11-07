@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Branch;
+use App\Models\Tenant;
 use Database\Seeders\DemoTenantSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -19,6 +20,10 @@ it('seeds the deterministic demo tenant', function () {
         'rooms' => 120,
         'users' => 12,
     ]);
+
+    $demoTenant = Tenant::query()->where('slug', 'demo-hospitality-group')->firstOrFail();
+
+    expect($demoTenant->branches()->whereIn('code', ['DEMO-LOS', 'DEMO-ABV'])->count())->toBe(2);
 
     // Every demo branch has exactly one open business date.
     foreach (Branch::whereIn('code', ['DEMO-LOS', 'DEMO-ABV'])->get() as $branch) {

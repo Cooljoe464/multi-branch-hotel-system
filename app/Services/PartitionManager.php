@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Monthly partition provisioning for activity_log and transactions.
@@ -19,28 +18,32 @@ class PartitionManager
     public function ensureFuturePartitions(): array
     {
         $created = [];
+        $currentMonth = new \DateTimeImmutable('first day of this month');
+        $migrationConnection = DB::connection('migration');
+        $migrationSchema = $migrationConnection->getSchemaBuilder();
 
-        if (Schema::hasTable('activity_log')) {
+        if ($migrationSchema->hasTable('activity_log')) {
             foreach ([0, 1, 2] as $offset) {
-                $start = new \DateTimeImmutable(date('Y-m-01', strtotime("+{$offset} month")));
+                $start = $currentMonth->modify("+{$offset} months");
                 $name = 'activity_log_'.strtolower($start->format('Y_M'));
                 $end = $start->modify('+1 month');
 
-                DB::statement(
+                $migrationConnection->statement(
                     "CREATE TABLE IF NOT EXISTS {$name} PARTITION OF activity_log ".
                     "FOR VALUES FROM ('".$start->format('Y-m-d')."') TO ('".$end->format('Y-m-d')."')"
                 );
+                $this->enforceActivityPartitionRls($name);
                 $created[] = $name;
             }
         }
 
         if ($this->isPartitioned('transactions')) {
             foreach ([0, 1, 2] as $offset) {
-                $start = new \DateTimeImmutable(date('Y-m-01', strtotime("+{$offset} month")));
+                $start = $currentMonth->modify("+{$offset} months");
                 $name = 'transactions_'.$start->format('Y_m');
                 $end = $start->modify('+1 month');
 
-                DB::statement(
+                $migrationConnection->statement(
                     "CREATE TABLE IF NOT EXISTS {$name} PARTITION OF transactions ".
                     "FOR VALUES FROM ('".$start->format('Y-m-d')."') TO ('".$end->format('Y-m-d')."')"
                 );
@@ -49,6 +52,31 @@ class PartitionManager
         }
 
         return $created;
+    }
+
+    private function enforceActivityPartitionRls(string $partitionName): void
+    {
+        $connection = DB::connection('migration');
+        $parent = $connection->selectOne(
+            "SELECT relrowsecurity FROM pg_class WHERE oid = 'public.activity_log'::regclass",
+        );
+
+        if (! in_array($parent->relrowsecurity ?? false, [true, 1, '1', 't', 'true'], true)) {
+            return;
+        }
+
+        $partition = $connection->getQueryGrammar()->wrapTable('public.'.$partitionName);
+        $tenantExpression = "tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::bigint";
+        $globalExpression = "tenant_id IS NULL AND current_setting('app.is_global_admin', true) = 'true'";
+        $policyExpression = "{$tenantExpression} OR ({$globalExpression})";
+
+        $connection->statement("ALTER TABLE {$partition} ENABLE ROW LEVEL SECURITY");
+        $connection->statement("ALTER TABLE {$partition} FORCE ROW LEVEL SECURITY");
+        $connection->statement("DROP POLICY IF EXISTS hms_tenant_isolation ON {$partition}");
+        $connection->statement(
+            "CREATE POLICY hms_tenant_isolation ON {$partition} FOR ALL "
+            ."USING ({$policyExpression}) WITH CHECK ({$policyExpression})"
+        );
     }
 
     /**

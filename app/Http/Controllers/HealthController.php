@@ -107,7 +107,7 @@ class HealthController extends Controller
 
         try {
             $row = DB::connection('replica')->selectOne(
-                'select extract(epoch from (now() - pg_last_xlog_replay_timestamp())) as lag'
+                'select extract(epoch from (now() - pg_last_xact_replay_timestamp())) as lag'
             );
 
             $lag = is_object($row) ? ($row->lag ?? null) : null;

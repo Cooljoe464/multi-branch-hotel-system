@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Branch;
+use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -20,6 +21,7 @@ class BranchFactory extends Factory
         $name = fake()->company();
 
         return [
+            'tenant_id' => Tenant::factory(),
             'name' => $name,
             'code' => 'BR-'.str_pad((string) static::$counter, 3, '0', STR_PAD_LEFT),
             'slug' => Str::slug($name).'-'.static::$counter,

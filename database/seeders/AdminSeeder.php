@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Branch;
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -12,10 +13,35 @@ class AdminSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(RoleSeeder::class);
+
         $branches = $this->createBranches();
         $roles = $this->getRoles();
 
+        $this->createPlatformOwner($roles['global_admin']);
         $this->createUsers($branches, $roles);
+    }
+
+    private function createPlatformOwner(Role $role): void
+    {
+        $email = config('app.platform_owner_email');
+        $password = config('app.platform_owner_password');
+
+        if (! is_string($email) || $email === '' || ! is_string($password) || $password === '') {
+            return;
+        }
+
+        $owner = User::firstOrCreate(
+            ['email' => $email],
+            [
+                'name' => config('app.platform_owner_name', 'Platform Owner'),
+                'password' => $password,
+                'is_global_admin' => true,
+                'email_verified_at' => now(),
+            ]
+        );
+
+        $owner->syncRoles([$role]);
     }
 
     /**
@@ -23,9 +49,25 @@ class AdminSeeder extends Seeder
      */
     private function createBranches(): array
     {
+        $downtownTenant = Tenant::firstOrCreate(
+            ['slug' => 'eko-grand-hotel'],
+            [
+                'name' => 'Eko Grand Hotel',
+                'country' => 'NG',
+            ]
+        );
+        $seasideTenant = Tenant::firstOrCreate(
+            ['slug' => 'calabar-beach-resort-spa'],
+            [
+                'name' => 'Calabar Beach Resort & Spa',
+                'country' => 'NG',
+            ]
+        );
+
         $downtown = Branch::firstOrCreate(
             ['code' => 'EGH-001'],
             [
+                'tenant_id' => $downtownTenant->id,
                 'name' => 'Eko Grand Hotel',
                 'slug' => 'eko-grand-hotel',
                 'address' => '42 Marina Road, Lagos Island',
@@ -45,9 +87,14 @@ class AdminSeeder extends Seeder
             ]
         );
 
+        if ($downtown->tenant_id !== $downtownTenant->id) {
+            $downtown->update(['tenant_id' => $downtownTenant->id]);
+        }
+
         $seaside = Branch::firstOrCreate(
             ['code' => 'CBR-002'],
             [
+                'tenant_id' => $seasideTenant->id,
                 'name' => 'Calabar Beach Resort & Spa',
                 'slug' => 'calabar-beach-resort-spa',
                 'address' => '15 Beach Road, Calabar',
@@ -66,6 +113,10 @@ class AdminSeeder extends Seeder
                 'is_primary' => false,
             ]
         );
+
+        if ($seaside->tenant_id !== $seasideTenant->id) {
+            $seaside->update(['tenant_id' => $seasideTenant->id]);
+        }
 
         return compact('downtown', 'seaside');
     }

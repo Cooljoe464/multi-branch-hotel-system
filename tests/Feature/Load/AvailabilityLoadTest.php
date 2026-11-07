@@ -18,14 +18,14 @@ use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
-uses(DatabaseMigrations::class);
+uses(RefreshDatabase::class);
 uses()->group('load');
 
 if (! function_exists('hms_load_forensic_snapshot')) {
@@ -133,6 +133,7 @@ if (! function_exists('hms_load_burst')) {
         }
 
         $completedAt = [];
+        $workerFailures = [];
         foreach ($processes as $i => $process) {
             try {
                 // wait() pumps the pipes incrementally: polling isRunning()
@@ -142,14 +143,34 @@ if (! function_exists('hms_load_burst')) {
                 });
             } catch (ProcessTimedOutException $e) {
                 fwrite(STDERR, "\n[load] FORENSICS:\n".hms_load_forensic_snapshot());
-                $process->stop(5);
                 $stuckLog = is_file("{$dir}/{$i}.out") ? substr((string) file_get_contents("{$dir}/{$i}.out"), -3000) : '(no worker output yet)';
-                $test->fail("worker {$i} timed out. worker log tail: {$stuckLog}");
+                $workerFailures[] = "worker {$i} timed out. worker log tail: {$stuckLog}";
+
+                foreach ($processes as $worker) {
+                    if ($worker->isRunning()) {
+                        $worker->stop(5);
+                    }
+                }
             }
+
             $completedAt[$i] = round(microtime(true) - $started, 1);
             $tail = is_file("{$dir}/{$i}.out") ? (string) file_get_contents("{$dir}/{$i}.out") : '';
-            expect($process->isSuccessful())->toBeTrue("worker {$i} crashed with exit ".$process->getExitCode().' ('.$process->getExitCodeText().'). out tail: '.substr($tail, -2000).' err tail: '.substr($process->getErrorOutput(), -2000));
+
+            if (! $process->isSuccessful()) {
+                $workerFailures[] = "worker {$i} crashed with exit ".$process->getExitCode().' ('.$process->getExitCodeText().'). out tail: '.substr($tail, -2000).' err tail: '.substr($process->getErrorOutput(), -2000);
+            }
         }
+
+        foreach ($processes as $process) {
+            if ($process->isRunning()) {
+                $process->stop(5);
+            }
+        }
+
+        if ($workerFailures !== []) {
+            $test->fail(implode("\n", $workerFailures));
+        }
+
         fwrite(STDERR, "\n[load] completion order: ".json_encode($completedAt)."\n");
 
         $wallSeconds = microtime(true) - $started;

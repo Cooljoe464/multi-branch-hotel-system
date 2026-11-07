@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\ApiConsumer;
 use App\Models\Branch;
+use App\Support\TenantDatabaseContext;
 use Closure;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -21,63 +22,73 @@ class ApiBranchScope
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        $token = $user?->currentAccessToken();
 
-        if (! $token instanceof PersonalAccessToken) {
-            abort(401, 'Invalid API token.');
-        }
+        return app(TenantDatabaseContext::class)->run(
+            $user?->id,
+            null,
+            function () use ($request, $next, $user): Response {
+                $token = $user?->currentAccessToken();
 
-        $consumer = $token->tokenable;
-
-        if (! $consumer instanceof ApiConsumer || ! $consumer->is_active) {
-            abort(401, 'Invalid API token.');
-        }
-
-        $tokenBranches = [];
-        $abilities = $token->abilities ?? [];
-        foreach ($abilities as $ability) {
-            if (is_string($ability) && str_starts_with($ability, 'branch:')) {
-                $id = (int) substr($ability, 7);
-                if ($id > 0) {
-                    $tokenBranches[] = $id;
+                if (! $token instanceof PersonalAccessToken) {
+                    abort(401, 'Invalid API token.');
                 }
-            }
-        }
 
-        $allowed = array_values(array_intersect($tokenBranches, $consumer->reachableBranchIds()));
+                $consumer = $token->tokenable;
 
-        if ($allowed === []) {
-            abort(403, 'This token reaches no property.');
-        }
+                if (! $consumer instanceof ApiConsumer || ! $consumer->is_active) {
+                    abort(401, 'Invalid API token.');
+                }
 
-        $requested = $request->header('X-Branch-Id');
+                $tokenBranches = [];
+                $abilities = $token->abilities ?? [];
+                foreach ($abilities as $ability) {
+                    if (is_string($ability) && str_starts_with($ability, 'branch:')) {
+                        $id = (int) substr($ability, 7);
+                        if ($id > 0) {
+                            $tokenBranches[] = $id;
+                        }
+                    }
+                }
 
-        if (is_string($requested) && $requested !== '') {
-            $branchId = (int) $requested;
+                $allowed = array_values(array_intersect($tokenBranches, $consumer->reachableBranchIds()));
 
-            if (! in_array($branchId, $allowed, true)) {
-                abort(403, 'Branch is outside this token\'s scope.');
-            }
-        } elseif (count($allowed) === 1) {
-            $branchId = $allowed[0];
-        } else {
-            abort(422, 'X-Branch-Id is required for multi-property tokens.');
-        }
+                if ($allowed === []) {
+                    abort(403, 'This token reaches no property.');
+                }
 
-        $branch = Branch::where('id', $branchId)->where('is_active', true)->first();
+                $requested = $request->header('X-Branch-Id');
 
-        if (! $branch) {
-            abort(403, 'Branch is outside this token\'s scope.');
-        }
+                if (is_string($requested) && $requested !== '') {
+                    $branchId = (int) $requested;
 
-        $request->attributes->set('branch', $branch);
-        $request->attributes->set('api_consumer', $consumer);
+                    if (! in_array($branchId, $allowed, true)) {
+                        abort(403, 'Branch is outside this token\'s scope.');
+                    }
+                } elseif (count($allowed) === 1) {
+                    $branchId = $allowed[0];
+                } else {
+                    abort(422, 'X-Branch-Id is required for multi-property tokens.');
+                }
 
-        $response = $next($request);
-        if (! $response instanceof Response) {
-            abort(500);
-        }
+                $branch = Branch::where('id', $branchId)->where('is_active', true)->first();
 
-        return $response;
+                if (! $branch) {
+                    abort(403, 'Branch is outside this token\'s scope.');
+                }
+
+                app(TenantDatabaseContext::class)->setBranchId($branch->id);
+                app(TenantDatabaseContext::class)->setTenantId($branch->tenant_id);
+                $request->attributes->set('branch', $branch);
+                $request->attributes->set('api_consumer', $consumer);
+
+                $response = $next($request);
+                if (! $response instanceof Response) {
+                    abort(500);
+                }
+
+                return $response;
+            },
+            actorType: $user instanceof ApiConsumer ? 'api_consumer' : 'user',
+        );
     }
 }

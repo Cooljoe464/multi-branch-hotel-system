@@ -2,16 +2,25 @@
 
 namespace App\Providers;
 
+use App\Contracts\EInvoiceEmitter;
 use App\Events\FolioClosed;
 use App\Listeners\QueueEinvoiceForClosedFolio;
 use App\Models\User;
+use App\Services\ConciergeAiManager;
+use App\Services\Fiscal\FirsEmitter;
+use App\Support\TenantDatabaseContext;
+use App\Support\TenantQueueContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobExceptionOccurred;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -23,7 +32,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(TenantQueueContext::class);
+        $this->app->bind(EInvoiceEmitter::class, FirsEmitter::class);
+        $this->app->singleton(ConciergeAiManager::class);
     }
 
     /**
@@ -34,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureRateLimiting();
         $this->configureFiscalEmission();
+        $this->configureTenantQueueIsolation();
 
         Gate::before(function (User $user, string $ability): ?bool {
             if ($user->is_global_admin) {
@@ -50,6 +62,33 @@ class AppServiceProvider extends ServiceProvider
     protected function configureFiscalEmission(): void
     {
         Event::listen(FolioClosed::class, QueueEinvoiceForClosedFolio::class);
+    }
+
+    protected function configureTenantQueueIsolation(): void
+    {
+        static $payloadHookRegistered = false;
+
+        if (! $payloadHookRegistered) {
+            Queue::createPayloadUsing(function (): array {
+                $tenantContext = app(TenantDatabaseContext::class)->captureQueueContext();
+
+                return $tenantContext === null ? [] : ['tenant_context' => $tenantContext];
+            });
+
+            $payloadHookRegistered = true;
+        }
+
+        Queue::before(function (JobProcessing $event): void {
+            app(TenantQueueContext::class)->begin($event->job);
+        });
+
+        Queue::after(function (JobProcessed $event): void {
+            app(TenantQueueContext::class)->commit($event->job);
+        });
+
+        Queue::exceptionOccurred(function (JobExceptionOccurred $event): void {
+            app(TenantQueueContext::class)->rollback($event->job);
+        });
     }
 
     /**

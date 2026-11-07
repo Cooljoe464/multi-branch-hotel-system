@@ -4,9 +4,9 @@ namespace App\Http\Middleware;
 
 use App\Models\Branch;
 use App\Models\User;
+use App\Support\TenantDatabaseContext;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class SetBranchContext
@@ -15,7 +15,9 @@ class SetBranchContext
 
     public function handle(Request $request, Closure $next): Response
     {
-        if (! Auth::check()) {
+        $user = $request->user();
+
+        if (! $user) {
             $response = $next($request);
             if (! $response instanceof Response) {
                 abort(500);
@@ -24,20 +26,26 @@ class SetBranchContext
             return $response;
         }
 
-        $user = $request->user();
-
-        $branch = $this->resolveBranch($request, $user);
-
-        if ($branch) {
-            $this->setBranch($request, $branch);
+        if (! $user instanceof User) {
+            abort(403);
         }
 
-        $response = $next($request);
-        if (! $response instanceof Response) {
-            abort(500);
-        }
+        return app(TenantDatabaseContext::class)->run($user->id, null, function () use ($request, $next, $user): Response {
+            $branch = $this->resolveBranch($request, $user);
 
-        return $response;
+            if ($branch) {
+                app(TenantDatabaseContext::class)->setBranchId($branch->id);
+                app(TenantDatabaseContext::class)->setTenantId($branch->tenant_id);
+                $this->setBranch($request, $branch);
+            }
+
+            $response = $next($request);
+            if (! $response instanceof Response) {
+                abort(500);
+            }
+
+            return $response;
+        }, isGlobalAdmin: (bool) ($user->is_global_admin ?? false));
     }
 
     private function resolveBranch(Request $request, ?User $user): ?Branch

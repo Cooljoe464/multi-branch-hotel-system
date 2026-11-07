@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\RatePlan;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Services\BusinessDateService;
 use Illuminate\Database\Seeder;
@@ -23,8 +24,17 @@ class DemoTenantSeeder extends Seeder
     {
         $this->call(RoleSeeder::class);
 
-        $lagos = $this->branch('DEMO-LOS', 'Demo Lagos Hotel', 'Lagos', true);
-        $abuja = $this->branch('DEMO-ABV', 'Demo Abuja Suites', 'Abuja', false);
+        $tenant = Tenant::firstOrCreate(
+            ['slug' => 'demo-hospitality-group'],
+            [
+                'name' => 'Demo Hospitality Group',
+                'country' => 'NG',
+                'metadata' => ['is_demo' => true],
+            ],
+        );
+
+        $lagos = $this->branch($tenant, 'DEMO-LOS', 'Demo Lagos Hotel', 'Lagos', true);
+        $abuja = $this->branch($tenant, 'DEMO-ABV', 'Demo Abuja Suites', 'Abuja', false);
 
         foreach ([$lagos, $abuja] as $branch) {
             $this->inventory($branch);
@@ -48,11 +58,12 @@ class DemoTenantSeeder extends Seeder
         ];
     }
 
-    private function branch(string $code, string $name, string $city, bool $primary): Branch
+    private function branch(Tenant $tenant, string $code, string $name, string $city, bool $primary): Branch
     {
-        return Branch::firstOrCreate(
+        $branch = Branch::firstOrCreate(
             ['code' => $code],
             [
+                'tenant_id' => $tenant->id,
                 'name' => $name,
                 'slug' => strtolower($code),
                 'address' => '1 Demo Road',
@@ -71,6 +82,12 @@ class DemoTenantSeeder extends Seeder
                 'is_primary' => $primary,
             ]
         );
+
+        if ($branch->tenant_id !== $tenant->id) {
+            $branch->update(['tenant_id' => $tenant->id]);
+        }
+
+        return $branch;
     }
 
     private function inventory(Branch $branch): void

@@ -23,9 +23,14 @@ class TransferTest extends TestCase
         $this->user = $this->makeAdminUser($this->branch);
     }
 
+    protected function createDestinationBranch(): Branch
+    {
+        return Branch::factory()->create(['tenant_id' => $this->branch->tenant_id]);
+    }
+
     public function test_can_list_transfers(): void
     {
-        $toBranch = Branch::factory()->create();
+        $toBranch = $this->createDestinationBranch();
         TransferRequest::factory()->fromBranch($this->branch->id)->toBranch($toBranch->id)->create();
         $response = $this->actingAs($this->user)->get('/transfers');
         $response->assertStatus(200);
@@ -33,7 +38,7 @@ class TransferTest extends TestCase
 
     public function test_can_create_transfer(): void
     {
-        $toBranch = Branch::factory()->create();
+        $toBranch = $this->createDestinationBranch();
         $response = $this->actingAs($this->user)->post('/transfers', [
             'to_branch_id' => $toBranch->id,
             'items' => [['name' => 'Towels', 'quantity' => 10]],
@@ -44,7 +49,7 @@ class TransferTest extends TestCase
 
     public function test_can_approve_transfer(): void
     {
-        $toBranch = Branch::factory()->create();
+        $toBranch = $this->createDestinationBranch();
         $this->user->branches()->syncWithoutDetaching([$toBranch->id]);
         $transfer = TransferRequest::factory()->fromBranch($this->branch->id)->toBranch($toBranch->id)->pending()->create();
         $response = $this->actingAs($this->user)->post("/transfers/{$transfer->id}/approve");
@@ -54,7 +59,7 @@ class TransferTest extends TestCase
 
     public function test_can_ship_transfer(): void
     {
-        $toBranch = Branch::factory()->create();
+        $toBranch = $this->createDestinationBranch();
         $transfer = TransferRequest::factory()->fromBranch($this->branch->id)->toBranch($toBranch->id)->approved()->create();
         $response = $this->actingAs($this->user)->post("/transfers/{$transfer->id}/ship");
         $response->assertRedirect();
@@ -63,7 +68,7 @@ class TransferTest extends TestCase
 
     public function test_can_receive_transfer(): void
     {
-        $toBranch = Branch::factory()->create();
+        $toBranch = $this->createDestinationBranch();
         $this->user->branches()->syncWithoutDetaching([$toBranch->id]);
         $transfer = TransferRequest::factory()->fromBranch($this->branch->id)->toBranch($toBranch->id)->inTransit()->create();
         $response = $this->actingAs($this->user)->post("/transfers/{$transfer->id}/receive");

@@ -62,8 +62,12 @@ return new class extends Migration
                 $names[] = $this->ensurePartition('activity_log_new', $month);
             }
 
-            $names[] = $this->ensurePartition('activity_log_new', date('Y-m-01'));
-            $names[] = $this->ensurePartition('activity_log_new', date('Y-m-01', strtotime('+1 month')));
+            $currentMonth = new DateTimeImmutable('first day of this month');
+            $names[] = $this->ensurePartition('activity_log_new', $currentMonth->format('Y-m-01'));
+            $names[] = $this->ensurePartition(
+                'activity_log_new',
+                $currentMonth->modify('+1 month')->format('Y-m-01')
+            );
 
             DB::statement('INSERT INTO activity_log_new SELECT * FROM activity_log ORDER BY id');
 

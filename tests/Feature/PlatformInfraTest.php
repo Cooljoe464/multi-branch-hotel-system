@@ -40,9 +40,22 @@ it('routes activity rows into monthly partitions and prunes queries', function (
 it('provisions future partitions idempotently', function () {
     $first = (new PartitionManagerJob)->handle();
     $second = (new PartitionManagerJob)->handle();
+    $activityPartitions = DB::select(<<<'SQL'
+        SELECT child.relrowsecurity, child.relforcerowsecurity
+        FROM pg_inherits
+        JOIN pg_class AS parent ON parent.oid = inhparent
+        JOIN pg_class AS child ON child.oid = inhrelid
+        WHERE parent.relname = 'activity_log'
+        SQL);
 
     expect($first)->toBe($second)
-        ->and((new PartitionManager)->partitionCount('activity_log'))->toBeGreaterThanOrEqual(3);
+        ->and((new PartitionManager)->partitionCount('activity_log'))->toBeGreaterThanOrEqual(3)
+        ->and($activityPartitions)->not->toBeEmpty();
+
+    foreach ($activityPartitions as $partition) {
+        expect(in_array($partition->relrowsecurity, [true, 1, '1', 't', 'true'], true))->toBeTrue()
+            ->and(in_array($partition->relforcerowsecurity, [true, 1, '1', 't', 'true'], true))->toBeTrue();
+    }
 });
 
 it('reports transactions partitioning blockers instead of converting', function () {
@@ -63,6 +76,15 @@ it('reads reports from the replica connection when enabled', function () {
     $count = DB::connection(ReadRouter::connection())->table('branches')->count();
 
     expect($count)->toBeGreaterThanOrEqual(0);
+});
+
+it('reads replica replay timestamps on PostgreSQL', function () {
+    $row = DB::connection('replica')->selectOne(
+        'select pg_last_xact_replay_timestamp() as replayed_at'
+    );
+
+    expect($row->replayed_at)->toBeNull()
+        ->and(ReadRouter::lagSeconds())->toBeNull();
 });
 
 it('records a DR smoke drill and stays fresh', function () {

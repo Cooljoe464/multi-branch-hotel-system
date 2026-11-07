@@ -7,6 +7,7 @@ use App\Http\Requests\StoreBranchRequest;
 use App\Models\Branch;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Models\Tenant;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -29,9 +30,23 @@ class BranchWizardController extends Controller
     public function store(StoreBranchRequest $request): RedirectResponse
     {
         $data = $request->validated();
+        $user = Auth::user();
+        abort_unless($user !== null, 401);
 
-        $branch = DB::transaction(function () use ($data) {
+        $branch = DB::transaction(function () use ($data, $user) {
+            $tenant = $user->currentBranch?->tenant;
+
+            if ($tenant === null) {
+                $tenant = Tenant::create([
+                    'name' => $data['name'],
+                    'slug' => Str::slug($data['code']),
+                    'billing_email' => $data['email'] ?? null,
+                    'country' => $data['country'],
+                ]);
+            }
+
             $branch = Branch::create([
+                'tenant_id' => $tenant->id,
                 'name' => $data['name'],
                 'code' => $data['code'],
                 'slug' => Str::slug(is_string($data['code'] ?? null) ? $data['code'] : ''),

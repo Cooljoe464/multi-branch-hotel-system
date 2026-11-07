@@ -15,6 +15,12 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    'platform_owner_email' => env('PLATFORM_OWNER_EMAIL'),
+
+    'platform_owner_name' => env('PLATFORM_OWNER_NAME', 'Platform Owner'),
+
+    'platform_owner_password' => env('PLATFORM_OWNER_PASSWORD'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

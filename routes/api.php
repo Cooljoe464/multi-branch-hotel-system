@@ -15,10 +15,12 @@ use App\Http\Controllers\RevenueReportController;
 use App\Http\Controllers\WarehouseController as WarehouseApiController;
 use App\Http\Controllers\WifiPortalController;
 use App\Http\Middleware\RequireIdempotencyKey;
+use App\Http\Middleware\SetBranchContext;
+use App\Http\Middleware\SetSanctumActorContext;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/pos/charge', [PosController::class, 'charge'])
-    ->middleware(['auth:sanctum', 'permission:folios.manage', 'throttle:pos'])
+    ->middleware([SetSanctumActorContext::class, 'auth:sanctum', SetBranchContext::class, 'permission:folios.manage', 'throttle:pos'])
     ->name('api.pos.charge');
 
 Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle'])
@@ -36,14 +38,14 @@ Route::post('/webhooks/channels/{channelProvider}', [ChannelWebhookController::c
     ->name('api.webhooks.channels');
 
 Route::get('/v1/reports/revenue', [RevenueReportController::class, 'api'])
-    ->middleware(['auth:sanctum', 'permission:analytics.view'])
+    ->middleware([SetSanctumActorContext::class, 'auth:sanctum', SetBranchContext::class, 'permission:analytics.view'])
     ->name('api.v1.reports.revenue');
 
 // Versioned partner API. Tokens are issued against ApiConsumer with
 // `branch:{id}` abilities; branch.scope resolves the property from
 // the token (single) or X-Branch-Id (multi). Writes ride the shared
 // idempotency middleware: missing key → 422, replay → stored reply.
-Route::prefix('v1')->middleware(['auth:sanctum', 'branch.scope'])->group(function () {
+Route::prefix('v1')->middleware([SetSanctumActorContext::class, 'auth:sanctum', 'branch.scope'])->group(function () {
     Route::get('/availability', [AvailabilityController::class, 'show'])
         ->middleware('ability:availability.view')
         ->name('api.v1.availability');

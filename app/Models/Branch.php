@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -17,6 +18,7 @@ use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @property int $id
+ * @property int $tenant_id
  * @property string $name
  * @property string $code
  * @property string $slug
@@ -53,6 +55,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property-read Collection<int, PaymentTransaction> $paymentTransactions
  */
 #[Fillable([
+    'tenant_id',
     'name',
     'code',
     'slug',
@@ -112,6 +115,12 @@ class Branch extends Model
         return $this->belongsToMany(User::class, 'user_branch')
             ->withPivot('is_default')
             ->withTimestamps();
+    }
+
+    /** @return BelongsTo<Tenant, $this> */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
     }
 
     /** @return HasMany<RoomType, $this> */
