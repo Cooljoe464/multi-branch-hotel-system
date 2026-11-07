@@ -893,19 +893,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Group Ledgers
     Route::get('group-ledgers', [GroupLedgerController::class, 'index'])
-        ->middleware('permission:analytics.view')
+        ->middleware('permission:group_ledger.view')
         ->name('group-ledger.index');
     Route::get('group-ledgers/{groupLedger}', [GroupLedgerController::class, 'show'])
-        ->middleware('permission:analytics.view')
+        ->middleware('permission:group_ledger.view')
         ->name('group-ledger.show');
     Route::post('group-ledgers', [GroupLedgerController::class, 'store'])
-        ->middleware('permission:analytics.manage')
+        ->middleware('permission:group_ledger.manage')
         ->name('group-ledger.store');
     Route::put('group-ledgers/{groupLedger}', [GroupLedgerController::class, 'update'])
-        ->middleware('permission:analytics.manage')
+        ->middleware('permission:group_ledger.manage')
         ->name('group-ledger.update');
     Route::delete('group-ledgers/{groupLedger}', [GroupLedgerController::class, 'destroy'])
-        ->middleware('permission:analytics.manage')
+        ->middleware('permission:group_ledger.manage')
         ->name('group-ledger.destroy');
 
     // GDPR
