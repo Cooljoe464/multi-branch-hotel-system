@@ -8,8 +8,12 @@ This document lists features, modules, and scenarios that are **not covered** by
 
 | Area                                | Status   | Notes                                                                                    |
 | ----------------------------------- | -------- | ---------------------------------------------------------------------------------------- |
-| **Booking.com Channel Integration** | Deferred | No tests exist. OTA sync logic is not implemented.                                       |
-| **Tax Engine Integration**          | Deferred | No tests exist. Tax calculation engine is not implemented.                               |
+| **Booking.com / OTA Channel Integration** | Deferred | Only `LogChannelDriver` and `FailingChannelDriver` exist; sync-service behaviour is tested against them. No real OTA driver (spec G-4: partner not yet selected). |
+| **Live NRS / FIRS e-invoicing** | Deferred | The tax engine (`TaxService`) and the e-invoice lifecycle (`FiscalService`, `FirsEmitter`: hold, retry, credit notes) are implemented and covered by `TaxEngineTest` and `FiscalEmissionTest` against faked HTTP. No tests run against a real provider sandbox (spec G-2). |
+| **Entitlements & SaaS billing** | Not built | No plans, subscriptions, entitlements or dunning yet (spec v1.1 §12, AC-042, AC-056). |
+| **Offline provisional check-in** | Not built | No service worker, sync endpoints or override tokens yet (spec v1.1 §6, AC-038 to AC-041). |
+| **Second payment gateway** | Not built | Only `PaystackDriver` exists (spec v1.1 ADR-010, AC-043). |
+| **TTLock and edge agent** | Not built | No TTLock provider and no edge agent (spec v1.1 §8 and §9, AC-052, AC-053, AC-055). |
 | **Passkey/WebAuthn Hardware**       | Deferred | Passkey model and routes exist, but no hardware-specific tests for FIDO2 authenticators. |
 | **Physical POS Hardware**           | Deferred | No tests for physical card readers, receipt printers, or cash drawers.                   |
 
@@ -29,10 +33,10 @@ This document lists features, modules, and scenarios that are **not covered** by
 | **Tablet SPA Kiosk Mode**              | Not Tested       | Tablet routes (`/tablet/{confirmation}/menu`) exist. No browser tests cover the kiosk-mode SPA.                                                                                                      |
 | **Scheduled Jobs**                     | Partial          | `PostRoomChargesJobTest.php` and `CloseDailyLedgerJobTest.php` exist. No tests for job failures, retries, or timeouts.                                                                               |
 | **Backup & Restore**                   | Not Tested       | Backup configuration exists (`config/backup.php`). No tests verify backup creation, storage, or restore workflows.                                                                                   |
-| **Multi-language / Localization**      | Not Tested       | Locale is configured (`APP_LOCALE=en`). No tests verify translation files or localized responses.                                                                                                    |
-| **API Token Authentication (Sanctum)** | Not Tested       | Sanctum is configured. No tests verify personal API tokens, token scopes, or token revocation.                                                                                                       |
+| **Multi-language / Localization** | Partial | `LocaleTest.php` covers locale switching. Translation file completeness is not verified. |
+| **API Token Authentication (Sanctum)** | Partial | `ApiV1Test` and `CrossTenantSecurityTest` authenticate with Sanctum. Token scopes and revocation are not tested. |
 | **Queue Worker Failures**              | Not Tested       | Queue configuration exists. No tests verify job failure handling, dead letter queues, or retry logic.                                                                                                |
-| **Rate Limiting**                      | Not Tested       | Throttle middleware is used on routes. No tests verify rate limiting behavior.                                                                                                                       |
+| **Rate Limiting** | Partial | Login throttling is covered in `Auth/AuthenticationTest`. The throttles on POS, check-in and public API routes are not. |
 | **CORS Configuration**                 | Not Tested       | CORS middleware exists. No tests verify cross-origin requests.                                                                                                                                       |
 | **Maintenance Mode**                   | Not Tested       | Maintenance driver is configured. No tests verify maintenance mode responses.                                                                                                                        |
 | **Performance / Load Testing**         | Partially Tested | Pest load group (`AvailabilityLoadTest` + race workers, nightly in CI) and a k6 staging probe (`tests/load/availability.js`, nightly + manual) cover the booking engine; no full-traffic benchmarks. |
