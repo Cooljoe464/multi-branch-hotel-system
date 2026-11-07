@@ -13,6 +13,7 @@ export type NavItem = {
     isActive?: boolean;
     permission?: string;
     entitlement?: string;
+    platformOnly?: boolean;
     requiresBranch?: boolean;
     children?: NavItem[];
 };

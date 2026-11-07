@@ -11,6 +11,7 @@ use App\Jobs\PmSchedulerJob;
 use App\Jobs\PredictiveMaintenanceJob;
 use App\Jobs\ReleaseHoldsJob;
 use App\Jobs\RetentionRunJob;
+use App\Jobs\RunBillingCycleJob;
 use App\Jobs\SnapshotRevenueJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -53,6 +54,9 @@ Schedule::command('dr:smoke --dry-run')->quarterly()->onOneServer()->withoutOver
 
 // ── Platform ──────────────────────────────────
 Schedule::job(new PartitionManagerJob)->monthly()->onOneServer()->withoutOverlapping(120);
+
+// ── Billing ─────────────────────────────────────
+Schedule::job(new RunBillingCycleJob)->dailyAt('00:30')->onOneServer()->withoutOverlapping(120);
 
 // ── Hotspot ─────────────────────────────────────
 Schedule::command('hotspot:expire-sessions')->everyFifteenMinutes()->onOneServer()->withoutOverlapping(10);

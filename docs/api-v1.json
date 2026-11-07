@@ -477,6 +477,138 @@
                 }
             }
         },
+        "/api/v1/me/entitlements": {
+            "get": {
+                "operationId": "api.v1.me.entitlements",
+                "summary": "Resolved entitlements for the token property tenant; metered is false until it has a subscription.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "saas.view"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
+        "/api/v1/saas/subscription": {
+            "get": {
+                "operationId": "api.v1.saas.subscription",
+                "summary": "Current subscription state and plan for the token property tenant.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "saas.view"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
+        "/api/v1/saas/invoices": {
+            "get": {
+                "operationId": "api.v1.saas.invoices",
+                "summary": "The latest platform invoices for the token property tenant.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "saas.view"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
         "/api/v1/webhooks/deliveries": {
             "get": {
                 "operationId": "api.v1.webhooks.deliveries",

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\ForecastController as ForecastApiController;
 use App\Http\Controllers\Api\V1\RatesController;
 use App\Http\Controllers\Api\V1\ReservationController;
 use App\Http\Controllers\Api\V1\RevenueController;
+use App\Http\Controllers\Api\V1\SaasController;
 use App\Http\Controllers\Api\V1\WebhookController;
 use App\Http\Controllers\CdrController;
 use App\Http\Controllers\ChannelWebhookController;
@@ -77,6 +78,18 @@ Route::prefix('v1')->middleware([SetSanctumActorContext::class, 'auth:sanctum', 
     Route::get('/forecasts', [ForecastApiController::class, 'index'])
         ->middleware(['ability:analytics.view', 'replica'])
         ->name('api.v1.forecasts');
+
+    Route::get('/me/entitlements', [SaasController::class, 'entitlements'])
+        ->middleware('ability:saas.view')
+        ->name('api.v1.me.entitlements');
+
+    Route::get('/saas/subscription', [SaasController::class, 'subscription'])
+        ->middleware('ability:saas.view')
+        ->name('api.v1.saas.subscription');
+
+    Route::get('/saas/invoices', [SaasController::class, 'invoices'])
+        ->middleware('ability:saas.view')
+        ->name('api.v1.saas.invoices');
 
     Route::get('/webhooks/deliveries', [WebhookController::class, 'index'])
         ->middleware('ability:webhooks.replay')

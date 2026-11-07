@@ -10,21 +10,23 @@ use Illuminate\Database\Seeder;
 class PlanSeeder extends Seeder
 {
     /**
-     * Launch catalog from spec section 4.2. Prices live with billing, not
-     * here; this seeds what each tier may use.
+     * Launch catalog from spec section 4.2. Prices are illustrative, not
+     * approved, in kobo; Enterprise is contract-priced and never auto-invoiced.
      *
-     * @var array<string, array{name: string, sort: int, features: list<string>, limits: array<string, int>}>
+     * @var array<string, array{name: string, sort: int, price_minor: int, features: list<string>, limits: array<string, int>}>
      */
     private const CATALOG = [
         'starter' => [
             'name' => 'Starter',
             'sort' => 1,
+            'price_minor' => 3_900_000,
             'features' => ['pms.reservations', 'pms.front_desk', 'finance.folios'],
             'limits' => ['limits.rooms.max' => 15, 'limits.properties.max' => 1],
         ],
         'growth' => [
             'name' => 'Growth',
             'sort' => 2,
+            'price_minor' => 9_900_000,
             'features' => [
                 'pms.reservations', 'pms.front_desk', 'finance.folios',
                 'pms.group_booking', 'wifi.vouchers',
@@ -34,6 +36,7 @@ class PlanSeeder extends Seeder
         'professional' => [
             'name' => 'Professional',
             'sort' => 3,
+            'price_minor' => 19_900_000,
             'features' => [
                 'pms.reservations', 'pms.front_desk', 'finance.folios',
                 'pms.group_booking', 'wifi.vouchers', 'wifi.tier_upsell',
@@ -44,6 +47,7 @@ class PlanSeeder extends Seeder
         'enterprise' => [
             'name' => 'Enterprise',
             'sort' => 4,
+            'price_minor' => 0,
             'features' => [
                 'pms.reservations', 'pms.front_desk', 'finance.folios',
                 'pms.group_booking', 'wifi.vouchers', 'wifi.tier_upsell',
@@ -61,7 +65,13 @@ class PlanSeeder extends Seeder
         foreach (self::CATALOG as $key => $definition) {
             $plan = Plan::updateOrCreate(
                 ['key' => $key],
-                ['name' => $definition['name'], 'sort_order' => $definition['sort'], 'is_active' => true],
+                [
+                    'name' => $definition['name'],
+                    'monthly_price_minor' => $definition['price_minor'],
+                    'currency' => 'NGN',
+                    'sort_order' => $definition['sort'],
+                    'is_active' => true,
+                ],
             );
 
             $kept = [];

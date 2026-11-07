@@ -410,6 +410,12 @@ const allNavItems = computed<NavItem[]>(() => [
                 permission: 'branches.manage',
             },
             {
+                title: 'Subscriptions',
+                href: '/platform/subscriptions',
+                icon: ReceiptText,
+                platformOnly: true,
+            },
+            {
                 title: 'Developers',
                 href: '/developers',
                 icon: Terminal,
@@ -428,6 +434,7 @@ const allNavItems = computed<NavItem[]>(() => [
 const openGroups = ref<Set<string>>(new Set());
 
 function isEntitled(item: NavItem): boolean {
+    if (item.platformOnly) return auth.value.user.is_global_admin === true;
     if (!item.entitlement || entitlements.value === null) return true;
     return entitlements.value[item.entitlement] === true;
 }

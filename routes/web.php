@@ -74,6 +74,7 @@ use App\Http\Controllers\MobileKeyController;
 use App\Http\Controllers\NightAuditController;
 use App\Http\Controllers\NlReportController;
 use App\Http\Controllers\OutletController;
+use App\Http\Controllers\PlatformSubscriptionController;
 use App\Http\Controllers\PosModifierController;
 use App\Http\Controllers\PosTabController;
 use App\Http\Controllers\PosTerminalController;
@@ -1039,6 +1040,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('crs', [CrsController::class, 'index'])
         ->middleware('permission:crs.view')
         ->name('crs.index');
+
+    // Platform owner: tenant plans, overrides, invoice reconciliation
+    Route::get('platform/subscriptions', [PlatformSubscriptionController::class, 'index'])
+        ->name('platform.subscriptions.index');
+    Route::post('platform/tenants/{tenant}/plan', [PlatformSubscriptionController::class, 'assignPlan'])
+        ->name('platform.tenants.plan');
+    Route::post('platform/tenants/{tenant}/overrides', [PlatformSubscriptionController::class, 'storeOverride'])
+        ->name('platform.tenants.overrides.store');
+    Route::post('platform/invoices/{invoice}/payments', [PlatformSubscriptionController::class, 'recordPayment'])
+        ->name('platform.invoices.payments.store');
 
     // Developers: API consumers, scopes, webhook secrets + delivery log
     Route::get('developers', [DevelopersController::class, 'index'])

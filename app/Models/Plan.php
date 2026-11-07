@@ -14,13 +14,15 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property string $key
  * @property string $name
+ * @property int $monthly_price_minor
+ * @property string $currency
  * @property int $sort_order
  * @property bool $is_active
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Collection<int, PlanEntitlement> $entitlements
  */
-#[Fillable(['key', 'name', 'sort_order', 'is_active'])]
+#[Fillable(['key', 'name', 'monthly_price_minor', 'currency', 'sort_order', 'is_active'])]
 class Plan extends Model
 {
     /** @use HasFactory<PlanFactory> */

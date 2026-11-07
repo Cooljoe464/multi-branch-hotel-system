@@ -110,6 +110,21 @@ class GenerateApiDocs extends Command
                     ['name' => 'to', 'in' => 'query', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'date']],
                 ],
             ],
+            'api.v1.me.entitlements' => [
+                'summary' => 'Resolved entitlements for the token property tenant; metered is false until it has a subscription.',
+                'abilities' => ['saas.view'],
+                'parameters' => [$branchHeader],
+            ],
+            'api.v1.saas.subscription' => [
+                'summary' => 'Current subscription state and plan for the token property tenant.',
+                'abilities' => ['saas.view'],
+                'parameters' => [$branchHeader],
+            ],
+            'api.v1.saas.invoices' => [
+                'summary' => 'The latest platform invoices for the token property tenant.',
+                'abilities' => ['saas.view'],
+                'parameters' => [$branchHeader],
+            ],
         ];
     }
 

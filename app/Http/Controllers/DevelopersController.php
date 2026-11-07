@@ -26,6 +26,7 @@ class DevelopersController extends Controller
         'analytics.view',
         'analytics.export_warehouse',
         'webhooks.replay',
+        'saas.view',
     ];
 
     public function index(): Response

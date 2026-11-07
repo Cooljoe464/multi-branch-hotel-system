@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -21,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Collection<int, Branch> $branches
+ * @property-read Subscription|null $subscription
  */
 #[Fillable(['name', 'legal_name', 'slug', 'billing_email', 'country', 'metadata'])]
 class Tenant extends Model
@@ -33,6 +35,12 @@ class Tenant extends Model
         return [
             'metadata' => 'array',
         ];
+    }
+
+    /** @return HasOne<Subscription, $this> */
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class);
     }
 
     /** @return HasMany<Branch, $this> */
