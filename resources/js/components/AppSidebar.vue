@@ -67,6 +67,7 @@ const { sidebarOpen, mobileSidebarOpen, closeMobileSidebar } = useSidebar();
 const page = usePage();
 const auth = computed(() => page.props.auth);
 
+const entitlements = computed(() => page.props.entitlements ?? null);
 const branchId = computed(() => page.props.branch?.current?.id ?? null);
 const branchLink = (path: string) =>
     branchId.value !== null ? `/branches/${branchId.value}${path}` : '#';
@@ -269,6 +270,7 @@ const allNavItems = computed<NavItem[]>(() => [
                 href: '/pos',
                 icon: Monitor,
                 permission: 'pos.view',
+                entitlement: 'pos.sales',
             },
             {
                 title: 'Inventory',
@@ -300,6 +302,7 @@ const allNavItems = computed<NavItem[]>(() => [
                 href: '/channels',
                 icon: Globe,
                 permission: 'channels.view',
+                entitlement: 'channels.sync',
             },
             { title: 'CRS', href: '/crs', icon: Map, permission: 'crs.view' },
             {
@@ -424,10 +427,15 @@ const allNavItems = computed<NavItem[]>(() => [
 
 const openGroups = ref<Set<string>>(new Set());
 
+function isEntitled(item: NavItem): boolean {
+    if (!item.entitlement || entitlements.value === null) return true;
+    return entitlements.value[item.entitlement] === true;
+}
+
 function isGroupActive(group: NavItem): boolean {
     if (!group.children) return false;
     return group.children.some((child) =>
-        !child.permission || can(child.permission)
+        (!child.permission || can(child.permission)) && isEntitled(child)
             ? isCurrentOrParentUrl(child.href)
             : false,
     );
@@ -438,6 +446,7 @@ function visibleChildren(group: NavItem): NavItem[] {
     return group.children.filter(
         (child) =>
             (!child.permission || can(child.permission)) &&
+            isEntitled(child) &&
             (!child.requiresBranch || branchId.value !== null),
     );
 }

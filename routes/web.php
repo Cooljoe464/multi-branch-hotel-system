@@ -161,10 +161,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:telecom.view')
         ->name('connectivity.index');
     Route::post('branches/{branch}/mobile-keys', [MobileKeyController::class, 'store'])
-        ->middleware('permission:door_lock.issue_mobile_key')
+        ->middleware(['permission:door_lock.issue_mobile_key', 'entitled:locks.issue'])
         ->name('mobile-keys.store');
     Route::delete('branches/{branch}/mobile-keys/{key}', [MobileKeyController::class, 'destroy'])
-        ->middleware('permission:door_lock.issue_mobile_key')
+        ->middleware(['permission:door_lock.issue_mobile_key', 'entitled:locks.issue'])
         ->name('mobile-keys.destroy');
     Route::post('branches/{branch}/telecom/rates', [TelecomController::class, 'storeRate'])
         ->middleware('permission:telecom.manage_rates')
@@ -173,24 +173,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:telecom.manage_rates')
         ->name('telecom.secret.store');
     Route::post('branches/{branch}/wifi/vouchers', [TelecomController::class, 'issueVoucher'])
-        ->middleware('permission:telecom.view')
+        ->middleware(['permission:telecom.view', 'entitled:wifi.vouchers'])
         ->name('wifi.vouchers.store');
     Route::post('branches/{branch}/wifi/vouchers/{session}/revoke', [TelecomController::class, 'revokeVoucher'])
-        ->middleware('permission:telecom.view')
+        ->middleware(['permission:telecom.view', 'entitled:wifi.vouchers'])
         ->name('wifi.vouchers.revoke');
 
     // Hotspot tiers + isolation export (in-hotel, 1 router/branch)
     Route::get('branches/{branch}/hotspot', [HotspotController::class, 'index'])
-        ->middleware('permission:hotspot.view')
+        ->middleware(['permission:hotspot.view', 'entitled:wifi.tier_upsell'])
         ->name('hotspot.index');
     Route::post('branches/{branch}/hotspot/tiers', [HotspotController::class, 'store'])
-        ->middleware('permission:hotspot.manage')
+        ->middleware(['permission:hotspot.manage', 'entitled:wifi.tier_upsell'])
         ->name('hotspot.tiers.store');
     Route::get('branches/{branch}/hotspot/export', [HotspotController::class, 'export'])
-        ->middleware('permission:hotspot.manage')
+        ->middleware(['permission:hotspot.manage', 'entitled:wifi.tier_upsell'])
         ->name('hotspot.export');
     Route::post('reservations/{reservation}/hotspot-tier', [HotspotController::class, 'selectTier'])
-        ->middleware('permission:hotspot.issue')
+        ->middleware(['permission:hotspot.issue', 'entitled:wifi.tier_upsell'])
         ->name('hotspot.tier.select');
 
     Route::post('branch/switch', [BranchController::class, 'switch'])->name('branch.switch');
@@ -247,37 +247,37 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Group blocks + BEOs
     Route::get('branches/{branch}/groups', [GroupBlockController::class, 'index'])
-        ->middleware('permission:groups.view')
+        ->middleware(['permission:groups.view', 'entitled:pms.group_booking'])
         ->name('groups.index');
     Route::post('branches/{branch}/groups', [GroupBlockController::class, 'store'])
-        ->middleware('permission:groups.manage')
+        ->middleware(['permission:groups.manage', 'entitled:pms.group_booking'])
         ->name('groups.store');
     Route::get('branches/{branch}/groups/{block}', [GroupBlockController::class, 'show'])
-        ->middleware('permission:groups.view')
+        ->middleware(['permission:groups.view', 'entitled:pms.group_booking'])
         ->name('groups.show');
     Route::post('branches/{branch}/groups/{block}/pickup', [GroupBlockController::class, 'pickup'])
-        ->middleware('permission:groups.manage')
+        ->middleware(['permission:groups.manage', 'entitled:pms.group_booking'])
         ->name('groups.pickup');
     Route::post('branches/{branch}/groups/{block}/release', [GroupBlockController::class, 'release'])
-        ->middleware('permission:groups.manage')
+        ->middleware(['permission:groups.manage', 'entitled:pms.group_booking'])
         ->name('groups.release');
     Route::post('branches/{branch}/groups/{block}/rooming-list', [GroupBlockController::class, 'importRoomingList'])
-        ->middleware('permission:groups.manage')
+        ->middleware(['permission:groups.manage', 'entitled:pms.group_booking'])
         ->name('groups.rooming-list');
     Route::post('branches/{branch}/groups/{block}/beos', [BeoController::class, 'store'])
-        ->middleware('permission:groups.manage_beo')
+        ->middleware(['permission:groups.manage_beo', 'entitled:events.bookings'])
         ->name('groups.beos.store');
     Route::put('branches/{branch}/groups/beos/{beo}', [BeoController::class, 'update'])
-        ->middleware('permission:groups.manage_beo')
+        ->middleware(['permission:groups.manage_beo', 'entitled:events.bookings'])
         ->name('groups.beos.update');
     Route::post('branches/{branch}/groups/beos/{beo}/post', [BeoController::class, 'post'])
-        ->middleware('permission:groups.manage_beo')
+        ->middleware(['permission:groups.manage_beo', 'entitled:events.bookings'])
         ->name('groups.beos.post');
     Route::post('branches/{branch}/function-spaces', [FunctionSpaceController::class, 'store'])
-        ->middleware('permission:groups.manage')
+        ->middleware(['permission:groups.manage', 'entitled:events.bookings'])
         ->name('function-spaces.store');
     Route::delete('branches/{branch}/function-spaces/{space}', [FunctionSpaceController::class, 'destroy'])
-        ->middleware('permission:groups.manage')
+        ->middleware(['permission:groups.manage', 'entitled:events.bookings'])
         ->name('function-spaces.destroy');
 
     // Housekeeping depth (tasks, conditions, OOO, minibar, lost & found)
@@ -492,10 +492,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:reservations.view')
         ->name('reservations.index');
     Route::get('reservations/create', [ReservationController::class, 'create'])
-        ->middleware('permission:reservations.create')
+        ->middleware(['permission:reservations.create', 'entitled:pms.reservations'])
         ->name('reservations.create');
     Route::post('reservations', [ReservationController::class, 'store'])
-        ->middleware('permission:reservations.create')
+        ->middleware(['permission:reservations.create', 'entitled:pms.reservations'])
         ->name('reservations.store');
     Route::get('reservations/{reservation}', [ReservationController::class, 'show'])
         ->middleware('permission:reservations.view')
@@ -940,48 +940,48 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // POS Terminal
     Route::get('pos', [PosTerminalController::class, 'index'])
-        ->middleware('permission:pos.view')
+        ->middleware(['permission:pos.view', 'entitled:pos.sales'])
         ->name('pos.index');
     Route::get('pos/{outlet}', [PosTerminalController::class, 'terminal'])
-        ->middleware('permission:pos.view')
+        ->middleware(['permission:pos.view', 'entitled:pos.sales'])
         ->name('pos.terminal');
     Route::post('pos/{outlet}/charge', [PosTerminalController::class, 'charge'])
-        ->middleware('permission:pos.manage')
+        ->middleware(['permission:pos.manage', 'entitled:pos.sales'])
         ->name('pos.charge');
 
     // POS completeness (floor, tabs, splits, offline replay)
     Route::get('pos/{outlet}/floor', [PosTabController::class, 'index'])
-        ->middleware('permission:pos.view')
+        ->middleware(['permission:pos.view', 'entitled:pos.sales'])
         ->name('pos.floor');
     Route::post('pos/{outlet}/tabs', [PosTabController::class, 'open'])
-        ->middleware('permission:pos.manage')
+        ->middleware(['permission:pos.manage', 'entitled:pos.sales'])
         ->name('pos.tabs.open');
     Route::post('pos/tabs/{charge}/items', [PosTabController::class, 'addItems'])
-        ->middleware('permission:pos.manage')
+        ->middleware(['permission:pos.manage', 'entitled:pos.sales'])
         ->name('pos.tabs.items');
     Route::post('pos/tabs/{charge}/fire', [PosTabController::class, 'fire'])
-        ->middleware('permission:pos.manage')
+        ->middleware(['permission:pos.manage', 'entitled:pos.sales'])
         ->name('pos.tabs.fire');
     Route::post('pos/tabs/{charge}/split', [PosTabController::class, 'split'])
-        ->middleware('permission:pos.manage')
+        ->middleware(['permission:pos.manage', 'entitled:pos.sales'])
         ->name('pos.tabs.split');
     Route::post('pos/tabs/{charge}/post', [PosTabController::class, 'post'])
-        ->middleware('permission:pos.manage')
+        ->middleware(['permission:pos.manage', 'entitled:pos.sales'])
         ->name('pos.tabs.post');
     Route::post('pos/{outlet}/offline-replay', [PosTabController::class, 'replayOffline'])
-        ->middleware('permission:pos.manage')
+        ->middleware(['permission:pos.manage', 'entitled:pos.sales'])
         ->name('pos.offline.replay');
     Route::post('pos/{outlet}/tables', [DiningTableController::class, 'store'])
-        ->middleware('permission:pos.manage_floor')
+        ->middleware(['permission:pos.manage_floor', 'entitled:pos.sales'])
         ->name('pos.tables.store');
     Route::delete('pos/{outlet}/tables/{table}', [DiningTableController::class, 'destroy'])
-        ->middleware('permission:pos.manage_floor')
+        ->middleware(['permission:pos.manage_floor', 'entitled:pos.sales'])
         ->name('pos.tables.destroy');
     Route::post('pos/{outlet}/happy-hours', [HappyHourController::class, 'store'])
-        ->middleware('permission:pos.manage_pricing')
+        ->middleware(['permission:pos.manage_pricing', 'entitled:pos.sales'])
         ->name('pos.happy-hours.store');
     Route::delete('pos/{outlet}/happy-hours/{happyHour}', [HappyHourController::class, 'destroy'])
-        ->middleware('permission:pos.manage_pricing')
+        ->middleware(['permission:pos.manage_pricing', 'entitled:pos.sales'])
         ->name('pos.happy-hours.destroy');
     Route::post('branches/{branch}/modifiers', [PosModifierController::class, 'store'])
         ->middleware('permission:pos.manage_pricing')
@@ -1009,30 +1009,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Channels
     Route::get('channels', [ChannelManagerController::class, 'index'])
-        ->middleware('permission:channels.view')
+        ->middleware(['permission:channels.view', 'entitled:channels.sync'])
         ->name('channels.index');
     Route::post('channels/{channelProvider}/sync', [ChannelManagerController::class, 'sync'])
-        ->middleware('permission:channels.manage')
+        ->middleware(['permission:channels.manage', 'entitled:channels.sync'])
         ->name('channels.sync');
     Route::post('channels/{channelProvider}/pull', [ChannelManagerController::class, 'pullReservations'])
-        ->middleware('permission:channels.manage')
+        ->middleware(['permission:channels.manage', 'entitled:channels.sync'])
         ->name('channels.pull');
 
     // Channel reliability (outbox, mappings, reconciliation)
     Route::get('channels/reliability', [ChannelMessageController::class, 'index'])
-        ->middleware('permission:channels.view')
+        ->middleware(['permission:channels.view', 'entitled:channels.sync'])
         ->name('channels.reliability');
     Route::post('channels/messages', [ChannelMessageController::class, 'push'])
-        ->middleware('permission:channels.manage')
+        ->middleware(['permission:channels.manage', 'entitled:channels.sync'])
         ->name('channels.messages.push');
     Route::post('channels/messages/{message}/replay', [ChannelMessageController::class, 'replay'])
-        ->middleware('permission:channels.replay')
+        ->middleware(['permission:channels.replay', 'entitled:channels.sync'])
         ->name('channels.messages.replay');
     Route::post('channels/mappings', [ChannelMappingController::class, 'store'])
-        ->middleware('permission:channels.manage_mapping')
+        ->middleware(['permission:channels.manage_mapping', 'entitled:channels.sync'])
         ->name('channels.mappings.store');
     Route::delete('channels/mappings/{mapping}', [ChannelMappingController::class, 'destroy'])
-        ->middleware('permission:channels.manage_mapping')
+        ->middleware(['permission:channels.manage_mapping', 'entitled:channels.sync'])
         ->name('channels.mappings.destroy');
 
     // CRS

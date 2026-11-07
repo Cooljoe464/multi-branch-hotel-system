@@ -30,6 +30,7 @@ export type PageProps = {
     name: string;
     auth: Auth;
     branch: BranchContext | null;
+    entitlements: Record<string, boolean | number> | null;
     sidebarOpen: boolean;
 };
 

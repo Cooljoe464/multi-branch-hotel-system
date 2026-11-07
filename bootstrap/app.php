@@ -3,6 +3,7 @@
 use App\Exceptions\AvailabilityException;
 use App\Exceptions\StaleModelException;
 use App\Http\Middleware\ApiBranchScope;
+use App\Http\Middleware\EnsureEntitled;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ReadFromReplica;
@@ -47,6 +48,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'abilities' => CheckAbilities::class,
             'ability' => CheckForAnyAbility::class,
             'branch.scope' => ApiBranchScope::class,
+            'entitled' => EnsureEntitled::class,
             'replica' => ReadFromReplica::class,
         ]);
 

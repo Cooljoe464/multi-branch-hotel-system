@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Branch;
 use App\Models\Branding;
+use App\Services\EntitlementService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -35,6 +36,8 @@ class HandleInertiaRequests extends Middleware
      *
      * @return array<string, mixed>
      */
+    public function __construct(private EntitlementService $entitlements) {}
+
     public function share(Request $request): array
     {
         return [
@@ -47,6 +50,7 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => $request->user()?->getAllPermissions()->pluck('name')->values()->all() ?? [],
             ],
             'branch' => $this->resolveBranchData($request),
+            'entitlements' => $this->resolveEntitlements($request),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }
@@ -81,6 +85,28 @@ class HandleInertiaRequests extends Middleware
                 'logo_url' => null,
             ];
         }
+    }
+
+    /**
+     * What the current tenant may use, for hiding navigation only: the
+     * backend middleware stays the authority. Null means unmetered.
+     *
+     * @return array<string, bool|int>|null
+     */
+    private function resolveEntitlements(Request $request): ?array
+    {
+        $branch = $request->get('_branch');
+
+        if (! $branch instanceof Branch) {
+            $branch = $request->user()?->currentBranch;
+        }
+
+        if (! $branch instanceof Branch) {
+            return null;
+        }
+
+        return $this->entitlements->resolve($branch->tenant_id)
+            ?? (config('entitlements.enforce_without_subscription') ? [] : null);
     }
 
     /**

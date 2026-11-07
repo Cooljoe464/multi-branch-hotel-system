@@ -28,6 +28,7 @@ declare module '@inertiajs/core' {
                 available: { id: number; name: string }[];
                 can_switch: boolean;
             } | null;
+            entitlements: Record<string, boolean | number> | null;
             sidebarOpen: boolean;
             [key: string]: unknown;
         };
