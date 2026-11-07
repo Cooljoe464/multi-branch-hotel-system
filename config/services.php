@@ -85,4 +85,33 @@ return [
         'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v20.0'),
     ],
 
+    // Concierge AI provider. 'openai' (also serving openrouter/google via
+    // the OpenAI-compatible endpoint) or 'anthropic'; adding a vendor means
+    // registering its adapter in ConciergeAiManager.
+    'concierge_ai' => [
+        'provider' => env('CONCIERGE_AI_PROVIDER', 'openai'),
+        'providers' => [
+            'openai' => [
+                'base_url' => env('CONCIERGE_AI_OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+                'api_key' => env('CONCIERGE_AI_OPENAI_API_KEY'),
+                'model' => env('CONCIERGE_AI_OPENAI_MODEL', 'gpt-4o-mini'),
+            ],
+            'anthropic' => [
+                'base_url' => env('CONCIERGE_AI_ANTHROPIC_BASE_URL', 'https://api.anthropic.com'),
+                'api_key' => env('CONCIERGE_AI_ANTHROPIC_API_KEY'),
+                'model' => env('CONCIERGE_AI_ANTHROPIC_MODEL', 'claude-3-5-haiku-latest'),
+            ],
+            'openrouter' => [
+                'base_url' => env('CONCIERGE_AI_OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+                'api_key' => env('CONCIERGE_AI_OPENROUTER_API_KEY'),
+                'model' => env('CONCIERGE_AI_OPENROUTER_MODEL', 'openai/gpt-4o-mini'),
+            ],
+            'google' => [
+                'base_url' => env('CONCIERGE_AI_GOOGLE_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta/openai'),
+                'api_key' => env('CONCIERGE_AI_GOOGLE_API_KEY'),
+                'model' => env('CONCIERGE_AI_GOOGLE_MODEL', 'gemini-2.0-flash'),
+            ],
+        ],
+    ],
+
 ];
