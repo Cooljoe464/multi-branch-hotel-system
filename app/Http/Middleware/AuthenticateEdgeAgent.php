@@ -20,7 +20,15 @@ class AuthenticateEdgeAgent
         $agent = is_string($token) ? $this->agents->resolve($token) : null;
 
         abort_unless($agent instanceof EdgeAgent, 401, 'Invalid edge-agent token.');
-        abort_unless(is_string($version) && $this->agents->compatibility($version)['accepted'], 426, 'Unsupported edge-agent protocol version.');
+        $compatibility = $this->agents->compatibility(is_string($version) ? $version : '');
+
+        if (! $compatibility['accepted']) {
+            return response()->json([
+                'message' => 'Unsupported edge-agent protocol version.',
+                'current_version' => config()->string('edge.current_version'),
+                'supported_versions' => $compatibility['supported'],
+            ], 426);
+        }
 
         $request->attributes->set('edge_agent', $agent);
 

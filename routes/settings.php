@@ -4,6 +4,7 @@ use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\Settings\CashierOutletController;
 use App\Http\Controllers\Settings\CurrencyController;
 use App\Http\Controllers\Settings\DoorLockGatewayController;
+use App\Http\Controllers\Settings\EdgeAgentController;
 use App\Http\Controllers\Settings\FxRateController;
 use App\Http\Controllers\Settings\PaymentConnectionController;
 use App\Http\Controllers\Settings\PaymentGuardController;
@@ -92,6 +93,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('door-lock-gateway.update');
         Route::delete('settings/door-lock', [DoorLockGatewayController::class, 'destroy'])
             ->name('door-lock-gateway.destroy');
+    });
+
+    // Edge agents (offline on-premises nodes)
+    Route::middleware(['auth', 'verified', 'permission:branches.manage'])->group(function () {
+        Route::get('settings/edge-agents', [EdgeAgentController::class, 'index'])
+            ->name('edge-agents.index');
+        Route::post('settings/edge-agents', [EdgeAgentController::class, 'store'])
+            ->name('edge-agents.store');
+        Route::post('settings/edge-agents/{agent}/revoke', [EdgeAgentController::class, 'revoke'])
+            ->name('edge-agents.revoke');
     });
 
     // Cashier POS Outlet Access (Outlet Managers only)

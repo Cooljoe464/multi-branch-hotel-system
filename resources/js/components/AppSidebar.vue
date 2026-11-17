@@ -19,6 +19,7 @@ import {
     CreditCard,
     KeyRound,
     ReceiptText,
+    Server,
     Settings,
     Shield,
     Sparkles,
@@ -404,6 +405,12 @@ const allNavItems = computed<NavItem[]>(() => [
                 href: '/settings/payment-guard',
                 icon: ShieldAlert,
                 permission: 'settings.manage',
+            },
+            {
+                title: 'Edge Agents',
+                href: '/settings/edge-agents',
+                icon: Server,
+                permission: 'branches.manage',
             },
             {
                 title: 'Door Lock Gateway',
