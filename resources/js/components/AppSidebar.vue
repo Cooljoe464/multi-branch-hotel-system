@@ -173,6 +173,13 @@ const allNavItems = computed<NavItem[]>(() => [
                 permission: 'folios.view',
             },
             {
+                title: 'Tax Compliance',
+                href: branchLink('/tax/compliance'),
+                icon: ReceiptText,
+                permission: 'tax.view',
+                requiresBranch: true,
+            },
+            {
                 title: 'City Ledger',
                 href: '/city-ledger',
                 icon: Banknote,

@@ -367,6 +367,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('branches/{branch}/tax-profiles/{profile}/deactivate', [TaxProfileController::class, 'deactivate'])
         ->middleware('permission:tax.manage')
         ->name('tax-profiles.deactivate');
+    Route::get('branches/{branch}/tax/compliance', [SupplierInputVatController::class, 'compliance'])
+        ->middleware('permission:tax.view')
+        ->name('tax.compliance');
     Route::get('branches/{branch}/tax/vat-workpaper', [SupplierInputVatController::class, 'workpaper'])
         ->middleware('permission:tax.view')
         ->name('tax.vat-workpaper');

@@ -414,3 +414,60 @@ it('fails the document after exhausting retries', function () {
     expect($document->status)->toBe(FiscalDocument::STATUS_FAILED)
         ->and($document->last_error)->not->toBeNull();
 });
+
+it('renders the tax compliance page with the workpaper and published rules', function () {
+    $this->withoutVite();
+    Supplier::query()->create(['branch_id' => $this->branch->id, 'name' => 'Page Supplier']);
+
+    $this->actingAs($this->user)
+        ->get(route('tax.compliance', ['branch' => $this->branch, 'month' => now()->format('Y-m')]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('finance/TaxCompliance')
+            ->where('month', now()->format('Y-m'))
+            ->where('workpaper.input_vat_minor', 0)
+            ->has('suppliers', 1)
+            ->has('ruleVersions'));
+});
+
+it('falls back to the current month for an invalid month and explains VAT exemption', function () {
+    $this->withoutVite();
+
+    $this->actingAs($this->user)
+        ->get(route('tax.compliance', ['branch' => $this->branch, 'month' => 'not-a-month']))
+        ->assertInertia(fn ($page) => $page->where('month', now()->format('Y-m')));
+
+    app(TaxRuleVersionService::class)->publish(
+        tenantId: $this->branch->tenant_id,
+        branchId: null,
+        ruleKey: 'tenant.vat_status',
+        value: ['status' => 'exempt_small_business'],
+        effectiveFrom: now()->subYear()->toDateString(),
+        effectiveUntil: null,
+        evidenceSnapshot: ['source' => 'adviser'],
+        approvalReference: 'EXEMPT-1',
+        approver: $this->user,
+    );
+
+    $this->actingAs($this->user)
+        ->get(route('tax.compliance', ['branch' => $this->branch]))
+        ->assertInertia(fn ($page) => $page
+            ->where('workpaper', null)
+            ->whereNot('workpaperError', null));
+});
+
+it('answers form submissions from the page with a redirect instead of JSON', function () {
+    $this->withoutVite();
+
+    $this->actingAs($this->user)
+        ->withHeader('X-Inertia', 'true')
+        ->withHeader('X-Idempotency-Key', 'rule-page-1')
+        ->post(route('tax.rule-versions.store', $this->branch), [
+            'rule_key' => 'tenant.vat_status',
+            'value' => ['status' => 'registered'],
+            'effective_from' => now()->addYear()->toDateString(),
+            'evidence_snapshot' => ['note' => 'adviser'],
+            'approval_reference' => 'PAGE-APPROVAL-1',
+        ])
+        ->assertRedirect();
+});

@@ -6,17 +6,69 @@ use App\Http\Controllers\Concerns\EnsuresBranchAccess;
 use App\Models\Branch;
 use App\Models\Supplier;
 use App\Models\SupplierInputVatInvoice;
+use App\Models\TaxRuleVersion;
 use App\Services\SupplierInputVatService;
 use App\Services\TaxRuleVersionService;
 use App\Services\VatWorkpaperService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class SupplierInputVatController extends Controller
 {
     use EnsuresBranchAccess;
 
-    public function store(Request $request, Branch $branch, SupplierInputVatService $invoices): JsonResponse
+    /**
+     * Monthly VAT workpaper, supplier input-VAT invoices and the published
+     * tax rule versions in one screen. The JSON endpoints below stay for API use.
+     */
+    public function compliance(Request $request, Branch $branch, VatWorkpaperService $workpapers): Response
+    {
+        $this->ensureBranchAccess($branch);
+
+        $month = $request->string('month')->value();
+        $month = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month) === 1 ? $month : now()->format('Y-m');
+
+        $workpaper = null;
+        $workpaperError = null;
+
+        try {
+            $workpaper = $workpapers->forMonth($branch, $month);
+        } catch (ValidationException $e) {
+            $workpaperError = collect($e->errors())->flatten()->first();
+        }
+
+        $ruleVersions = TaxRuleVersion::query()
+            ->where('tenant_id', $branch->tenant_id)
+            ->where(fn ($query) => $query->whereNull('branch_id')->orWhere('branch_id', $branch->id))
+            ->orderByDesc('effective_from')
+            ->limit(50)
+            ->get()
+            ->map(fn (TaxRuleVersion $rule): array => [
+                'id' => $rule->id,
+                'rule_key' => $rule->rule_key,
+                'value' => $rule->value,
+                'effective_from' => $rule->effective_from->toDateString(),
+                'effective_until' => $rule->effective_until?->toDateString(),
+                'approval_reference' => $rule->approval_reference,
+                'scope' => $rule->branch_id === null ? 'all_properties' : 'this_property',
+            ])
+            ->values();
+
+        return Inertia::render('finance/TaxCompliance', [
+            'branch' => $branch->only(['id', 'name', 'currency_code']),
+            'month' => $month,
+            'workpaper' => $workpaper,
+            'workpaperError' => $workpaperError,
+            'ruleVersions' => $ruleVersions,
+            'suppliers' => Supplier::query()->where('branch_id', $branch->id)->orderBy('name')->get(['id', 'name']),
+        ]);
+    }
+
+    public function store(Request $request, Branch $branch, SupplierInputVatService $invoices): JsonResponse|RedirectResponse
     {
         $this->ensureBranchAccess($branch);
         $request->validate([
@@ -58,10 +110,14 @@ class SupplierInputVatController extends Controller
             evidenceReference: $request->string('evidence_reference')->value(),
         );
 
+        if ($request->header('X-Inertia')) {
+            return back()->with('toast', ['type' => 'success', 'message' => 'Supplier invoice recorded.']);
+        }
+
         return response()->json(['data' => $invoice], 201);
     }
 
-    public function void(Request $request, Branch $branch, SupplierInputVatInvoice $invoice, SupplierInputVatService $invoices): JsonResponse
+    public function void(Request $request, Branch $branch, SupplierInputVatInvoice $invoice, SupplierInputVatService $invoices): JsonResponse|RedirectResponse
     {
         $this->ensureBranchAccess($branch);
         abort_unless($invoice->branch_id === $branch->id, 404);
@@ -70,7 +126,13 @@ class SupplierInputVatController extends Controller
         $actor = $request->user();
         abort_unless($actor !== null, 401);
 
-        return response()->json(['data' => $invoices->void($invoice, $actor, $request->string('reason')->value())]);
+        $voided = $invoices->void($invoice, $actor, $request->string('reason')->value());
+
+        if ($request->header('X-Inertia')) {
+            return back()->with('toast', ['type' => 'success', 'message' => 'Supplier invoice voided.']);
+        }
+
+        return response()->json(['data' => $voided]);
     }
 
     public function workpaper(Request $request, Branch $branch, VatWorkpaperService $workpapers): JsonResponse
@@ -83,7 +145,7 @@ class SupplierInputVatController extends Controller
         ]);
     }
 
-    public function storeRuleVersion(Request $request, Branch $branch, TaxRuleVersionService $rules): JsonResponse
+    public function storeRuleVersion(Request $request, Branch $branch, TaxRuleVersionService $rules): JsonResponse|RedirectResponse
     {
         $this->ensureBranchAccess($branch);
         $request->validate([
@@ -114,6 +176,10 @@ class SupplierInputVatController extends Controller
             approver: $actor,
             creator: $actor,
         );
+
+        if ($request->header('X-Inertia')) {
+            return back()->with('toast', ['type' => 'success', 'message' => 'Tax rule version published.']);
+        }
 
         return response()->json(['data' => $rule], 201);
     }
