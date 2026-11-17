@@ -208,6 +208,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('branches/{branch}/availability', [AvailabilityController::class, 'quote'])
         ->middleware('permission:availability.view')
         ->name('availability.quote');
+    Route::get('branches/{branch}/overbooking-allowances', [OverbookingAllowanceController::class, 'index'])
+        ->middleware('permission:availability.manage_overbook')
+        ->name('overbooking-allowances.index');
     Route::post('branches/{branch}/overbooking-allowances', [OverbookingAllowanceController::class, 'store'])
         ->middleware(['permission:availability.manage_overbook', RequireIdempotencyKey::class])
         ->name('overbooking-allowances.store');

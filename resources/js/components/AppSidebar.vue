@@ -140,6 +140,13 @@ const allNavItems = computed<NavItem[]>(() => [
                 requiresBranch: true,
             },
             {
+                title: 'Overbooking',
+                href: branchLink('/overbooking-allowances'),
+                icon: ShieldAlert,
+                permission: 'availability.manage_overbook',
+                requiresBranch: true,
+            },
+            {
                 title: 'Tablets',
                 href: branchLink('/tablets'),
                 icon: Tablet,

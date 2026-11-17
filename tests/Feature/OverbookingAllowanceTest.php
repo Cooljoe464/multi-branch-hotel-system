@@ -68,3 +68,32 @@ it('AC-034 rejects an overbooking allowance that names a room type at another pr
         $user,
     ))->toThrow('The room type is not active at this property.');
 });
+
+it('lists allowances on the management page and warns when MFA is missing', function () {
+    $this->withoutVite();
+    $branch = Branch::factory()->create();
+    $roomType = RoomType::factory()->create(['branch_id' => $branch->id]);
+    $user = $this->makeAdminUser($branch);
+    OverbookingAllowance::factory()->forRoomType($branch, $roomType)->create();
+
+    $this->actingAs($user)
+        ->get("/branches/{$branch->id}/overbooking-allowances")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('rooms/OverbookingAllowances')
+            ->has('allowances', 1)
+            ->has('roomTypes', 1)
+            ->where('twoFactorEnabled', false));
+});
+
+it('does not show another property allowances', function () {
+    $this->withoutVite();
+    $branch = Branch::factory()->create();
+    $other = Branch::factory()->create();
+    $user = $this->makeAdminUser($branch);
+    $user->forceFill(['is_global_admin' => false])->save();
+
+    $this->actingAs($user)
+        ->get("/branches/{$other->id}/overbooking-allowances")
+        ->assertForbidden();
+});
