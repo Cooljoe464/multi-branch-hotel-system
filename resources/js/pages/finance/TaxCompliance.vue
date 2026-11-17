@@ -139,7 +139,7 @@ const rule = ref({
 const ruleErrors = ref<Record<string, string>>({});
 
 const publishRule = () => {
-    let value: unknown;
+    let value: Record<string, string | number | boolean | null>;
 
     try {
         value = JSON.parse(rule.value.value);

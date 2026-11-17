@@ -67,7 +67,10 @@ const create = () => {
     });
 };
 
-const patch = (connection: Connection, data: Record<string, unknown>) => {
+const patch = (
+    connection: Connection,
+    data: { status?: string; is_default?: boolean },
+) => {
     router.put(`/settings/payment-connections/${connection.id}`, data, {
         preserveScroll: true,
     });
