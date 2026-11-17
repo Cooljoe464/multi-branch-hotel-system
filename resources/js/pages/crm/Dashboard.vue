@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +27,7 @@ interface Account {
 const props = defineProps<{
     branch: { id: number; name: string };
     tiers: Tier[];
+    canManageTiers: boolean;
     tierMix: TierMix[];
     consentCoverage: { guests: number; consented: number };
     recent: Account[];
@@ -49,6 +50,15 @@ const redeemForm = useForm({
 });
 
 const base = `/branches/${props.branch.id}/crm`;
+
+const tierForm = useForm({ name: '', threshold_nights: 0, earn_bps: 10000 });
+const saveTier = () =>
+    tierForm.post(`${base}/tiers`, {
+        preserveScroll: true,
+        onSuccess: () => tierForm.reset(),
+    });
+const removeTier = (id: number) =>
+    router.delete(`${base}/tiers/${id}`, { preserveScroll: true });
 </script>
 
 <template>
@@ -64,13 +74,44 @@ const base = `/branches/${props.branch.id}/crm`;
 
         <section class="grid gap-3 md:grid-cols-4">
             <div v-for="t in tiers" :key="t.id" class="rounded-lg border p-4">
-                <div class="font-medium">{{ t.name }}</div>
+                <div class="flex items-center justify-between">
+                    <span class="font-medium">{{ t.name }}</span>
+                    <button
+                        v-if="canManageTiers && t.name !== 'member'"
+                        type="button"
+                        class="text-destructive text-xs underline"
+                        @click="removeTier(t.id)"
+                    >
+                        Remove
+                    </button>
+                </div>
                 <div class="text-muted-foreground font-mono text-xs">
                     {{ t.threshold_nights }}+ nights Â·
                     {{ (t.earn_bps / 100).toFixed(0) }}% earn
                 </div>
             </div>
         </section>
+
+        <form
+            v-if="canManageTiers"
+            class="grid items-end gap-3 rounded-lg border p-4 md:grid-cols-4"
+            @submit.prevent="saveTier"
+        >
+            <div>
+                <Label for="tier-name">Tier name</Label>
+                <Input id="tier-name" v-model="tierForm.name" placeholder="gold" />
+                <p v-if="tierForm.errors.name" class="text-destructive mt-1 text-xs">{{ tierForm.errors.name }}</p>
+            </div>
+            <div>
+                <Label for="tier-nights">Nights to qualify</Label>
+                <Input id="tier-nights" v-model="tierForm.threshold_nights" type="number" min="0" />
+            </div>
+            <div>
+                <Label for="tier-bps">Earn rate (bps, 10000 = 1×)</Label>
+                <Input id="tier-bps" v-model="tierForm.earn_bps" type="number" min="0" />
+            </div>
+            <Button type="submit" :disabled="tierForm.processing">Save tier</Button>
+        </form>
 
         <section class="grid gap-6 md:grid-cols-2">
             <div class="space-y-3">

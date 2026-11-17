@@ -2,12 +2,14 @@
 
 use App\Exceptions\AvailabilityException;
 use App\Http\Controllers\ConsentController;
+use App\Jobs\LoyaltyRecalcJob;
 use App\Models\Branch;
 use App\Models\Consent;
 use App\Models\Folio;
 use App\Models\Guest;
 use App\Models\LoyaltyAccount;
 use App\Models\LoyaltyLedger;
+use App\Models\LoyaltyTier;
 use App\Models\PostStaySurvey;
 use App\Models\Reservation;
 use App\Models\Room;
@@ -16,6 +18,7 @@ use App\Services\FolioService;
 use App\Services\LoyaltyService;
 use Carbon\Carbon;
 use Database\Seeders\ChartSeeder;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -151,4 +154,58 @@ it('updates surveys in place with fresh sentiment', function () {
 
     expect($updated->nps)->toBe(2)
         ->and($updated->sentiment)->toBeLessThan(0.5);
+});
+
+it('lets a platform owner save and remove loyalty tiers but not a property admin', function () {
+    $owner = $this->makeAdminUser($this->branch);
+    $owner->forceFill(['is_global_admin' => true])->save();
+
+    $this->actingAs($owner)
+        ->post("/branches/{$this->branch->id}/crm/tiers", ['name' => 'diamond', 'threshold_nights' => 100, 'earn_bps' => 20000])
+        ->assertRedirect();
+
+    $tier = LoyaltyTier::where('name', 'diamond')->firstOrFail();
+    expect($tier->threshold_nights)->toBe(100);
+
+    $this->actingAs($owner)
+        ->post("/branches/{$this->branch->id}/crm/tiers", ['name' => 'diamond', 'threshold_nights' => 120, 'earn_bps' => 20000]);
+    expect(LoyaltyTier::where('name', 'diamond')->count())->toBe(1)
+        ->and($tier->fresh()->threshold_nights)->toBe(120);
+
+    $propertyAdmin = $this->makeAdminUser($this->branch);
+    $propertyAdmin->forceFill(['is_global_admin' => false])->save();
+
+    $this->actingAs($propertyAdmin)
+        ->post("/branches/{$this->branch->id}/crm/tiers", ['name' => 'rogue', 'threshold_nights' => 1, 'earn_bps' => 1])
+        ->assertForbidden();
+    $this->actingAs($propertyAdmin)
+        ->delete("/branches/{$this->branch->id}/crm/tiers/{$tier->id}")
+        ->assertForbidden();
+
+    $this->actingAs($owner)->delete("/branches/{$this->branch->id}/crm/tiers/{$tier->id}")->assertRedirect();
+    expect(LoyaltyTier::where('name', 'diamond')->exists())->toBeFalse();
+
+    $member = LoyaltyTier::where('name', 'member')->first();
+    if ($member !== null) {
+        $this->actingAs($owner)->delete("/branches/{$this->branch->id}/crm/tiers/{$member->id}")->assertStatus(422);
+    }
+});
+
+it('promotes members across a threshold in the nightly recalc job', function () {
+    $guest = Guest::factory()->create();
+    $account = $this->service->enroll($guest);
+    loyalStay(12, $guest);
+
+    $result = (new LoyaltyRecalcJob)->handle($this->service);
+
+    expect($result['upgraded'])->toBeGreaterThanOrEqual(1)
+        ->and($account->fresh()->tier)->toBe('silver');
+});
+
+it('schedules the loyalty recalc job nightly', function () {
+    $events = collect(app(Schedule::class)->events())
+        ->filter(fn ($event) => str_contains((string) $event->description, 'LoyaltyRecalcJob'));
+
+    expect($events)->toHaveCount(1)
+        ->and($events->first()->expression)->toBe('45 3 * * *');
 });

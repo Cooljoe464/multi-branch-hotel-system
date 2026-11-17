@@ -1228,6 +1228,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('branches/{branch}/crm', [LoyaltyController::class, 'index'])
         ->middleware('permission:crm.view')
         ->name('crm.index');
+    Route::post('branches/{branch}/crm/tiers', [LoyaltyController::class, 'saveTier'])
+        ->middleware('permission:crm.manage')
+        ->name('crm.tiers.save');
+    Route::delete('branches/{branch}/crm/tiers/{tier}', [LoyaltyController::class, 'destroyTier'])
+        ->middleware('permission:crm.manage')
+        ->name('crm.tiers.destroy');
     Route::post('branches/{branch}/crm/enroll', [LoyaltyController::class, 'enroll'])
         ->middleware('permission:crm.manage')
         ->name('crm.enroll');

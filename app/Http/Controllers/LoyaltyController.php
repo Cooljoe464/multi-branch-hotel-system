@@ -42,6 +42,7 @@ class LoyaltyController extends Controller
         return Inertia::render('crm/Dashboard', [
             'branch' => $branch->only(['id', 'name', 'code']),
             'tiers' => LoyaltyTier::orderBy('threshold_nights')->get(),
+            'canManageTiers' => $user->is_global_admin === true,
             'tierMix' => $tierMix,
             'consentCoverage' => ['guests' => $guestCount, 'consented' => $consentCoverage],
             'recent' => LoyaltyAccount::with('guest')
@@ -49,6 +50,38 @@ class LoyaltyController extends Controller
                 ->limit(25)
                 ->get(),
         ]);
+    }
+
+    /**
+     * The tier ladder is shared by every property, so only platform
+     * owners may change it. Saving an existing name updates that tier.
+     */
+    public function saveTier(Request $request, Branch $branch): RedirectResponse
+    {
+        abort_unless($request->user()?->is_global_admin === true, 403);
+
+        $data = $request->validate([
+            'name' => 'required|string|max:32|regex:/^[a-z0-9_-]+$/',
+            'threshold_nights' => 'required|integer|min:0|max:100000',
+            'earn_bps' => 'required|integer|min:0|max:100000',
+        ]);
+
+        LoyaltyTier::updateOrCreate(
+            ['name' => $data['name']],
+            ['threshold_nights' => $data['threshold_nights'], 'earn_bps' => $data['earn_bps']],
+        );
+
+        return $this->flashSuccess("Loyalty tier {$data['name']} saved.");
+    }
+
+    public function destroyTier(Request $request, Branch $branch, LoyaltyTier $tier): RedirectResponse
+    {
+        abort_unless($request->user()?->is_global_admin === true, 403);
+        abort_if($tier->name === 'member', 422, 'The base member tier cannot be removed.');
+
+        $tier->delete();
+
+        return $this->flashSuccess("Loyalty tier {$tier->name} removed.");
     }
 
     public function enroll(Request $request, Branch $branch): RedirectResponse

@@ -4,6 +4,7 @@ use App\Jobs\AnomalyScanJob;
 use App\Jobs\CutoffJob;
 use App\Jobs\ForecastGenerateJob;
 use App\Jobs\HkScheduleJob;
+use App\Jobs\LoyaltyRecalcJob;
 use App\Jobs\MonitorStuckQueuesJob;
 use App\Jobs\NightlyReconciliationJob;
 use App\Jobs\PartitionManagerJob;
@@ -39,6 +40,9 @@ Schedule::job(new NightlyReconciliationJob)->dailyAt('02:30')->onOneServer()->wi
 
 // ── Revenue ─────────────────────────────────────
 Schedule::job(new SnapshotRevenueJob)->dailyAt('02:45')->onOneServer()->withoutOverlapping(120);
+
+// ── CRM ─────────────────────────────────────────
+Schedule::job(new LoyaltyRecalcJob)->dailyAt('03:45')->onOneServer()->withoutOverlapping(120);
 
 // ── Maintenance ─────────────────────────────────
 Schedule::job(new PmSchedulerJob)->dailyAt('05:00')->onOneServer()->withoutOverlapping(120);
