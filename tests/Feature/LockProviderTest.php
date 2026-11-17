@@ -10,6 +10,7 @@ use App\Services\DoorLock\AssaAbloyProvider;
 use App\Services\DoorLock\DormakabaProvider;
 use App\Services\DoorLock\DuowinProvider;
 use App\Services\DoorLock\SaltoProvider;
+use App\Services\DoorLock\TTLockProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 
@@ -39,6 +40,7 @@ function lockProviderMap(): array
         'salto' => SaltoProvider::class,
         'duowin' => DuowinProvider::class,
         'dormakaba' => DormakabaProvider::class,
+        'ttlock' => TTLockProvider::class,
     ];
 }
 
@@ -67,6 +69,10 @@ function lockGatewayFor(string $provider, Branch $branch): DoorLockGateway
         $gateway->update([
             'settings' => array_merge($gateway->settings ?? [], ['client_id' => 'dk-client']),
         ]);
+    }
+
+    if ($provider === 'ttlock') {
+        $gateway->update(['settings' => ['lock_id' => 12345, 'client_id' => 'ttlock-client']]);
     }
 
     return $gateway;
@@ -103,7 +109,7 @@ function fakeLockVendor(int $status = 200): void
             return Http::response(['error' => 'vendor rejected'], $status);
         }
 
-        return Http::response(['id' => 'CRED-1'], 200);
+        return Http::response(['id' => 'CRED-1', 'keyboardPwdId' => 'CRED-1'], 200);
     });
 }
 
@@ -132,7 +138,7 @@ it('issues a keycard for every provider against a live-shaped API', function (st
 
         Http::assertSent(fn ($request) => str_contains($request->url(), '/access_codes')
             && $request->hasHeader('Authorization', 'Bearer vendor-token'));
-    } else {
+    } elseif ($provider !== 'ttlock') {
         Http::assertSent(fn ($request) => $request->hasHeader('Authorization'));
     }
 })->with(lockProviderDatasets());
@@ -210,6 +216,63 @@ it('signs vendor calls with the secret-store credential, not the column', functi
     expect((new SaltoProvider)->issueKey($gateway, $log))->toBeTrue();
 
     Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer rotated-secret-key'));
+});
+
+it('AC-052 keeps manual-record lock issuance out of hardware-verified state', function () {
+    $gateway = lockGatewayFor('ttlock', $this->branch);
+    $gateway->update([
+        'settings' => array_merge($gateway->settings ?? [], [
+            'manual_mode' => true,
+            'lock_id' => 12345,
+        ]),
+    ]);
+    $log = lockLogFor($gateway, $this->reservation, $this->room);
+
+    expect((new TTLockProvider)->issueKey($gateway, $log))->toBeTrue();
+
+    $log->refresh();
+
+    expect($log->status)->toBe('success')
+        ->and($log->hardware_verified)->toBeFalse()
+        ->and($log->payload['mode'] ?? null)->toBe('manual_record');
+});
+
+it('AC-052 sends TTLock gateway operations using the documented form contract', function () {
+    Http::fake([
+        '*' => Http::response(['keyboardPwdId' => 9876, 'errcode' => 0], 200),
+    ]);
+
+    $gateway = lockGatewayFor('ttlock', $this->branch);
+    $provider = new TTLockProvider;
+    $issueLog = lockLogFor($gateway, $this->reservation, $this->room);
+
+    expect($provider->issueKey($gateway, $issueLog))->toBeTrue();
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/v3/keyboardPwd/add')
+        && $request->method() === 'POST'
+        && $request->isForm()
+        && $request['clientId'] === 'ttlock-client'
+        && $request['accessToken'] === $gateway->apiKey()
+        && $request['lockId'] === 12345
+        && $request['addType'] === 2
+        && isset($request['date']));
+
+    $revokeLog = lockLogFor($gateway, $this->reservation, $this->room, [
+        'action' => 'revoke_key', 'status' => 'success', 'credential_id' => '9876',
+    ]);
+    expect($provider->revokeKey($gateway, $revokeLog))->toBeTrue();
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/v3/keyboardPwd/delete')
+        && $request['deleteType'] === 2
+        && $request['keyboardPwdId'] === '9876'
+        && $request['lockId'] === 12345);
+
+    $extendLog = lockLogFor($gateway, $this->reservation, $this->room, [
+        'action' => 'extend_key', 'status' => 'success', 'credential_id' => '9876',
+    ]);
+    expect($provider->extendKey($gateway, $extendLog))->toBeTrue();
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/v3/keyboardPwd/change')
+        && $request['changeType'] === 2
+        && $request['keyboardPwdId'] === '9876'
+        && $request['lockId'] === 12345);
 });
 
 it('fails cleanly when no credentials are configured', function (string $provider, string $class) {

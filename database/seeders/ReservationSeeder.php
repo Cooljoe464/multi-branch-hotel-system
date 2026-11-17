@@ -123,7 +123,7 @@ class ReservationSeeder extends Seeder
             );
 
             if ($status === 'checked_in' || $status === 'checked_out') {
-                $room->update(['status' => $status === 'checked_in' ? 'occupied' : 'dirty']);
+                $room->updateQuietly(['status' => $status === 'checked_in' ? 'occupied' : 'dirty']);
             }
         }
 

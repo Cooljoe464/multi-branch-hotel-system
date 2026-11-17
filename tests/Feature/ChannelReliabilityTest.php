@@ -151,7 +151,7 @@ it('replays failed messages under the same key without duplicating', function ()
         ->toThrow(AvailabilityException::class, 'Already-acked');
 });
 
-it('books inbound webhooks exactly once across duplicate deliveries', function () {
+it('AC-054 books inbound webhooks exactly once across duplicate deliveries and uses platform messaging when the OTA omits a phone number', function () {
     $in = Carbon::now()->addDays(5)->toDateString();
     $out = Carbon::now()->addDays(7)->toDateString();
 
@@ -176,6 +176,11 @@ it('books inbound webhooks exactly once across duplicate deliveries', function (
 
     expect($method->token)->toBe('vc-token-123')
         ->and($method->last4)->toBe('4444');
+
+    $platformMessage = ChannelMessage::where('kind', ChannelMessage::KIND_RESERVATION)->firstOrFail();
+    expect($platformMessage->channel)->toBe('platform')
+        ->and($platformMessage->payload['phone_required'])->toBeFalse()
+        ->and($platformMessage->payload['delivery'])->toBe('platform_messaging');
 
     // No PAN anywhere in the database row.
     expect(json_encode($stored))->not->toContain('5555444433331111');

@@ -53,11 +53,13 @@ class AnthropicConciergeProvider implements ConciergeAiProvider
             }
 
             if (($block['type'] ?? null) === 'text') {
-                $text .= (string) ($block['text'] ?? '');
+                $blockText = $block['text'] ?? null;
+                $text .= is_string($blockText) ? $blockText : '';
             }
 
             if (($block['type'] ?? null) === 'tool_use') {
-                $arguments = json_decode((string) ($block['input'] ?? '{}'), true);
+                $input = $block['input'] ?? '{}';
+                $arguments = json_decode(is_string($input) ? $input : '{}', true);
 
                 $toolCalls[] = [
                     'name' => is_string($block['name'] ?? null) ? $block['name'] : 'unknown',

@@ -23,7 +23,7 @@ class ApiBranchScope
     {
         $user = $request->user();
 
-        return app(TenantDatabaseContext::class)->run(
+        $response = app(TenantDatabaseContext::class)->run(
             $user?->id,
             null,
             function () use ($request, $next, $user): Response {
@@ -88,7 +88,13 @@ class ApiBranchScope
 
                 return $response;
             },
-            actorType: $user instanceof ApiConsumer ? 'api_consumer' : 'user',
+            actorType: 'api_consumer',
         );
+
+        if (! $response instanceof Response) {
+            abort(500);
+        }
+
+        return $response;
     }
 }

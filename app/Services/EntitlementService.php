@@ -47,6 +47,17 @@ class EntitlementService
     }
 
     /**
+     * Whether adding $adding more of a counted resource would exceed the
+     * tenant's numeric limit. A tenant with no recorded limit is never blocked.
+     */
+    public function limitExceeded(?int $tenantId, string $key, int $current, int $adding = 1): bool
+    {
+        $limit = $this->limit($tenantId, $key);
+
+        return $limit !== null && $current + $adding > $limit;
+    }
+
+    /**
      * Every resolved entitlement for the tenant, or null when the tenant has
      * no subscription.
      *

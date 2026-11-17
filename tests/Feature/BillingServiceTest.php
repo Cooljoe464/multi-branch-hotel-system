@@ -44,6 +44,17 @@ test('generating the same period twice returns the same invoice', function () {
         ->and($first->lines()->count())->toBe(1);
 });
 
+test('invoice generation uses the plan attached when the subscription row is locked', function () {
+    $subscription = billedSubscription(10_000_000);
+    $subscription->load('plan');
+    $subscription->plan->update(['monthly_price_minor' => 12_000_000]);
+
+    $invoice = app(BillingService::class)->generateInvoice($subscription, now());
+
+    expect($invoice)->not->toBeNull()
+        ->and($invoice->subtotal_minor)->toBe(12_000_000);
+});
+
 test('does not bill a contract plan priced at zero', function () {
     $subscription = billedSubscription(0);
 

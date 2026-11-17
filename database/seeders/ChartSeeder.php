@@ -56,6 +56,7 @@ class ChartSeeder extends Seeder
             ['5000', 'Cost of Sales F&B', ChartAccount::TYPE_EXPENSE],
             ['5100', 'Commission Expense', ChartAccount::TYPE_EXPENSE],
             ['5200', 'Operating Expenses', ChartAccount::TYPE_EXPENSE],
+            ['5300', 'Guest Relocation Compensation', ChartAccount::TYPE_EXPENSE],
             ['GUEST_LEDGER', 'Guest Ledger (interim)', ChartAccount::TYPE_ASSET],
             ['REVENUE', 'Revenue (interim)', ChartAccount::TYPE_REVENUE],
             ['CASH', 'Cash (interim)', ChartAccount::TYPE_ASSET],
@@ -83,6 +84,7 @@ class ChartSeeder extends Seeder
             ['inventory.received', '1400', '2400'],
             ['maintenance.parts', '5200', '1400'],
             ['loyalty.redeemed', 'REVENUE', 'GUEST_LEDGER'],
+            ['relocation.compensation', '5300', 'GUEST_LEDGER'],
             ['telecom.call', 'GUEST_LEDGER', '4200'],
         ];
     }

@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $valid_from
  * @property Carbon $valid_until
  * @property string $status
+ * @property bool $hardware_verified
  * @property array<string, mixed>|null $payload
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -41,6 +42,7 @@ use Illuminate\Support\Carbon;
     'valid_from',
     'valid_until',
     'status',
+    'hardware_verified',
     'payload',
 ])]
 class DoorLockAuditLog extends Model
@@ -54,6 +56,7 @@ class DoorLockAuditLog extends Model
             'valid_from' => 'datetime',
             'valid_until' => 'datetime',
             'payload' => 'array',
+            'hardware_verified' => 'boolean',
         ];
     }
 
@@ -136,6 +139,18 @@ class DoorLockAuditLog extends Model
         $this->update([
             'status' => 'success',
             'credential_id' => $credentialId,
+        ]);
+
+        return true;
+    }
+
+    public function markManual(string $credentialId): bool
+    {
+        $this->update([
+            'status' => 'success',
+            'credential_id' => $credentialId,
+            'hardware_verified' => false,
+            'payload' => array_merge($this->payload ?? [], ['mode' => 'manual_record']),
         ]);
 
         return true;

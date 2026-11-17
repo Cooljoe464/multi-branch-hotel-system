@@ -3,8 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\Plan;
+use App\Models\PlanEntitlement;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -55,6 +58,27 @@ class RoomTest extends TestCase
             'number' => '101',
             'status' => 'available',
         ]);
+    }
+
+    public function test_cannot_create_room_beyond_the_plan_room_limit(): void
+    {
+        $plan = Plan::factory()->create();
+        PlanEntitlement::create([
+            'plan_id' => $plan->id,
+            'entitlement_key' => 'limits.rooms.max',
+            'value_type' => PlanEntitlement::TYPE_INTEGER_LIMIT,
+            'value' => '1',
+        ]);
+        Subscription::factory()->for($this->branch->tenant)->for($plan)->create();
+        Room::factory()->create(['branch_id' => $this->branch->id, 'room_type_id' => $this->roomType->id]);
+
+        $response = $this->actingAs($this->user)->post('/rooms', [
+            'room_type_id' => $this->roomType->id,
+            'number' => '202',
+        ]);
+
+        $response->assertSessionHasErrors('number');
+        $this->assertDatabaseMissing('rooms', ['number' => '202']);
     }
 
     public function test_can_update_room(): void

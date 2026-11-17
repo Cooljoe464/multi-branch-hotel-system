@@ -6,6 +6,11 @@ import AuthLayout from '@/layouts/AuthLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { initializeFlashToast } from '@/lib/flashToast';
 import { initIdempotencyHeader } from '@/lib/idempotency';
+import {
+    initOfflineSync,
+    registerOfflinePurgeHooks,
+    registerOfflineWorker,
+} from '@/lib/offlineSync';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -44,7 +49,15 @@ initIdempotencyHeader();
 
 // Initialize WebSocket listener...
 import { initEcho } from '@/bootstrap';
+import { configureEcho } from '@laravel/echo-vue';
+
+configureEcho({
+    broadcaster: 'pusher',
+});
 
 if (typeof window !== 'undefined') {
     window.initEcho = initEcho;
+    void registerOfflineWorker();
+    initOfflineSync();
+    registerOfflinePurgeHooks();
 }

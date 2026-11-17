@@ -28,6 +28,12 @@ class FiscalDocumentController extends Controller
                 ->with('folio:id,folio_number')
                 ->latest('id')
                 ->get(['id', 'branch_id', 'folio_id', 'status', 'last_error', 'created_at']),
+            'failedDocuments' => FiscalDocument::query()
+                ->where('branch_id', $branch->id)
+                ->whereIn('status', [FiscalDocument::STATUS_FAILED])
+                ->with('folio:id,folio_number')
+                ->latest('id')
+                ->get(['id', 'branch_id', 'folio_id', 'document_type', 'original_document_id', 'status', 'last_error', 'created_at']),
         ]);
     }
 
@@ -43,5 +49,19 @@ class FiscalDocumentController extends Controller
         }
 
         return back()->with('success', 'Fiscal invoice released for provider submission.');
+    }
+
+    public function retry(Branch $branch, FiscalDocument $document, FiscalService $fiscal): RedirectResponse
+    {
+        $this->ensureBranchAccess($branch);
+        abort_unless($document->branch_id === $branch->id, 404);
+
+        try {
+            $fiscal->retryFailedDocument($document);
+        } catch (DomainException $exception) {
+            return back()->withErrors(['fiscal_document' => $exception->getMessage()]);
+        }
+
+        return back()->with('success', 'Fiscal document queued for retry with its original idempotency key.');
     }
 }

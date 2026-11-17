@@ -44,7 +44,7 @@ class GuestPaymentController extends Controller
             'confirmationNumber' => $confirmationNumber,
         ]);
 
-        $paymentService = new PaymentService;
+        $paymentService = (new PaymentService)->forBranch($reservation->branch);
         $paymentData = $paymentService->initializePayment(
             $folio,
             $amount,

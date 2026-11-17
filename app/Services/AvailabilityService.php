@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Exceptions\AvailabilityException;
 use App\Models\Branch;
+use App\Models\OfflineProvisionalStay;
+use App\Models\OverbookingAllowance;
 use App\Models\PromoCode;
 use App\Models\RatePlan;
 use App\Models\Reservation;
@@ -54,16 +56,16 @@ class AvailabilityService
     /**
      * @return array{available: bool, sellable_per_night: array<string, int>, unavailable_dates: list<string>}
      */
-    public function quote(Branch $branch, RoomType $roomType, string $checkIn, string $checkOut): array
+    public function quote(Branch $branch, RoomType $roomType, string $checkIn, string $checkOut, string $source = 'direct'): array
     {
         $sellable = [];
         $unavailable = [];
 
         foreach ($this->nights($checkIn, $checkOut) as $date) {
             $row = $this->row($branch, $roomType, $date);
-            $sellable[$date] = $row->sellable();
+            $sellable[$date] = $this->sellableForSource($branch, $roomType, $row, $date, $source);
 
-            if ($row->sellable() < 1) {
+            if ($sellable[$date] < 1) {
                 $unavailable[] = $date;
             }
         }
@@ -141,16 +143,40 @@ class AvailabilityService
             }
 
             $unavailable = [];
+            $overbookedDates = [];
+            $source = is_string($attributes['source'] ?? null) ? $attributes['source'] : 'direct';
             foreach ($rows as $date => $row) {
-                if ($row->sellable() < 1) {
+                if ($this->sellableForSource($branch, $roomType, $row, $date, $source) < 1) {
                     $unavailable[] = $date;
+                }
+
+                if ($row->total_rooms - $row->blocked - $row->sold - $row->held < 1) {
+                    $overbookedDates[] = $date;
                 }
             }
 
-            $overbooked = $unavailable !== [];
+            if ($unavailable !== []) {
+                throw new AvailabilityException('SOLD_OUT', 'No availability for the requested dates.', $unavailable);
+            }
+
+            $overbooked = $overbookedDates !== [];
 
             if ($overbooked) {
-                $this->guardOverbook($overbookedBy, $overbookReason, $unavailable);
+                $normalizedSource = $this->normalizeOverbookingSource($source);
+                $sourceAllowance = $this->limitFor($branch, $roomType, $overbookedDates[0], $source) > 0;
+                $externalSource = in_array($normalizedSource, ['public_api', 'ota'], true);
+
+                if ($sourceAllowance && $externalSource && ($overbookedBy !== null || trim((string) $overbookReason) !== '')) {
+                    throw new AvailabilityException('OVERBOOK_EXTERNAL_OVERRIDE', 'External overbooking is controlled by the configured source allowance, not a staff override.');
+                }
+
+                if (! $sourceAllowance || ! $externalSource) {
+                    $this->guardOverbook($overbookedBy, $overbookReason, $overbookedDates);
+                }
+
+                if ($sourceAllowance && $externalSource) {
+                    $overbookReason = 'Configured overbooking allowance for source '.$normalizedSource;
+                }
             }
 
             if ($ratePlan !== null) {
@@ -176,6 +202,7 @@ class AvailabilityService
             );
 
             if ($room !== null) {
+                $room = Room::query()->whereKey($room->id)->lockForUpdate()->firstOrFail();
                 $this->claimRoom($room, $nights);
             }
 
@@ -285,6 +312,8 @@ class AvailabilityService
                 throw new AvailabilityException('ROOM_NOT_IN_BRANCH', 'The room does not belong to this property.');
             }
 
+            Room::query()->whereKey($room->id)->lockForUpdate()->firstOrFail();
+
             $nights = ReservationNight::forReservation($reservation->id)
                 ->where('stay_date', '>=', $fromDate)
                 ->lockForUpdate()
@@ -304,6 +333,21 @@ class AvailabilityService
                         [$night->stay_date->toDateString()]
                     );
                 }
+
+                $provisionalConflict = OfflineProvisionalStay::query()
+                    ->where('room_id', $room->id)
+                    ->where('status', 'provisional')
+                    ->where('check_in_date', '<=', $night->stay_date->toDateString())
+                    ->where('check_out_date', '>', $night->stay_date->toDateString())
+                    ->exists();
+
+                if ($provisionalConflict) {
+                    throw new AvailabilityException(
+                        'ROOM_CONFLICT',
+                        "Room {$room->number} is held by a provisional stay for {$night->stay_date->toDateString()}.",
+                        [$night->stay_date->toDateString()]
+                    );
+                }
             }
 
             ReservationNight::forReservation($reservation->id)
@@ -315,9 +359,11 @@ class AvailabilityService
     /**
      * Current sellable count for one night (unlocked read).
      */
-    public function sellableFor(Branch $branch, RoomType $roomType, string $date): int
+    public function sellableFor(Branch $branch, RoomType $roomType, string $date, string $source = 'direct'): int
     {
-        return $this->row($branch, $roomType, $date)->sellable();
+        $row = $this->row($branch, $roomType, $date);
+
+        return $this->sellableForSource($branch, $roomType, $row, $date, $source);
     }
 
     /**
@@ -396,7 +442,8 @@ class AvailabilityService
             'total_rooms' => $this->physicalCount($branch, $roomType),
             'sold' => 0,
             'blocked' => 0,
-            'overbooking_limit' => $this->limitFor($branch, $this->physicalCount($branch, $roomType)),
+            'held' => 0,
+            'overbooking_limit' => $this->limitFor($branch, $roomType, $date, 'direct'),
         ]);
     }
 
@@ -414,6 +461,14 @@ class AvailabilityService
             ->first();
 
         if ($row) {
+            $configuredLimit = $this->limitFor($branch, $roomType, $date, 'direct');
+            $requiredForCurrentAllocation = max(0, $row->sold + $row->held + $row->blocked - $row->total_rooms);
+            $effectiveLimit = max($configuredLimit, $requiredForCurrentAllocation);
+
+            if ($row->overbooking_limit !== $effectiveLimit) {
+                $row->update(['overbooking_limit' => $effectiveLimit]);
+            }
+
             return $row;
         }
 
@@ -454,22 +509,39 @@ class AvailabilityService
             ->count();
     }
 
-    private function limitFor(Branch $branch, int $total): int
+    private function limitFor(Branch $branch, RoomType $roomType, string $date, string $source): int
     {
-        /** @var array{mode?: string, value?: int}|null $policy */
-        $policy = $branch->overbooking_policy;
-        $mode = $policy['mode'] ?? 'none';
-        $value = (int) ($policy['value'] ?? 0);
+        $source = $this->normalizeOverbookingSource($source);
+        $allowance = OverbookingAllowance::query()
+            ->where('branch_id', $branch->id)
+            ->where('room_type_id', $roomType->id)
+            ->whereNull('revoked_at')
+            ->whereDate('starts_on', '<=', $date)
+            ->whereDate('ends_on', '>=', $date)
+            ->lockForUpdate()
+            ->first();
 
-        if ($value <= 0) {
-            return 0;
+        if ($allowance !== null) {
+            return in_array($source, $allowance->allowed_sources, true) ? $allowance->allowed_count : 0;
         }
 
-        return match ($mode) {
-            'count' => $value,
-            'percent' => (int) floor($total * $value / 100),
-            default => 0,
+        return 0;
+    }
+
+    private function normalizeOverbookingSource(string $source): string
+    {
+        return match ($source) {
+            'direct', 'front_desk' => 'front_desk',
+            'channel', 'ota', 'booking_com', 'expedia' => 'ota',
+            default => $source,
         };
+    }
+
+    private function sellableForSource(Branch $branch, RoomType $roomType, RoomTypeInventory $row, string $date, string $source): int
+    {
+        $allowance = $this->limitFor($branch, $roomType, $date, $source);
+
+        return max(0, $row->total_rooms + $allowance - $row->blocked - $row->sold - $row->held);
     }
 
     /**
@@ -485,7 +557,13 @@ class AvailabilityService
         return ! ReservationNight::where('room_id', $room->id)
             ->where('stay_date', $date)
             ->whereHas('reservation', fn ($q) => $q->whereIn('status', ['pending', 'confirmed', 'reserved', 'checked_in'])->whereNull('deleted_at'))
-            ->exists();
+            ->exists()
+            && ! OfflineProvisionalStay::query()
+                ->where('room_id', $room->id)
+                ->where('status', 'provisional')
+                ->where('check_in_date', '<=', $date)
+                ->where('check_out_date', '>', $date)
+                ->exists();
     }
 
     /**

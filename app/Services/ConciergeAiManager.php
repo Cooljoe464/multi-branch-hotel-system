@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\AvailabilityException;
+use App\Models\Branch;
 use App\Services\Concierge\Ai\AnthropicConciergeProvider;
 use App\Services\Concierge\Ai\ConciergeAiProvider;
 use App\Services\Concierge\Ai\OpenAiCompatibleConciergeProvider;
@@ -32,9 +33,12 @@ class ConciergeAiManager
         'google' => OpenAiCompatibleConciergeProvider::class,
     ];
 
-    public function provider(): ConciergeAiProvider
+    public function provider(?Branch $branch = null): ConciergeAiProvider
     {
-        $name = $this->name();
+        $name = $branch instanceof Branch ? $this->branchProvider($branch) : $this->name();
+        $group = $this->group($name);
+        $baseUrl = is_string($group['base_url'] ?? null) ? $group['base_url'] : self::DEFAULT_BASE_URLS[$name];
+        $model = $this->branchModel($branch, $name) ?? $this->groupModel($name);
 
         $class = self::PROVIDERS[$name] ?? null;
 
@@ -45,23 +49,22 @@ class ConciergeAiManager
             );
         }
 
-        $group = $this->group($name);
-
         return new $class(
-            (string) ($group['base_url'] ?? self::DEFAULT_BASE_URLS[$name]),
+            $baseUrl,
             is_string($group['api_key'] ?? null) ? $group['api_key'] : null,
-            is_string($group['model'] ?? null) ? $group['model'] : null,
+            $model,
         );
     }
 
     /**
-     * Whether the configured provider has credentials. An unconfigured
-     * branch must not pay a network timeout on every guest turn before
-     * falling back, so callers check this first.
+     * Whether the concierge AI for this branch has credentials. An
+     * unconfigured branch must not pay a network timeout on every guest
+     * turn before falling back, so callers check this first. Branches
+     * may override the provider and model via settings.concierge.ai.
      */
-    public function isConfigured(): bool
+    public function isConfigured(?Branch $branch = null): bool
     {
-        $name = $this->name();
+        $name = $branch instanceof Branch ? $this->branchProvider($branch) : $this->name();
 
         if (! isset(self::PROVIDERS[$name])) {
             return false;
@@ -80,6 +83,70 @@ class ConciergeAiManager
     }
 
     /**
+     * The AI provider a branch runs, honouring the tenant-level override
+     * stored in branch settings. An unknown override falls back to the
+     * global default so a bad tenant value can never disable the concierge.
+     */
+    private function branchProvider(Branch $branch): string
+    {
+        $override = $this->branchAi($branch)['provider'];
+
+        if (is_string($override) && $override !== '') {
+            $name = $override;
+
+            if (isset(self::PROVIDERS[$name])) {
+                return $name;
+            }
+        }
+
+        return $this->name();
+    }
+
+    /**
+     * The branch-scoped concierge AI override persisted in branch
+     * settings under the `concierge.ai` key.
+     *
+     * @return array{provider: string|null, model: string|null}
+     */
+    private function branchAi(Branch $branch): array
+    {
+        $settings = $branch->settings;
+        $concierge = is_array($settings['concierge'] ?? null) ? $settings['concierge'] : [];
+        $ai = is_array($concierge['ai'] ?? null) ? $concierge['ai'] : [];
+        $out = [];
+
+        foreach (['provider', 'model'] as $key) {
+            $value = $ai[$key] ?? null;
+            $out[$key] = is_string($value) && trim($value) !== '' ? trim($value) : null;
+        }
+
+        return $out;
+    }
+
+    private function branchModel(?Branch $branch, string $name): ?string
+    {
+        if ($branch === null) {
+            return null;
+        }
+
+        $override = $this->branchAi($branch)['model'];
+
+        if (is_string($override) && $override !== '') {
+            return $override;
+        }
+
+        return $this->groupModel($name);
+    }
+
+    private function groupModel(string $name): ?string
+    {
+        $group = $this->group($name);
+        $model = $group['model'] ?? null;
+
+        return is_string($model) ? $model : null;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function group(string $name): array
@@ -88,6 +155,18 @@ class ConciergeAiManager
         $providers = is_array($config) ? ($config['providers'] ?? []) : [];
         $group = is_array($providers) ? ($providers[$name] ?? []) : [];
 
-        return is_array($group) ? $group : [];
+        if (! is_array($group)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($group as $key => $value) {
+            if (is_string($key)) {
+                $normalized[$key] = $value;
+            }
+        }
+
+        return $normalized;
     }
 }

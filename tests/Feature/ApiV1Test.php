@@ -2,9 +2,12 @@
 
 use App\Models\ApiConsumer;
 use App\Models\Branch;
+use App\Models\Plan;
+use App\Models\PlanEntitlement;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Models\Subscription;
 use Database\Seeders\ChartSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -77,6 +80,25 @@ it('forbids writes with an out-of-scope token', function () {
     $this->withToken(bearer($consumer))
         ->postJson('/api/v1/reservations', reservationPayload($this->roomType, $this->checkIn, $this->checkOut), ['X-Idempotency-Key' => (string) Str::uuid()])
         ->assertForbidden();
+});
+
+it('AC-056 blocks partner API booking creation for a restricted subscription', function () {
+    $plan = Plan::factory()->create();
+    PlanEntitlement::create([
+        'plan_id' => $plan->id,
+        'entitlement_key' => 'pms.reservations',
+        'value_type' => PlanEntitlement::TYPE_BOOLEAN,
+        'value' => 'true',
+    ]);
+    Subscription::factory()->for($this->branch->tenant)->for($plan)->restricted()->create();
+    $consumer = apiConsumer($this->branch, ['reservations.create']);
+
+    $this->withToken(bearer($consumer))
+        ->postJson('/api/v1/reservations', reservationPayload($this->roomType, $this->checkIn, $this->checkOut), [
+            'X-Idempotency-Key' => (string) Str::uuid(),
+        ])
+        ->assertForbidden()
+        ->assertJsonPath('entitlement', 'pms.reservations');
 });
 
 it('rejects expired tokens with 401', function () {

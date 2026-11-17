@@ -69,7 +69,7 @@ it('navigates to tape chart from dashboard', function () {
     $this->actingAs($user)->get('/tape-chart')->assertOk();
 });
 
-it('logs out successfully', function () {
+it('AC-041 logs out and purges the offline session boundary', function () {
     $user = User::factory()->create([
         'branch_id' => $this->branch->id,
         'email' => 'logout@test.com',
@@ -78,16 +78,21 @@ it('logs out successfully', function () {
     $user->assignRole('Front Desk');
     $user->branches()->syncWithoutDetaching([$this->branch->id]);
 
-    visit('/login')
+    $page = visit('/login')
         ->type('email', 'logout@test.com')
         ->type('password', 'password')
         ->press('Log in')
         ->wait(3)
-        ->assertPathIs('/dashboard')
-        ->click('[aria-haspopup="menu"]')
+        ->assertPathIs('/dashboard');
+
+    $page->script("localStorage.setItem('pos_offline_1', JSON.stringify([{offline_nonce: 'queued-1'}]))");
+    $page->assertScript("localStorage.getItem('pos_offline_1') !== null");
+    $page->click('[aria-haspopup="menu"]')
         ->wait(1)
         ->click('[data-test="logout-button"]')
         ->wait(2)
         ->assertDontSee('Dashboard')
         ->assertSee('Log in');
+
+    $page->assertScript("localStorage.getItem('pos_offline_1') === null");
 });

@@ -9,6 +9,7 @@ use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\RoomTypeInventory;
 use App\Services\AvailabilityService;
+use App\Services\OverbookingAllowanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 
@@ -139,16 +140,31 @@ it('releases nights on cancel and allows rebooking', function () {
 });
 
 it('allows overbooking only with permission and a reason', function () {
+    $this->user->forceFill(['two_factor_secret' => 'confirmed-secret', 'two_factor_confirmed_at' => now()])->save();
+    $checkIn = now()->addDays(5)->toDateString();
+    $checkOut = now()->addDays(6)->toDateString();
+
     $this->service->reserve(
-        $this->branch, $this->roomType, '2026-11-01', '2026-11-02',
+        $this->branch, $this->roomType, $checkIn, $checkOut,
         bookingAttributes(), $this->room->id, (string) Str::uuid(),
     );
 
     // No reason, no permission: sold out.
     expect(fn () => $this->service->reserve(
-        $this->branch, $this->roomType, '2026-11-01', '2026-11-02',
+        $this->branch, $this->roomType, $checkIn, $checkOut,
         bookingAttributes(), null, (string) Str::uuid(),
     ))->toThrow(AvailabilityException::class, 'No availability');
+
+    $allowance = app(OverbookingAllowanceService::class)->create(
+        $this->branch,
+        $this->roomType,
+        $checkIn,
+        $checkOut,
+        1,
+        ['front_desk'],
+        'Approved VIP overflow for arrival dates.',
+        $this->user,
+    );
 
     // Reason but no permission: forbidden.
     $frontDesk = $this->makeAdminUser($this->branch);
@@ -156,18 +172,76 @@ it('allows overbooking only with permission and a reason', function () {
     $frontDesk->assignRole('Front Desk');
 
     expect(fn () => $this->service->reserve(
-        $this->branch, $this->roomType, '2026-11-01', '2026-11-02',
+        $this->branch, $this->roomType, $checkIn, $checkOut,
         bookingAttributes(), null, (string) Str::uuid(), $frontDesk, 'VIP arrival',
     ))->toThrow(AvailabilityException::class, 'Overbooking requires');
 
     // Permission + reason: flagged overbook.
     $overbooked = $this->service->reserve(
-        $this->branch, $this->roomType, '2026-11-01', '2026-11-02',
+        $this->branch, $this->roomType, $checkIn, $checkOut,
         bookingAttributes(), null, (string) Str::uuid(), $this->user, 'VIP arrival',
     );
 
     expect($overbooked->overbooked)->toBeTrue()
         ->and($overbooked->metadata['overbook_reason'])->toBe('VIP arrival');
+
+    $allowance->update(['revoked_at' => now()]);
+
+    expect(fn () => $this->service->reserve(
+        $this->branch, $this->roomType, $checkIn, $checkOut,
+        bookingAttributes(), null, (string) Str::uuid(), $this->user, 'Allowance already used',
+    ))->toThrow(AvailabilityException::class, 'No availability');
+});
+
+it('AC-034 limits overbooking by source and date unless an allowance explicitly permits it', function () {
+    $this->user->forceFill(['two_factor_secret' => 'confirmed-secret', 'two_factor_confirmed_at' => now()])->save();
+    $checkIn = now()->addDays(5)->toDateString();
+    $checkOut = now()->addDays(6)->toDateString();
+    $this->service->reserve(
+        $this->branch,
+        $this->roomType,
+        $checkIn,
+        $checkOut,
+        bookingAttributes(),
+        $this->room->id,
+        (string) Str::uuid(),
+    );
+
+    $allowance = app(OverbookingAllowanceService::class)->create(
+        $this->branch,
+        $this->roomType,
+        $checkIn,
+        $checkOut,
+        1,
+        ['front_desk'],
+        'Front desk only overflow.',
+        $this->user,
+    );
+
+    expect($this->service->quote($this->branch, $this->roomType, $checkIn, $checkOut, 'public_api')['available'])->toBeFalse()
+        ->and($this->service->quote($this->branch, $this->roomType, $checkIn, $checkOut, 'ota')['available'])->toBeFalse()
+        ->and($this->service->quote($this->branch, $this->roomType, $checkIn, $checkOut, 'direct')['available'])->toBeTrue();
+
+    $allowance->update(['allowed_sources' => ['front_desk', 'public_api']]);
+    expect($this->service->quote($this->branch, $this->roomType, $checkIn, $checkOut, 'public_api')['available'])->toBeTrue();
+
+    $externalReservation = $this->service->reserve(
+        $this->branch,
+        $this->roomType,
+        $checkIn,
+        $checkOut,
+        array_merge(bookingAttributes(), ['source' => 'public_api']),
+        idempotencyKey: (string) Str::uuid(),
+    );
+
+    expect($externalReservation->overbooked)->toBeTrue()
+        ->and($externalReservation->metadata['overbook_reason'])->toContain('public_api');
+
+    expect(fn () => app(OverbookingAllowanceService::class)->revoke($allowance, $this->user))
+        ->toThrow('cannot be revoked while allocations exceed physical capacity');
+
+    $this->service->release($externalReservation);
+    expect(app(OverbookingAllowanceService::class)->revoke($allowance, $this->user)->revoked_at)->not->toBeNull();
 });
 
 it('serves the quote endpoint to permitted roles', function () {

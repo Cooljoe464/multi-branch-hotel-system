@@ -23,10 +23,11 @@ class ProvisionDatabaseRuntimeRole extends Command
             return self::FAILURE;
         }
 
-        $runtimeUsername = (string) config('database.connections.pgsql.username');
-        $runtimePassword = (string) config('database.connections.pgsql.password');
+        $runtimeUsername = config('database.connections.pgsql.username');
+        $runtimePassword = config('database.connections.pgsql.password');
 
-        if (! $this->isValidIdentifier($runtimeUsername) || $runtimePassword === '') {
+        if (! is_string($runtimeUsername) || ! $this->isValidIdentifier($runtimeUsername)
+            || ! is_string($runtimePassword) || $runtimePassword === '') {
             $this->error('DB_USERNAME must be a valid PostgreSQL role name and DB_PASSWORD must be set.');
 
             return self::FAILURE;
@@ -66,8 +67,8 @@ class ProvisionDatabaseRuntimeRole extends Command
             $connection->statement("CREATE ROLE {$runtimeRole} WITH LOGIN PASSWORD {$runtimePasswordLiteral} NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS");
         }
 
-        $databaseName = (string) config('database.connections.migration.database');
-        if (! $this->isValidIdentifier($databaseName)) {
+        $databaseName = config('database.connections.migration.database');
+        if (! is_string($databaseName) || ! $this->isValidIdentifier($databaseName)) {
             $this->error('The configured PostgreSQL database name is invalid.');
 
             return self::FAILURE;
@@ -107,11 +108,15 @@ class ProvisionDatabaseRuntimeRole extends Command
         );
 
         foreach ($memberships as $membership) {
-            if (! is_string($membership->rolname ?? null) || ! $this->isValidIdentifier($membership->rolname)) {
+            $roleName = is_object($membership) && is_string($membership->rolname ?? null)
+                ? $membership->rolname
+                : null;
+
+            if ($roleName === null || ! $this->isValidIdentifier($roleName)) {
                 throw new RuntimeException('A runtime role membership could not be safely revoked.');
             }
 
-            $connection->statement('REVOKE '.$this->quoteIdentifier($membership->rolname).' FROM '.$runtimeRole);
+            $connection->statement('REVOKE '.$this->quoteIdentifier($roleName).' FROM '.$runtimeRole);
         }
     }
 
@@ -161,7 +166,13 @@ class ProvisionDatabaseRuntimeRole extends Command
                 throw new RuntimeException('The PostgreSQL migration owner could not be verified.');
             }
 
-            $connection->statement('ALTER DATABASE '.$this->quoteIdentifier((string) config('database.connections.migration.database')).' OWNER TO '.$this->quoteIdentifier($migrationUsername));
+            $databaseName = config('database.connections.migration.database');
+
+            if (! is_string($databaseName) || ! $this->isValidIdentifier($databaseName)) {
+                throw new RuntimeException('The PostgreSQL migration database name could not be verified.');
+            }
+
+            $connection->statement('ALTER DATABASE '.$this->quoteIdentifier($databaseName).' OWNER TO '.$this->quoteIdentifier($migrationUsername));
         }
     }
 

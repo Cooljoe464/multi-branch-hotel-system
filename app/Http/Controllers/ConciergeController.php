@@ -165,8 +165,8 @@ class ConciergeController extends Controller
 
         $manager = app(ConciergeAiManager::class);
 
-        $suggestion = $manager->isConfigured()
-            ? (new ConciergeReplySuggester($manager->provider()))->suggest($thread)
+        $suggestion = $manager->isConfigured($branch)
+            ? (new ConciergeReplySuggester($manager->provider($branch)))->suggest($thread)
             : null;
 
         return response()->json([
@@ -236,11 +236,23 @@ class ConciergeController extends Controller
     {
         $this->ensureBranchAccess($branch);
 
-        $request->validate(['enabled' => 'required|boolean']);
+        $request->validate([
+            'enabled' => 'required|boolean',
+            'ai_provider' => 'nullable|string|max:64',
+            'ai_model' => 'nullable|string|max:128',
+            'ai_negative_keywords' => 'nullable|array',
+            'ai_negative_keywords.*' => 'nullable|string|max:64',
+        ]);
 
         $settings = $branch->settings ?? [];
         $settings['whatsapp'] = is_array($settings['whatsapp'] ?? null) ? $settings['whatsapp'] : [];
         $settings['whatsapp']['enabled'] = $request->boolean('enabled');
+
+        $settings['concierge']['ai'] = [
+            'provider' => $this->optionalString($request->input('ai_provider')),
+            'model' => $this->optionalString($request->input('ai_model')),
+            'negative_keywords' => $this->negativeKeywords($request),
+        ];
 
         $branch->update(['settings' => $settings]);
 
@@ -299,6 +311,27 @@ class ConciergeController extends Controller
     private function ensureThread(Branch $branch, ConciergeThread $thread): void
     {
         abort_unless($thread->branch_id === $branch->id, 404);
+    }
+
+    private function optionalString(mixed $value): ?string
+    {
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function negativeKeywords(Request $request): array
+    {
+        $keywords = [];
+
+        foreach ((array) $request->input('ai_negative_keywords', []) as $keyword) {
+            if (is_string($keyword) && trim($keyword) !== '') {
+                $keywords[] = mb_strtolower(trim($keyword));
+            }
+        }
+
+        return $keywords;
     }
 
     private function backToThread(Branch $branch, ConciergeThread $thread, string $message): RedirectResponse

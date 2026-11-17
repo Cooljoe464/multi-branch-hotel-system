@@ -20,7 +20,11 @@ class EmitEinvoiceJob implements ShouldBeUnique, ShouldQueue
 {
     use InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 5;
+    /**
+     * Accepted invoices must keep polling even when the provider status API is down.
+     * Submission failures are bounded by the document's own attempt counter.
+     */
+    public int $tries = 0;
 
     /**
      * @return list<int>
@@ -90,7 +94,14 @@ class EmitEinvoiceJob implements ShouldBeUnique, ShouldQueue
 
         $document->update(['last_error' => $result['error']]);
 
-        if ($document->attempts >= $this->tries) {
+        if ($document->status === FiscalDocument::STATUS_SUBMITTED && $document->irn !== null) {
+            $backoff = $this->backoff();
+            $this->release($backoff[count($backoff) - 1]);
+
+            return;
+        }
+
+        if ($document->attempts >= 5) {
             $document->update(['status' => FiscalDocument::STATUS_FAILED]);
             event(new FiscalDocumentFailed($document));
 

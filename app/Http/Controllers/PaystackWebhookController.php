@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Events\WebhookRejected;
+use App\Models\PaymentTransaction;
 use App\Services\IdempotencyService;
 use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
@@ -38,6 +39,13 @@ class PaystackWebhookController extends Controller
         $data = (array) ($payload['data'] ?? []);
         $event = is_string($payload['event'] ?? null) ? $payload['event'] : 'unknown';
         $reference = is_string($data['reference'] ?? null) ? $data['reference'] : 'no-reference';
+
+        if (! $paymentService->referenceBelongsToGateway($reference, 'paystack')) {
+            $transaction = PaymentTransaction::byReference($reference)->first();
+            event(new WebhookRejected('paystack', 'connection_mismatch', $transaction?->branch_id));
+
+            return response()->json(['message' => 'Reference does not belong to this gateway.'], 403);
+        }
 
         // Paystack retries deliveries; the (event, reference) pair makes
         // redelivery a replay instead of a second posting.

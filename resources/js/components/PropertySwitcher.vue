@@ -2,6 +2,7 @@
 import { router, usePage } from '@inertiajs/vue3';
 import { Building2, Check, ChevronsUpDown, Loader2 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import { toast } from 'vue-sonner';
 import { switchMethod } from '@/routes/branch';
 import {
     DropdownMenu,
@@ -11,6 +12,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
+import { purgeOfflineData } from '@/lib/offlineSync';
 import type { BranchContext } from '@/types/hms';
 
 const page = usePage();
@@ -21,12 +23,19 @@ const currentBranch = computed(() => branchContext.value?.current);
 const availableBranches = computed(() => branchContext.value?.available ?? []);
 const canSwitch = computed(() => branchContext.value?.can_switch ?? false);
 
-function switchBranch(branchId: number) {
+async function switchBranch(branchId: number): Promise<void> {
     if (branchId === currentBranch.value?.id) {
         return;
     }
 
     isLoading.value = true;
+    try {
+        await purgeOfflineData('tenant_switch');
+    } catch {
+        isLoading.value = false;
+        toast.error('Could not clear offline data. Property was not switched.');
+        return;
+    }
 
     router.post(
         switchMethod.url(),

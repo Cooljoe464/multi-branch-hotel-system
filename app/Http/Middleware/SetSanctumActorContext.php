@@ -34,18 +34,24 @@ class SetSanctumActorContext
             User::class => 'user',
             default => null,
         };
-        $actorId = filter_var($accessToken->tokenable_id, FILTER_VALIDATE_INT);
+        $actorId = $accessToken->tokenable_id;
 
-        if ($actorType === null || ! is_int($actorId) || $actorId < 1) {
+        if ($actorType === null || $actorId < 1) {
             return $this->next($request, $next);
         }
 
-        return app(TenantDatabaseContext::class)->run(
+        $response = app(TenantDatabaseContext::class)->run(
             $actorId,
             null,
             fn (): Response => $this->next($request, $next),
             actorType: $actorType,
         );
+
+        if (! $response instanceof Response) {
+            abort(500);
+        }
+
+        return $response;
     }
 
     private function next(Request $request, Closure $next): Response

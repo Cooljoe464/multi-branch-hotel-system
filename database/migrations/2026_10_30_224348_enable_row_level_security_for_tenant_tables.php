@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -34,7 +35,7 @@ return new class extends Migration
     private function tenantTables(): array
     {
         $tenantOwnedTables = DB::table('information_schema.columns')
-            ->join('information_schema.tables', function ($join): void {
+            ->join('information_schema.tables', function (JoinClause $join): void {
                 $join->on('information_schema.tables.table_schema', '=', 'information_schema.columns.table_schema')
                     ->on('information_schema.tables.table_name', '=', 'information_schema.columns.table_name');
             })
@@ -46,8 +47,15 @@ return new class extends Migration
             ->pluck('information_schema.columns.table_name')
             ->all();
 
+        $tenantOwnedTableNames = [];
+        foreach ($tenantOwnedTables as $tenantOwnedTable) {
+            if (is_string($tenantOwnedTable)) {
+                $tenantOwnedTableNames[] = $tenantOwnedTable;
+            }
+        }
+
         $tables = array_values(array_unique(array_merge(
-            $tenantOwnedTables,
+            $tenantOwnedTableNames,
             ['tenants', 'branches', 'users', 'user_branch'],
         )));
 

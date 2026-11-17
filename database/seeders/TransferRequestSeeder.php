@@ -16,13 +16,21 @@ class TransferRequestSeeder extends Seeder
             return;
         }
 
-        foreach ($branches as $branch) {
-            $target = $branches->where('id', '!=', $branch->id)->first();
-            if (! $target) {
+        foreach ($branches->groupBy(fn (Branch $branch) => $branch->tenant_id) as $tenantBranches) {
+            $branchesInTenant = $tenantBranches->values();
+
+            if ($branchesInTenant->count() < 2) {
                 continue;
             }
 
-            TransferRequest::factory()->fromBranch($branch->id)->toBranch($target->id)->create();
+            foreach ($branchesInTenant as $branch) {
+                $target = $branchesInTenant->where('id', '!=', $branch->id)->first();
+                if (! $target) {
+                    continue;
+                }
+
+                TransferRequest::factory()->fromBranch($branch->id)->toBranch($target->id)->create();
+            }
         }
     }
 }

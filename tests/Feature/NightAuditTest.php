@@ -6,7 +6,9 @@ use App\Models\Folio;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Services\NightAuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
@@ -48,6 +50,49 @@ it('posts room charges for checked-in reservations', function () {
     $this->assertDatabaseHas('transactions', [
         'category' => 'room_rate',
     ]);
+});
+
+it('AC-037 posts same-category rate lines once each and safely resumes on retry', function () {
+    $room = Room::factory()->create([
+        'branch_id' => $this->branch->id,
+        'room_type_id' => $this->roomType->id,
+        'status' => 'occupied',
+    ]);
+    $date = now()->subDay()->toDateString();
+    $reservation = Reservation::factory()->checkedIn()->create([
+        'branch_id' => $this->branch->id,
+        'room_id' => $room->id,
+        'room_type_id' => $this->roomType->id,
+        'room_rate' => 10000,
+        'check_in_date' => $date,
+        'check_out_date' => now()->addDay()->toDateString(),
+        'rate_snapshot' => [
+            'nights' => [[
+                'date' => $date,
+                'components' => [
+                    ['code' => 'room', 'label' => 'Room', 'amount_minor' => 6000, 'category' => 'room_rate'],
+                    ['code' => 'room', 'label' => 'Room supplement', 'amount_minor' => 4000, 'category' => 'room_rate'],
+                ],
+            ]],
+        ],
+    ]);
+    $audit = (new NightAuditService)->forBranch($this->branch);
+
+    expect(Reservation::query()->forBranch($this->branch->id)->checkedIn()
+        ->where('check_in_date', '<=', $date)
+        ->where('check_out_date', '>', $date)
+        ->count())->toBe(1);
+
+    $first = $audit->postRoomCharges(Carbon::parse($date));
+    $retry = $audit->postRoomCharges(Carbon::parse($date));
+    $lines = $reservation->folio->transactions()->where('business_date', $date)->get();
+
+    expect($first['errors'])->toBeEmpty();
+    expect($first['posted'])->toBe(1)
+        ->and($retry['posted'])->toBe(0)
+        ->and($lines)->toHaveCount(2)
+        ->and($lines->sum('amount'))->toBe(10000)
+        ->and($lines->pluck('metadata.line_seq')->sort()->values()->all())->toBe([1, 2]);
 });
 
 it('creates a daily ledger for the branch', function () {

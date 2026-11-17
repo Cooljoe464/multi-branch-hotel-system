@@ -74,6 +74,7 @@ use App\Http\Controllers\MobileKeyController;
 use App\Http\Controllers\NightAuditController;
 use App\Http\Controllers\NlReportController;
 use App\Http\Controllers\OutletController;
+use App\Http\Controllers\OverbookingAllowanceController;
 use App\Http\Controllers\PlatformSubscriptionController;
 use App\Http\Controllers\PosModifierController;
 use App\Http\Controllers\PosTabController;
@@ -87,11 +88,13 @@ use App\Http\Controllers\RegistrationCardController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReservationMoveController;
+use App\Http\Controllers\ReservationRelocationController;
 use App\Http\Controllers\RetentionPolicyController;
 use App\Http\Controllers\RevenueReportController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\StatutoryReportController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SupplierInputVatController;
 use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\TabletMenuController;
 use App\Http\Controllers\TabletOrderController;
@@ -108,6 +111,7 @@ use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\WhatsAppWebhookController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\YieldRuleController;
+use App\Http\Middleware\RequireIdempotencyKey;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => inertia('Welcome'))->name('home');
@@ -127,29 +131,33 @@ Route::middleware('throttle:booking')->group(function () {
     Route::get('book/availability', [BookingEngineController::class, 'availability'])->name('booking.availability');
 });
 
-// Public routes - Guest Portal
-Route::get('guest', [GuestPortalController::class, 'index'])->name('guest.index');
-Route::get('guest/folio/{confirmationNumber}', [GuestPortalController::class, 'folio'])->name('guest.folio');
-Route::post('guest/lookup', [GuestPortalController::class, 'searchGuest'])->name('guest.lookup');
-Route::get('guest/checkin/{confirmationNumber}', [GuestPortalController::class, 'folio'])->name('guest.checkin');
+Route::middleware('throttle:guest-portal')->group(function () {
+    // Public routes - Guest Portal
+    Route::get('guest', [GuestPortalController::class, 'index'])->name('guest.index');
+    Route::get('guest/folio/{confirmationNumber}', [GuestPortalController::class, 'folio'])->name('guest.folio');
+    Route::post('guest/lookup', [GuestPortalController::class, 'searchGuest'])->name('guest.lookup');
+    Route::get('guest/checkin/{confirmationNumber}', [GuestPortalController::class, 'folio'])->name('guest.checkin');
 
-// Guest Ordering
-Route::get('guest/order/{confirmationNumber}', [GuestOrderController::class, 'outlets'])->name('guest.order.outlets');
-Route::get('guest/order/{confirmationNumber}/{outletCode}', [GuestOrderController::class, 'menu'])->name('guest.order.menu');
-Route::post('guest/order/{confirmationNumber}', [GuestOrderController::class, 'store'])->name('guest.order.store');
-Route::get('guest/order/{confirmationNumber}/track/{orderId}', [GuestOrderController::class, 'track'])->name('guest.order.track');
+    // Guest Ordering
+    Route::get('guest/order/{confirmationNumber}', [GuestOrderController::class, 'outlets'])->name('guest.order.outlets');
+    Route::get('guest/order/{confirmationNumber}/{outletCode}', [GuestOrderController::class, 'menu'])->name('guest.order.menu');
+    Route::post('guest/order/{confirmationNumber}', [GuestOrderController::class, 'store'])->name('guest.order.store');
+    Route::get('guest/order/{confirmationNumber}/track/{orderId}', [GuestOrderController::class, 'track'])->name('guest.order.track');
 
-// Public routes - Post-stay surveys (guest link, no account needed)
-Route::get('surveys/{reservation}', [SurveyController::class, 'show'])->name('surveys.show');
-Route::post('surveys/{reservation}', [SurveyController::class, 'store'])->name('surveys.store');
+    // Public routes - Post-stay surveys (guest link, no account needed)
+    Route::get('surveys/{reservation}', [SurveyController::class, 'show'])->name('surveys.show');
+    Route::post('surveys/{reservation}', [SurveyController::class, 'store'])->name('surveys.store');
 
-// Guest Payment
-Route::post('guest/folio/{confirmationNumber}/pay', [GuestPaymentController::class, 'initiate'])->name('guest.payment.initiate');
-Route::get('guest/folio/{confirmationNumber}/pay/callback', [GuestPaymentController::class, 'callback'])->name('guest.payment.callback');
+    // Guest Payment
+    Route::post('guest/folio/{confirmationNumber}/pay', [GuestPaymentController::class, 'initiate'])->name('guest.payment.initiate');
+    Route::get('guest/folio/{confirmationNumber}/pay/callback', [GuestPaymentController::class, 'callback'])->name('guest.payment.callback');
+});
 
 // WhatsApp Cloud API webhook (Meta calls these; signature-verified per branch)
-Route::get('webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])->name('webhooks.whatsapp.verify');
-Route::post('webhooks/whatsapp', [WhatsAppWebhookController::class, 'store'])->name('webhooks.whatsapp.store');
+Route::middleware('throttle:inbound-webhook')->group(function () {
+    Route::get('webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])->name('webhooks.whatsapp.verify');
+    Route::post('webhooks/whatsapp', [WhatsAppWebhookController::class, 'store'])->name('webhooks.whatsapp.store');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
@@ -200,6 +208,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('branches/{branch}/availability', [AvailabilityController::class, 'quote'])
         ->middleware('permission:availability.view')
         ->name('availability.quote');
+    Route::post('branches/{branch}/overbooking-allowances', [OverbookingAllowanceController::class, 'store'])
+        ->middleware(['permission:availability.manage_overbook', RequireIdempotencyKey::class])
+        ->name('overbooking-allowances.store');
+    Route::delete('branches/{branch}/overbooking-allowances/{allowance}', [OverbookingAllowanceController::class, 'destroy'])
+        ->middleware(['permission:availability.manage_overbook', RequireIdempotencyKey::class])
+        ->name('overbooking-allowances.destroy');
 
     // Rate restrictions
     Route::get('branches/{branch}/restrictions', [RateRestrictionController::class, 'index'])
@@ -350,6 +364,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('branches/{branch}/tax-profiles/{profile}/deactivate', [TaxProfileController::class, 'deactivate'])
         ->middleware('permission:tax.manage')
         ->name('tax-profiles.deactivate');
+    Route::get('branches/{branch}/tax/vat-workpaper', [SupplierInputVatController::class, 'workpaper'])
+        ->middleware('permission:tax.view')
+        ->name('tax.vat-workpaper');
+    Route::post('branches/{branch}/tax/supplier-invoices', [SupplierInputVatController::class, 'store'])
+        ->middleware('permission:tax.manage')
+        ->name('tax.supplier-invoices.store');
+    Route::post('branches/{branch}/tax/rule-versions', [SupplierInputVatController::class, 'storeRuleVersion'])
+        ->middleware('permission:tax.manage')
+        ->name('tax.rule-versions.store');
+    Route::post('branches/{branch}/tax/supplier-invoices/{invoice}/void', [SupplierInputVatController::class, 'void'])
+        ->middleware('permission:tax.manage')
+        ->name('tax.supplier-invoices.void');
 
     // Fiscal documents (NRS e-invoicing)
     Route::get('branches/{branch}/fiscal-documents', [FiscalDocumentController::class, 'index'])
@@ -358,6 +384,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('branches/{branch}/fiscal-documents/{document}/release', [FiscalDocumentController::class, 'release'])
         ->middleware('permission:fiscal.retry')
         ->name('fiscal-documents.release');
+    Route::post('branches/{branch}/fiscal-documents/{document}/retry', [FiscalDocumentController::class, 'retry'])
+        ->middleware('permission:fiscal.retry')
+        ->name('fiscal-documents.retry');
 
     // Chart of accounts + trial balance
     Route::get('branches/{branch}/chart', [ChartAccountController::class, 'index'])
@@ -510,6 +539,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('reservations/{reservation}/check-in', [ReservationController::class, 'checkIn'])
         ->middleware(['permission:reservations.checkin', 'throttle:checkin'])
         ->name('reservations.check-in');
+    Route::post('reservations/{reservation}/relocate', [ReservationRelocationController::class, 'store'])
+        ->middleware('permission:reservations.update')
+        ->name('reservations.relocate');
     Route::post('reservations/{reservation}/check-out', [ReservationController::class, 'checkOut'])
         ->middleware(['permission:reservations.checkout', 'throttle:checkin'])
         ->name('reservations.check-out');
@@ -1067,6 +1099,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('developers/consumers/{consumer}/toggle', [DevelopersController::class, 'toggle'])
         ->middleware('permission:api.manage_consumers')
         ->name('developers.toggle');
+    Route::post('developers/branches/{branch}/keys', [DevelopersController::class, 'issuePublicKey'])
+        ->middleware('permission:api.manage_consumers')
+        ->name('developers.public-keys.store');
+    Route::post('developers/branches/{branch}/keys/{key}/rotate', [DevelopersController::class, 'rotatePublicKey'])
+        ->middleware('permission:api.manage_consumers')
+        ->name('developers.public-keys.rotate');
+    Route::delete('developers/branches/{branch}/keys/{key}', [DevelopersController::class, 'revokePublicKey'])
+        ->middleware('permission:api.manage_consumers')
+        ->name('developers.public-keys.revoke');
     Route::post('developers/deliveries/{delivery}/replay', [DevelopersController::class, 'replay'])
         ->middleware('permission:api.manage_consumers')
         ->name('developers.deliveries.replay');
@@ -1393,6 +1434,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 // Public Tablet Routes (no auth - room-bound by confirmation)
-Route::get('tablet/{confirmationNumber}/menu', [TabletMenuController::class, 'index'])->name('tablet.menu');
+Route::get('tablet/{confirmationNumber}/menu', [TabletMenuController::class, 'index'])
+    ->middleware('throttle:guest-portal')
+    ->name('tablet.menu');
 
 require __DIR__.'/settings.php';

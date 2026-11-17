@@ -141,9 +141,7 @@ return new class extends Migration
      */
     private function activityLogPartitions(): array
     {
-        return array_map(
-            static fn (object $partition): string => $partition->partition_name,
-            DB::select(<<<'SQL'
+        $rows = DB::select(<<<'SQL'
                 SELECT child.relname AS partition_name
                 FROM pg_inherits
                 JOIN pg_class AS parent ON parent.oid = inhparent
@@ -152,8 +150,18 @@ return new class extends Migration
                 WHERE parent_schema.nspname = 'public'
                     AND parent.relname = 'activity_log'
                 ORDER BY child.relname
-                SQL),
-        );
+                SQL);
+        $partitions = [];
+
+        foreach ($rows as $row) {
+            if (! is_object($row) || ! is_string($row->partition_name ?? null)) {
+                throw new RuntimeException('Activity log partition metadata was malformed.');
+            }
+
+            $partitions[] = $row->partition_name;
+        }
+
+        return $partitions;
     }
 
     private function enableRls(string $tableName): void

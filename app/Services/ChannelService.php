@@ -7,6 +7,7 @@ use App\Events\ChannelPushFailed;
 use App\Events\ChannelReconciled;
 use App\Events\ParityAlertRaised;
 use App\Exceptions\AvailabilityException;
+use App\Jobs\PushAriJob;
 use App\Models\Branch;
 use App\Models\ChannelMapping;
 use App\Models\ChannelMessage;
@@ -20,6 +21,7 @@ use App\Services\Channels\LogChannelDriver;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Channel reliability: ARI outbox, OTA drivers, inbound webhooks and
@@ -73,6 +75,31 @@ class ChannelService
                 'status' => ChannelMessage::STATUS_QUEUED,
             ],
         );
+    }
+
+    public function queueReservationMessage(Reservation $reservation, string $event, string $body): ChannelMessage
+    {
+        $message = ChannelMessage::firstOrCreate(
+            ['idempotency_key' => "reservation.message.{$reservation->id}.{$event}"],
+            [
+                'branch_id' => $reservation->branch_id,
+                'channel_provider_id' => null,
+                'channel' => 'platform',
+                'kind' => ChannelMessage::KIND_RESERVATION,
+                'payload' => [
+                    'reservation_id' => $reservation->id,
+                    'guest_name' => $reservation->guest_name,
+                    'message' => $body,
+                    'delivery' => 'platform_messaging',
+                    'phone_required' => false,
+                ],
+                'status' => ChannelMessage::STATUS_QUEUED,
+            ],
+        );
+
+        PushAriJob::dispatch($message->id)->afterCommit();
+
+        return $message;
     }
 
     /**
@@ -133,6 +160,13 @@ class ChannelService
             }
 
             $locked->update(['status' => ChannelMessage::STATUS_SENDING, 'attempts' => $locked->attempts + 1]);
+
+            if ($locked->kind === ChannelMessage::KIND_RESERVATION) {
+                $locked->update(['status' => ChannelMessage::STATUS_ACKED, 'last_error' => null]);
+                Log::info('Platform reservation message acknowledged.', ['message_id' => $locked->id]);
+
+                return true;
+            }
 
             $provider = $locked->channel_provider_id !== null
                 ? ChannelProviderModel::find($locked->channel_provider_id)
@@ -286,6 +320,14 @@ class ChannelService
 
             if ($existing) {
                 $existing->update(['reservation_id' => $reservation->id, 'sync_status' => 'synced']);
+            }
+
+            if ($this->stringOrNull($payload['guest_phone'] ?? null) === null) {
+                $this->queueReservationMessage(
+                    $reservation,
+                    'confirmation',
+                    'Your OTA reservation is confirmed. Please use HospitalityOS platform messaging for property communication.',
+                );
             }
 
             return $reservation;

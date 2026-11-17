@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property int $total_rooms
  * @property int $sold
  * @property int $blocked
+ * @property int $held
  * @property int $overbooking_limit
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -34,6 +35,7 @@ use Illuminate\Support\Carbon;
     'total_rooms',
     'sold',
     'blocked',
+    'held',
     'overbooking_limit',
 ])]
 class RoomTypeInventory extends Model
@@ -50,6 +52,7 @@ class RoomTypeInventory extends Model
             'total_rooms' => 'integer',
             'sold' => 'integer',
             'blocked' => 'integer',
+            'held' => 'integer',
             'overbooking_limit' => 'integer',
         ];
     }
@@ -68,7 +71,7 @@ class RoomTypeInventory extends Model
 
     public function sellable(): int
     {
-        return $this->total_rooms + $this->overbooking_limit - $this->blocked - $this->sold;
+        return $this->total_rooms + $this->overbooking_limit - $this->blocked - $this->sold - $this->held;
     }
 
     /**

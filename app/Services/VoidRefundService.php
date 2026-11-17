@@ -4,11 +4,13 @@ namespace App\Services;
 
 use App\Events\VoidApprovalDecided;
 use App\Events\VoidApprovalRequested;
+use App\Models\FiscalDocument;
 use App\Models\PaymentTransaction;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\VoidRefundApproval;
 use App\Models\VoidRefundCode;
+use App\Services\Fiscal\FiscalService;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -31,6 +33,7 @@ class VoidRefundService
 
             if (! $code->requires_supervisor) {
                 $transaction->void($code->id);
+                $this->raiseCreditNote($transaction);
 
                 $approval = VoidRefundApproval::create([
                     'subject_type' => $transaction->getMorphClass(),
@@ -133,6 +136,7 @@ class VoidRefundService
 
         if ($subject instanceof Transaction) {
             $subject->void($approval->reason_code_id);
+            $this->raiseCreditNote($subject);
 
             return;
         }
@@ -140,6 +144,46 @@ class VoidRefundService
         if ($subject instanceof PaymentTransaction) {
             $subject->update(['refund_reason_code_id' => $approval->reason_code_id]);
         }
+    }
+
+    /**
+     * A void after the folio's invoice has cleared must be reversed on the
+     * tax authority's side too: issue a credit note against that invoice.
+     */
+    private function raiseCreditNote(Transaction $transaction): void
+    {
+        if ($transaction->type !== 'debit') {
+            return;
+        }
+
+        $original = FiscalDocument::query()
+            ->where('folio_id', $transaction->folio_id)
+            ->where('document_type', 'invoice')
+            ->where('status', FiscalDocument::STATUS_CLEARED)
+            ->whereNotNull('irn')
+            ->latest('id')
+            ->first();
+
+        if ($original === null) {
+            return;
+        }
+
+        app(FiscalService::class)->issueCreditNote($original, [
+            'creditNoteNumber' => 'CN-'.$original->id.'-'.$transaction->id,
+            'currency' => $transaction->folio->currency_code,
+            'lines' => [[
+                'description' => $transaction->description,
+                'category' => $transaction->category,
+                'quantity' => 1,
+                'unitPrice' => $transaction->amount,
+                'amount' => $transaction->amount,
+                'taxable' => (bool) $transaction->is_taxable,
+                'taxAmount' => $transaction->tax_amount,
+            ]],
+            'subAmount' => $transaction->amount,
+            'taxAmount' => $transaction->tax_amount,
+            'totalAmount' => $transaction->amount + $transaction->tax_amount,
+        ]);
     }
 
     private function guardCode(VoidRefundCode $code, string $kind, int $branchId): void

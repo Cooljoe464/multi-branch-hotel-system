@@ -8,10 +8,12 @@ use App\Models\Branch;
 use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\Tenant;
+use App\Services\EntitlementService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -33,13 +35,33 @@ class BranchWizardController extends Controller
         $user = Auth::user();
         abort_unless($user !== null, 401);
 
+        $existingTenantId = $user->currentBranch?->tenant_id;
+
+        if ($existingTenantId !== null) {
+            $entitlements = app(EntitlementService::class);
+            $roomsToAdd = is_array($data['rooms'] ?? null) ? count($data['rooms']) : 0;
+            $branchIds = Branch::query()->where('tenant_id', $existingTenantId)->pluck('id');
+
+            if ($entitlements->limitExceeded($existingTenantId, 'limits.properties.max', $branchIds->count())) {
+                throw ValidationException::withMessages([
+                    'name' => 'The plan property limit has been reached. Upgrade the plan to add another property.',
+                ]);
+            }
+
+            if ($entitlements->limitExceeded($existingTenantId, 'limits.rooms.max', Room::query()->whereIn('branch_id', $branchIds)->count(), $roomsToAdd)) {
+                throw ValidationException::withMessages([
+                    'rooms' => 'Adding these rooms would exceed the plan room limit.',
+                ]);
+            }
+        }
+
         $branch = DB::transaction(function () use ($data, $user) {
             $tenant = $user->currentBranch?->tenant;
 
             if ($tenant === null) {
                 $tenant = Tenant::create([
                     'name' => $data['name'],
-                    'slug' => Str::slug($data['code']),
+                    'slug' => Str::slug(is_string($data['code'] ?? null) ? $data['code'] : ''),
                     'billing_email' => $data['email'] ?? null,
                     'country' => $data['country'],
                 ]);

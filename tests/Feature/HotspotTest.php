@@ -19,6 +19,7 @@ use App\Services\WifiService;
 use Database\Seeders\ChartSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 
@@ -129,4 +130,28 @@ it('rejects portal validation for revoked sessions and wrong branches', function
     (new WifiService)->revoke($session);
 
     $this->postJson('/api/wifi/validate', ['voucher' => $session->voucher])->assertStatus(422);
+});
+
+test('AC-053 provisions and disconnects a live MikroTik hotspot user', function () {
+    config(['hotspot.mikrotik_fake' => false]);
+    $this->branch->update(['settings' => [
+        'mikrotik_api_url' => 'http://router.test',
+        'mikrotik_username' => 'api-user',
+        'mikrotik_password' => 'api-password',
+    ]]);
+
+    Http::fake([
+        'http://router.test/rest/ip/hotspot/user' => Http::response([], 200),
+        'http://router.test/rest/ip/hotspot/active*' => Http::response([['.id' => '*1', 'user' => 'guest-1']], 200),
+    ]);
+
+    $service = new MikrotikService;
+
+    expect($service->ensureHotspotUser($this->branch, 'guest-1', '1M/2M'))->toBeTrue()
+        ->and($service->kickActive($this->branch, 'guest-1'))->toBeTrue();
+
+    Http::assertSentCount(3);
+    Http::assertSent(fn ($request) => $request->method() === 'PUT'
+        && $request->url() === 'http://router.test/rest/ip/hotspot/user'
+        && $request['rate-limit'] === '1M/2M');
 });

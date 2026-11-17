@@ -2,8 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Exceptions\UnsafeWebhookUrl;
 use App\Models\WebhookDelivery;
 use App\Services\WebhookDispatcher;
+use App\Services\WebhookSignature;
+use App\Services\WebhookUrlGuard;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -39,8 +42,10 @@ class DeliverWebhookJob implements ShouldBeUnique, ShouldQueue
         return [60, 300, 900, 1800, 3600, 7200, 14400, 28800];
     }
 
-    public function handle(): void
+    public function handle(?WebhookUrlGuard $guard = null): void
     {
+        $guard ??= app(WebhookUrlGuard::class);
+
         $delivery = WebhookDelivery::with('consumer')->find($this->deliveryId);
 
         if (! $delivery || $delivery->status === WebhookDelivery::STATUS_DELIVERED) {
@@ -55,15 +60,44 @@ class DeliverWebhookJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $payload = $delivery->payload;
         $delivery->increment('attempts');
 
+        // DNS answers change, so the destination is re-checked on every attempt
+        // and the connection is pinned to the addresses that were checked.
         try {
-            $response = Http::timeout(15)->withHeaders([
-                'X-Webhook-Event' => $delivery->event,
-                'X-Webhook-Delivery' => (string) $delivery->id,
-                WebhookDispatcher::SIGNATURE_HEADER => $delivery->signature,
-            ])->post($consumer->webhook_url, $payload);
+            $destination = $guard->resolve($consumer->webhook_url);
+        } catch (UnsafeWebhookUrl $e) {
+            $delivery->update(['status' => WebhookDelivery::STATUS_FAILED, 'last_error' => substr($e->getMessage(), 0, 500)]);
+            Log::warning('Webhook destination rejected.', ['delivery_id' => $delivery->id, 'reason' => $e->getMessage()]);
+
+            return;
+        }
+
+        $body = WebhookDispatcher::encode($delivery->payload);
+        $secrets = $consumer->webhookSecrets();
+
+        $headers = [
+            'X-Webhook-Event' => $delivery->event,
+            'X-Webhook-Delivery' => (string) $delivery->id,
+            WebhookDispatcher::SIGNATURE_HEADER => $delivery->signature,
+        ];
+
+        if ($secrets !== []) {
+            $headers[WebhookSignature::HEADER] = WebhookSignature::header($body, $secrets[0]);
+        }
+
+        try {
+            $response = Http::timeout(15)
+                ->withOptions([
+                    'allow_redirects' => false,
+                    'curl' => [CURLOPT_RESOLVE => array_map(
+                        fn (string $address): string => "{$destination['host']}:{$destination['port']}:".(str_contains($address, ':') ? "[{$address}]" : $address),
+                        $destination['addresses'],
+                    )],
+                ])
+                ->withHeaders($headers)
+                ->withBody($body, 'application/json')
+                ->post($consumer->webhook_url);
 
             if ($response->successful()) {
                 $delivery->update(['status' => WebhookDelivery::STATUS_DELIVERED, 'last_error' => null]);

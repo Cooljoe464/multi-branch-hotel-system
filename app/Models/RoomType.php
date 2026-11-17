@@ -92,6 +92,12 @@ class RoomType extends Model
         return $this->hasMany(Room::class);
     }
 
+    /** @return HasMany<OverbookingAllowance, $this> */
+    public function overbookingAllowances(): HasMany
+    {
+        return $this->hasMany(OverbookingAllowance::class);
+    }
+
     /**
      * @param  Builder<static>  $query
      * @return Builder<static>

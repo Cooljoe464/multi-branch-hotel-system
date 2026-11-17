@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $branch_id
+ * @property int|null $payment_connection_id
  * @property int $folio_id
  * @property int|null $reservation_id
  * @property string $paystack_reference
@@ -35,6 +36,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'branch_id',
+    'payment_connection_id',
     'business_date',
     'idempotency_key',
     'folio_id',
@@ -77,6 +79,12 @@ class PaymentTransaction extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /** @return BelongsTo<PaymentConnection, $this> */
+    public function paymentConnection(): BelongsTo
+    {
+        return $this->belongsTo(PaymentConnection::class);
     }
 
     /** @return BelongsTo<Folio, $this> */

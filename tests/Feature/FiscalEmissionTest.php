@@ -102,7 +102,7 @@ it('emits through a branch-scoped secret that overrides the environment', functi
     Http::assertSent(fn ($request) => str_contains($request->header('Authorization')[0] ?? '', 'branch-key'));
 });
 
-it('keeps a provider reference submitted until the status endpoint confirms clearance', function () {
+it('AC-044 keeps a provider reference submitted until the status endpoint confirms clearance', function () {
     config(['services.firs.endpoint' => 'https://firs.example.test/invoices']);
     config(['services.firs.status_endpoint' => 'https://firs.example.test/status/{reference}']);
     config(['services.firs.api_key' => 'test-key']);
@@ -137,7 +137,81 @@ it('keeps a provider reference submitted until the status endpoint confirms clea
         ->and($document->digital_stamp)->toBe('stamp-1');
 });
 
-it('creates a retry-safe credit note linked to its cleared original invoice', function () {
+it('AC-044 polls an accepted invoice through status outages without resubmitting it', function () {
+    config(['services.firs.endpoint' => 'https://firs.example.test/invoices']);
+    config(['services.firs.status_endpoint' => 'https://firs.example.test/status/{reference}']);
+    config(['services.firs.api_key' => 'test-key']);
+    $statusUnavailable = true;
+    Http::fake(function ($request) use (&$statusUnavailable) {
+        if ($request->url() === 'https://firs.example.test/invoices') {
+            return Http::response(['irn' => 'FIRS-OUTAGE-1'], 202);
+        }
+
+        if ($statusUnavailable) {
+            return Http::response(['message' => 'Unavailable'], 503);
+        }
+
+        return Http::response([
+            'irn' => 'FIRS-OUTAGE-1',
+            'state' => 'cleared',
+            'digitalStamp' => 'stamp-outage-1',
+        ], 200);
+    });
+
+    $document = FiscalDocument::create([
+        'branch_id' => $this->branch->id,
+        'provider' => 'firs',
+        'status' => FiscalDocument::STATUS_READY,
+        'payload' => [
+            'invoiceNumber' => 'INV-OUTAGE-1',
+            'invoiceDate' => now()->toDateString(),
+            'supplier' => ['name' => 'Hotel'],
+            'lines' => [['description' => 'Room', 'amount' => 1000]],
+            'totalAmount' => 1000,
+        ],
+        'idempotency_key' => 'fiscal-outage-1',
+    ]);
+
+    (new EmitEinvoiceJob($document->id))->handle();
+    (new EmitEinvoiceJob($document->id))->handle();
+    (new EmitEinvoiceJob($document->id))->handle();
+
+    expect($document->refresh()->status)->toBe(FiscalDocument::STATUS_SUBMITTED)
+        ->and($document->irn)->toBe('FIRS-OUTAGE-1')
+        ->and($document->last_error)->not->toBeNull();
+
+    $statusUnavailable = false;
+    (new EmitEinvoiceJob($document->id))->handle();
+
+    expect($document->refresh()->status)->toBe(FiscalDocument::STATUS_CLEARED)
+        ->and($document->irn)->toBe('FIRS-OUTAGE-1');
+
+    Http::assertSentCount(4);
+    Http::assertSent(fn ($request) => $request->url() === 'https://firs.example.test/invoices');
+});
+
+it('AC-044 retries a failed provider submission with the same idempotency key', function () {
+    Queue::fake();
+    $idempotencyKey = 'fiscal-outage-retry-1';
+    $document = FiscalDocument::create([
+        'branch_id' => $this->branch->id,
+        'provider' => 'firs',
+        'status' => FiscalDocument::STATUS_FAILED,
+        'attempts' => 5,
+        'payload' => ['invoiceNumber' => 'INV-OUTAGE-1'],
+        'idempotency_key' => $idempotencyKey,
+    ]);
+
+    $retried = app(FiscalService::class)->retryFailedDocument($document);
+
+    expect($retried->status)->toBe(FiscalDocument::STATUS_READY)
+        ->and($retried->attempts)->toBe(0)
+        ->and($retried->idempotency_key)->toBe($idempotencyKey)
+        ->and($retried->last_error)->toBeNull();
+    Queue::assertPushed(EmitEinvoiceJob::class, fn (EmitEinvoiceJob $job): bool => $job->fiscalDocumentId === $document->id);
+});
+
+it('AC-045 creates a retry-safe credit note linked to its cleared original invoice', function () {
     Queue::fake();
     $emitter = Mockery::mock(FirsEmitter::class);
     $emitter->shouldReceive('provider')->andReturn('firs');

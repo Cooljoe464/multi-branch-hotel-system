@@ -130,7 +130,7 @@ return new class extends Migration
      */
     private function branchOwnedTables(): array
     {
-        return DB::table('information_schema.columns')
+        $values = DB::table('information_schema.columns')
             ->where('table_schema', 'public')
             ->where('column_name', 'branch_id')
             ->whereNotIn('table_name', ['branches', 'users'])
@@ -138,6 +138,15 @@ return new class extends Migration
             ->distinct()
             ->pluck('table_name')
             ->all();
+        $tableNames = [];
+
+        foreach ($values as $value) {
+            if (is_string($value)) {
+                $tableNames[] = $value;
+            }
+        }
+
+        return array_values(array_unique($tableNames));
     }
 
     /**
@@ -264,6 +273,16 @@ return new class extends Migration
         $relations = [];
 
         foreach ($rows as $row) {
+            if (! is_object($row)
+                || ! is_string($row->child_table ?? null)
+                || ! is_string($row->constraint_name ?? null)
+                || ! is_string($row->parent_table ?? null)
+                || ! is_string($row->child_column ?? null)
+                || ! is_string($row->parent_column ?? null)
+            ) {
+                throw new RuntimeException('Tenant ownership foreign-key metadata was malformed.');
+            }
+
             $key = $row->child_table.'|'.$row->constraint_name;
 
             if (! isset($relations[$key])) {
@@ -397,7 +416,7 @@ return new class extends Migration
                 .'AND tenant_owned_row.'.$grammar->wrap('tenant_id').' IS DISTINCT FROM tenant_parent.'.$grammar->wrap('tenant_id').') AS mismatch',
             );
 
-            if (in_array($mismatchExists->mismatch ?? false, [true, 1, '1', 't', 'true'], true)) {
+            if (is_object($mismatchExists) && in_array($mismatchExists->mismatch ?? false, [true, 1, '1', 't', 'true'], true)) {
                 throw new RuntimeException("Tenant ownership does not match a referenced tenant row in [{$tableName}].");
             }
         }

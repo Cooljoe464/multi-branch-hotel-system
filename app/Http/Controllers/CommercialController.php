@@ -174,10 +174,13 @@ class CommercialController extends Controller
         }
 
         $corporate->update([
-            ...$validated,
-            'code' => strtoupper($validated['code']),
-            'discount_bps' => $validated['discount_bps'] ?? 0,
-            'ledger_account' => $validated['ledger_account'] ?: null,
+            'name' => $request->string('name')->value(),
+            'code' => strtoupper($request->string('code')->value()),
+            'billing_address' => $request->string('billing_address')->value(),
+            'tax_id' => $request->string('tax_id')->value() ?: null,
+            'negotiated_plan_id' => $request->input('negotiated_plan_id'),
+            'discount_bps' => $request->integer('discount_bps', 0),
+            'ledger_account' => $request->string('ledger_account')->value() ?: null,
         ]);
 
         return $this->flashSuccess('Corporate account updated.');

@@ -1,16 +1,21 @@
 <?php
 
+use App\Contracts\EInvoiceEmitter;
+use App\Jobs\EmitEinvoiceJob;
 use App\Models\Branch;
 use App\Models\BusinessDate;
 use App\Models\CashierShift;
+use App\Models\FiscalDocument;
 use App\Models\VoidRefundApproval;
 use App\Models\VoidRefundCode;
 use App\Services\BusinessDateService;
 use App\Services\CashierShiftService;
+use App\Services\Fiscal\FirsEmitter;
 use App\Services\FolioService;
 use App\Services\VoidRefundService;
 use Database\Seeders\ChartSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 
 uses(RefreshDatabase::class);
 
@@ -121,4 +126,43 @@ it('serves the cashier pages under the new permissions', function () {
     $user->removeRole('Global Admin');
 
     $this->actingAs($user)->get("/branches/{$this->branch->id}/cashier")->assertForbidden();
+});
+
+it('raises a credit note when a charge is voided after its invoice has cleared', function () {
+    Queue::fake();
+    $emitter = Mockery::mock(FirsEmitter::class);
+    $emitter->shouldReceive('provider')->andReturn('firs');
+    $emitter->shouldReceive('capabilities')->andReturn(['submit' => true, 'status' => true, 'credit_note' => true, 'reconcile' => true]);
+    app()->instance(EInvoiceEmitter::class, $emitter);
+
+    $folio = (new FolioService)->createStaffFolio($this->branch->id, 'Credit Guest');
+    $tx = (new FolioService)->postManualCharge($folio, 'misc', 'Mini bar', 9000, null, $this->user->id);
+    FiscalDocument::create([
+        'branch_id' => $this->branch->id,
+        'folio_id' => $folio->id,
+        'provider' => 'firs',
+        'status' => FiscalDocument::STATUS_CLEARED,
+        'irn' => 'INV-IRN-9',
+        'payload' => ['totalAmount' => 9000],
+        'idempotency_key' => 'cleared-invoice-for-void',
+    ]);
+
+    $code = VoidRefundCode::where('branch_id', $this->branch->id)->where('code', 'ERROR_CORRECTION')->firstOrFail();
+    (new VoidRefundService)->requestVoid($tx, $code, $this->user);
+
+    $creditNote = FiscalDocument::where('document_type', 'credit_note')->sole();
+
+    expect($creditNote->payload['originalInvoiceReference'])->toBe('INV-IRN-9')
+        ->and($creditNote->payload['subAmount'])->toBe(9000);
+    Queue::assertPushed(EmitEinvoiceJob::class, 1);
+});
+
+it('does not raise a credit note when no invoice has cleared', function () {
+    $folio = (new FolioService)->createStaffFolio($this->branch->id, 'Plain Guest');
+    $tx = (new FolioService)->postManualCharge($folio, 'misc', 'Charge', 1000, null, $this->user->id);
+    $code = VoidRefundCode::where('branch_id', $this->branch->id)->where('code', 'ERROR_CORRECTION')->firstOrFail();
+
+    (new VoidRefundService)->requestVoid($tx, $code, $this->user);
+
+    expect(FiscalDocument::where('document_type', 'credit_note')->count())->toBe(0);
 });

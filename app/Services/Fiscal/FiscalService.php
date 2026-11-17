@@ -108,6 +108,31 @@ class FiscalService
         });
     }
 
+    public function retryFailedDocument(FiscalDocument $document): FiscalDocument
+    {
+        return DB::transaction(function () use ($document): FiscalDocument {
+            $locked = FiscalDocument::query()->lockForUpdate()->findOrFail($document->id);
+
+            if ($locked->status !== FiscalDocument::STATUS_FAILED) {
+                throw new \DomainException('Only failed fiscal documents can be retried.');
+            }
+
+            if ($locked->irn !== null) {
+                throw new \DomainException('A fiscal document with a provider reference cannot be resubmitted.');
+            }
+
+            $locked->update([
+                'status' => FiscalDocument::STATUS_READY,
+                'attempts' => 0,
+                'last_error' => null,
+            ]);
+
+            EmitEinvoiceJob::dispatch($locked->id)->afterCommit();
+
+            return $locked->refresh();
+        });
+    }
+
     /**
      * Create one credit-note document tied to an immutable cleared invoice.
      *
@@ -184,7 +209,7 @@ class FiscalService
 
         $reservation = $folio->reservation;
         $corporate = $reservation?->corporateAccount;
-        $buyerName = $corporate?->name ?? $folio->guest_name ?? $reservation?->guest_name;
+        $buyerName = $corporate->name ?? $folio->guest_name ?? $reservation?->guest_name;
 
         $buyer = [
             'name' => $buyerName ?? 'Walk-in guest',

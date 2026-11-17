@@ -89,7 +89,7 @@ test('denies a tenant with no subscription once enforcement is on', function () 
     $this->actingAs($user)->post('/reservations', [])->assertForbidden();
 });
 
-test('keeps checkout, folios and the reservation list working for a restricted subscription with a guest in house', function () {
+test('AC-056 keeps checkout, folios and the reservation list working for a restricted subscription with a guest in house', function () {
     ['branch' => $branch, 'user' => $user] = subscribedProperty(
         $this,
         ['pms.reservations', 'pos.sales', 'finance.folios', 'pms.front_desk'],

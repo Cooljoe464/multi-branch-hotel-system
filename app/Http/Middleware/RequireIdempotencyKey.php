@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\ApiKey;
+use App\Models\Branch;
 use App\Services\IdempotencyService;
 use Closure;
 use Illuminate\Http\Request;
@@ -56,8 +58,20 @@ class RequireIdempotencyKey
             abort(422, 'An X-Idempotency-Key header is required for this request.');
         }
 
-        $scope = 'web.'.($request->route()?->getName() ?: $request->path());
-        $branchId = $request->user()?->branch_id;
+        $routeScope = $request->route()?->getName() ?: $request->path();
+        $apiKey = $request->attributes->get('public_api_key');
+        $branch = $request->route('branch');
+
+        if (! $branch instanceof Branch) {
+            $branch = $request->input('_branch');
+        }
+
+        if (! $branch instanceof Branch) {
+            $branch = $request->attributes->get('branch');
+        }
+
+        $branchId = $branch instanceof Branch ? $branch->id : $request->user()?->branch_id;
+        $scope = 'web.'.($apiKey instanceof ApiKey ? 'public-key.'.$apiKey->id.'.' : '').$routeScope;
 
         $record = $this->idempotency->claimOnly(
             scope: $scope,

@@ -9,6 +9,7 @@ use App\Services\WhatsAppCloudApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -30,13 +31,20 @@ class WhatsAppWebhookController extends Controller
             return response('Invalid verification request.', 403);
         }
 
-        if (! $whatsapp->findBranchByVerifyToken($token) instanceof Branch) {
-            Log::warning('WhatsApp webhook verification rejected: unknown verify token.');
+        // Meta's subscription check is unauthenticated, so the branch is
+        // resolved through the per-credential webhook lookup policy instead of
+        // the tenant-scoped context middleware.
+        return DB::transaction(function () use ($token, $challenge, $whatsapp): Response {
+            DB::select('select set_config(?, ?, true)', ['app.whatsapp_verify_token', (string) $token]);
 
-            return response('Unknown verify token.', 403);
-        }
+            if (! $whatsapp->findBranchByVerifyToken($token) instanceof Branch) {
+                Log::warning('WhatsApp webhook verification rejected: unknown verify token.');
 
-        return response($challenge, 200)->header('Content-Type', 'text/plain');
+                return response('Unknown verify token.', 403);
+            }
+
+            return response($challenge, 200)->header('Content-Type', 'text/plain');
+        });
     }
 
     public function store(Request $request, WhatsAppCloudApiService $whatsapp): JsonResponse
@@ -51,82 +59,90 @@ class WhatsAppWebhookController extends Controller
         $signature = $request->header('X-Hub-Signature-256');
         $signature = is_string($signature) ? $signature : null;
 
-        foreach ($entries as $entry) {
-            if (! is_array($entry)) {
-                continue;
-            }
-
-            $changes = is_array($entry['changes'] ?? null) ? $entry['changes'] : [];
-
-            foreach ($changes as $change) {
-                if (! is_array($change)) {
+        // Meta's inbound webhook is unauthenticated at the HTTP layer, so the
+        // branch is resolved through the per-credential webhook lookup policy
+        // instead of the tenant-scoped context middleware.
+        return DB::transaction(function () use ($request, $entries, $signature, $whatsapp): JsonResponse {
+            foreach ($entries as $entry) {
+                if (! is_array($entry)) {
                     continue;
                 }
 
-                $value = $change['value'] ?? null;
+                $changes = is_array($entry['changes'] ?? null) ? $entry['changes'] : [];
 
-                if (! is_array($value)) {
-                    continue;
-                }
+                foreach ($changes as $change) {
+                    if (! is_array($change)) {
+                        continue;
+                    }
 
-                $metadata = $value['metadata'] ?? null;
-                $phoneNumberId = is_array($metadata) ? ($metadata['phone_number_id'] ?? null) : null;
+                    $value = $change['value'] ?? null;
 
-                if (! is_string($phoneNumberId) || $phoneNumberId === '') {
-                    continue;
-                }
+                    if (! is_array($value)) {
+                        continue;
+                    }
 
-                $branch = $whatsapp->findBranchByPhoneNumberId($phoneNumberId);
+                    $metadata = $value['metadata'] ?? null;
+                    $phoneNumberId = is_array($metadata) ? ($metadata['phone_number_id'] ?? null) : null;
 
-                if (! $branch instanceof Branch) {
-                    Log::info('WhatsApp webhook for unknown phone number.', ['phone_number_id' => $phoneNumberId]);
+                    if (! is_string($phoneNumberId) || $phoneNumberId === '') {
+                        continue;
+                    }
 
-                    continue;
-                }
+                    DB::select('select set_config(?, ?, true)', ['app.whatsapp_phone_number_id', $phoneNumberId]);
 
-                if (! $whatsapp->verifySignature($branch, $request->getContent(), $signature)) {
-                    return response()->json(['message' => 'Invalid signature.'], 401);
-                }
+                    $branch = $whatsapp->findBranchByPhoneNumberId($phoneNumberId);
 
-                $messages = $this->normalizeMessages($value['messages'] ?? null);
-
-                if ($messages === []) {
-                    continue;
-                }
-
-                $inbound = [];
-                $statuses = [];
-
-                foreach ($messages as $message) {
-                    $statusValue = $message['status'] ?? null;
-                    $statusName = is_string($statusValue) ? $statusValue : (is_array($statusValue) ? (is_string($statusValue['status'] ?? null) ? $statusValue['status'] : null) : null);
-
-                    if ($statusName !== null) {
-                        $statuses[] = [
-                            'message_id' => is_string($statusValue['message_id'] ?? null) ? $statusValue['message_id'] : (is_string($message['id'] ?? null) ? $message['id'] : null),
-                            'status' => $statusName,
-                        ];
+                    if (! $branch instanceof Branch) {
+                        Log::info('WhatsApp webhook for unknown phone number.', ['phone_number_id' => $phoneNumberId]);
 
                         continue;
                     }
 
-                    $inbound[] = $message;
-                }
+                    if (! $whatsapp->verifySignature($branch, $request->getContent(), $signature)) {
+                        return response()->json(['message' => 'Invalid signature.'], 401);
+                    }
 
-                $contacts = is_array($value['contacts'] ?? null) ? $value['contacts'] : [];
-                $contact = $this->normalizeContact($contacts[0] ?? null);
+                    $messages = $this->normalizeMessages($value['messages'] ?? null);
 
-                if ($inbound !== []) {
-                    ProcessWhatsAppWebhookJob::dispatch($branch->id, $inbound, $contact);
-                }
+                    if ($messages === []) {
+                        continue;
+                    }
 
-                if ($statuses !== []) {
-                    ProcessWhatsAppDeliveryStatusJob::dispatch($branch->id, $statuses);
+                    $inbound = [];
+                    $statuses = [];
+
+                    foreach ($messages as $message) {
+                        $statusValue = $message['status'] ?? null;
+                        $statusName = is_string($statusValue) ? $statusValue : (is_array($statusValue) ? (is_string($statusValue['status'] ?? null) ? $statusValue['status'] : null) : null);
+
+                        if ($statusName !== null) {
+                            $statusPayload = is_array($statusValue) ? $statusValue : [];
+                            $statuses[] = [
+                                'message_id' => is_string($statusPayload['message_id'] ?? null) ? $statusPayload['message_id'] : (is_string($message['id'] ?? null) ? $message['id'] : null),
+                                'status' => $statusName,
+                            ];
+
+                            continue;
+                        }
+
+                        $inbound[] = $message;
+                    }
+
+                    $contacts = is_array($value['contacts'] ?? null) ? $value['contacts'] : [];
+                    $contact = $this->normalizeContact($contacts[0] ?? null);
+
+                    if ($inbound !== []) {
+                        ProcessWhatsAppWebhookJob::dispatch($branch->id, $inbound, $contact);
+                    }
+
+                    if ($statuses !== []) {
+                        ProcessWhatsAppDeliveryStatusJob::dispatch($branch->id, $statuses);
+                    }
                 }
             }
-        }
 
-        return response()->json(['status' => 'ok']);
+            return response()->json(['status' => 'ok']);
+        });
     }
 
     /**

@@ -6,10 +6,13 @@ use App\Contracts\PaymentDriver;
 use App\Models\Branch;
 use App\Models\Branding;
 use App\Models\Folio;
+use App\Models\PaymentConnection;
 use App\Models\PaymentMethod;
 use App\Models\PaymentTransaction;
 use App\Models\Reservation;
+use App\Services\Payments\FlutterwaveDriver;
 use App\Services\Payments\PaystackDriver;
+use App\Support\TenantDatabaseContext;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +29,10 @@ class PaymentService
 {
     private PaymentDriver $driver;
 
+    private ?int $paymentConnectionId = null;
+
+    private ?PaymentConnection $paymentConnection = null;
+
     public function __construct(?PaymentDriver $driver = null)
     {
         $this->driver = $driver ?? new PaystackDriver;
@@ -33,6 +40,25 @@ class PaymentService
 
     public function forBranch(Branch $branch): self
     {
+        $connection = app(TenantDatabaseContext::class)->run(
+            null,
+            $branch->tenant_id,
+            fn (): ?PaymentConnection => PaymentConnection::query()
+                ->where('tenant_id', $branch->tenant_id)
+                ->where('status', 'active')
+                ->where('is_default', true)
+                ->where(fn ($query) => $query->where('branch_id', $branch->id)->orWhereNull('branch_id'))
+                ->orderByRaw('CASE WHEN branch_id = ? THEN 0 ELSE 1 END', [$branch->id])
+                ->first(),
+            actorType: 'payment_service',
+        );
+
+        if ($connection instanceof PaymentConnection) {
+            return $this->forConnection($connection);
+        }
+
+        $this->paymentConnectionId = null;
+        $this->paymentConnection = null;
         $settings = $branch->settings;
         $override = $settings['payment_driver'] ?? null;
         $default = config('payments.default');
@@ -60,15 +86,73 @@ class PaymentService
         return $this;
     }
 
+    public function forConnection(PaymentConnection $connection): self
+    {
+        if ($connection->status !== 'active' || ! in_array($connection->provider, PaymentConnection::PROVIDERS, true)) {
+            throw new RuntimeException('The payment connection is inactive or uses an unsupported provider.');
+        }
+
+        if (trim($connection->secret_key) === '') {
+            throw new RuntimeException('The payment connection has no secret key configured.');
+        }
+
+        if ($connection->provider === 'paystack') {
+            $this->driver = new PaystackDriver($connection->secret_key);
+        } else {
+            $this->driver = new FlutterwaveDriver($connection->secret_key);
+        }
+        $this->paymentConnectionId = $connection->id;
+        $this->paymentConnection = $connection;
+
+        return $this;
+    }
+
     public function driver(): PaymentDriver
     {
         return $this->driver;
     }
 
+    public function paymentConnection(): ?PaymentConnection
+    {
+        return $this->paymentConnection;
+    }
+
     /**
+     * Whether a gateway may act on a transaction reference. A webhook signed
+     * correctly for one gateway must not settle another gateway's transaction.
+     * Unknown references pass (nothing to settle); legacy rows without a
+     * driver predate the second gateway and belong to Paystack.
+     */
+    public function referenceBelongsToGateway(string $reference, string $gateway): bool
+    {
+        $transaction = PaymentTransaction::byReference($reference)->first();
+
+        if ($transaction === null) {
+            return true;
+        }
+
+        if ($transaction->payment_connection_id !== null) {
+            return false;
+        }
+
+        $owner = $transaction->driver ?? 'paystack';
+        $owner = $owner !== '' ? $owner : 'paystack';
+
+        return $owner === $gateway;
+    }
+
+    public function referenceBelongsToConnection(string $reference, int $connectionId): bool
+    {
+        $transaction = PaymentTransaction::byReference($reference)->first();
+
+        return $transaction === null || $transaction->payment_connection_id === $connectionId;
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
      * @return array{authorization_url: string, access_code: string, reference: string}
      */
-    public function initializePayment(Folio $folio, int $amount, string $email, ?string $callbackUrl = null): array
+    public function initializePayment(Folio $folio, int $amount, string $email, ?string $callbackUrl = null, array $metadata = []): array
     {
         $initialized = $this->driver->initialize(
             $amount,
@@ -78,12 +162,16 @@ class PaymentService
                 'folio_id' => $folio->id,
                 'branch_id' => $folio->branch_id,
                 'folio_number' => $folio->folio_number,
+                'payment_connection_id' => $this->paymentConnectionId,
+                'merchant_reference' => $this->paymentConnection?->merchant_reference,
+                ...$metadata,
             ],
             $callbackUrl,
         );
 
         PaymentTransaction::create([
             'branch_id' => $folio->branch_id,
+            'payment_connection_id' => $this->paymentConnectionId,
             'folio_id' => $folio->id,
             'reservation_id' => $folio->reservation_id,
             'paystack_reference' => $initialized['reference'],
@@ -95,6 +183,10 @@ class PaymentService
             'amount' => $amount,
             'currency' => $folio->branch->currency_code ?? Branding::instance()->currency_code,
             'customer_email' => $email,
+            'metadata' => $this->paymentConnectionId === null ? null : [
+                'payment_connection_id' => $this->paymentConnectionId,
+                ...$metadata,
+            ],
         ]);
 
         return $initialized;
@@ -106,6 +198,31 @@ class PaymentService
     public function verifyTransaction(string $reference): array
     {
         return $this->driver->verify($reference);
+    }
+
+    public function verifiedConnectionPayment(PaymentConnection $connection, PaymentTransaction $transaction): bool
+    {
+        $this->forConnection($connection);
+        $verification = $this->driver->verify($transaction->paystack_reference);
+        $status = $verification['status'] ?? null;
+        $currency = $verification['currency'] ?? null;
+        $amount = $verification['amount'] ?? null;
+        $verifiedReference = $verification['reference'] ?? $verification['tx_ref'] ?? null;
+
+        if (! is_string($verifiedReference)
+            || ! hash_equals($transaction->paystack_reference, $verifiedReference)
+            || ! is_string($currency)
+            || strtoupper($currency) !== strtoupper($transaction->currency)) {
+            return false;
+        }
+
+        if ($connection->provider === 'paystack') {
+            return $status === 'success' && is_numeric($amount) && (int) $amount === $transaction->amount;
+        }
+
+        return $status === 'successful'
+            && is_numeric($amount)
+            && (int) round((float) $amount * 100) === $transaction->amount;
     }
 
     /**
@@ -132,6 +249,7 @@ class PaymentService
 
             return PaymentTransaction::create([
                 'branch_id' => $folio->branch_id,
+                'payment_connection_id' => $this->paymentConnectionId,
                 'folio_id' => $folio->id,
                 'reservation_id' => $folio->reservation_id,
                 'paystack_reference' => $held['reference'],
@@ -159,6 +277,10 @@ class PaymentService
         return DB::transaction(function () use ($preauth, $amountMinor, $postedBy) {
             $locked = PaymentTransaction::where('id', $preauth->id)->lockForUpdate()->firstOrFail();
 
+            if ($locked->payment_connection_id !== null) {
+                $this->forConnection(PaymentConnection::query()->findOrFail($locked->payment_connection_id));
+            }
+
             $captured = (int) PaymentTransaction::where('parent_id', $locked->id)
                 ->where('kind', PaymentTransaction::KIND_CAPTURE)
                 ->where('status', 'success')
@@ -172,6 +294,7 @@ class PaymentService
 
             $capture = PaymentTransaction::create([
                 'branch_id' => $locked->branch_id,
+                'payment_connection_id' => $locked->payment_connection_id,
                 'folio_id' => $locked->folio_id,
                 'reservation_id' => $locked->reservation_id,
                 'paystack_reference' => $result['reference'],
@@ -212,6 +335,10 @@ class PaymentService
         return DB::transaction(function () use ($charge, $amountMinor, $postedBy) {
             $locked = PaymentTransaction::where('id', $charge->id)->lockForUpdate()->firstOrFail();
 
+            if ($locked->payment_connection_id !== null) {
+                $this->forConnection(PaymentConnection::query()->findOrFail($locked->payment_connection_id));
+            }
+
             if ($locked->status !== 'success') {
                 throw new InvalidArgumentException('Only successful payments can be refunded.');
             }
@@ -229,6 +356,7 @@ class PaymentService
 
             $refund = PaymentTransaction::create([
                 'branch_id' => $locked->branch_id,
+                'payment_connection_id' => $locked->payment_connection_id,
                 'folio_id' => $locked->folio_id,
                 'reservation_id' => $locked->reservation_id,
                 'paystack_reference' => $result['reference'],
@@ -294,10 +422,20 @@ class PaymentService
         match ($event) {
             'charge.success' => $this->handleChargeSuccess($paymentTx, $data),
             'authorization.success' => $this->handleAuthorizationSuccess($paymentTx, $data),
-            'charge.failed' => $paymentTx->markFailed(['webhook_payload' => $payload]),
+            'charge.failed' => $this->markPublicPaymentFailed($paymentTx, $payload),
             'refund.created' => $this->handleRefund($paymentTx, $data, $payload),
             default => null,
         };
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function markPublicPaymentFailed(PaymentTransaction $transaction, array $payload): void
+    {
+        $transaction->markFailed(['webhook_payload' => $payload]);
+
+        if (is_int($transaction->metadata['public_payment_intent_id'] ?? null)) {
+            app(PublicPaymentIntentService::class)->markFailed($transaction);
+        }
     }
 
     /**
@@ -307,6 +445,11 @@ class PaymentService
     {
         if ($paymentTx->status === 'success') {
             return;
+        }
+
+        if (is_int($paymentTx->metadata['public_payment_intent_id'] ?? null)) {
+            app(PublicPaymentIntentService::class)->settle($paymentTx);
+            $paymentTx->refresh();
         }
 
         $metadata = $data['metadata'] ?? [];
@@ -366,6 +509,7 @@ class PaymentService
 
         PaymentTransaction::create([
             'branch_id' => $paymentTx->branch_id,
+            'payment_connection_id' => $paymentTx->payment_connection_id,
             'folio_id' => $paymentTx->folio_id,
             'reservation_id' => $paymentTx->reservation_id,
             'paystack_reference' => 'REF-'.$paymentTx->paystack_reference.'-'.Str::upper(Str::random(4)),

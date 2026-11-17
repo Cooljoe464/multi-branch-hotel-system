@@ -10,6 +10,9 @@ namespace App\Services\Concierge\Ai;
  */
 final readonly class ConciergeAiResponse
 {
+    /**
+     * @param  array<int, array<string, mixed>>  $toolCalls
+     */
     public function __construct(
         public string $text,
         public array $toolCalls = [],

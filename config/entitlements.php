@@ -30,6 +30,11 @@ return [
         'finance.folios',
         'pms.front_desk',
         'locks.issue',
+        'locks.provider.assa_abloy',
+        'locks.provider.salto',
+        'locks.provider.duowin',
+        'locks.provider.dormakaba',
+        'locks.provider.ttlock',
         'wifi.vouchers',
     ],
 

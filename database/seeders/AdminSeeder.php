@@ -24,18 +24,11 @@ class AdminSeeder extends Seeder
 
     private function createPlatformOwner(Role $role): void
     {
-        $email = config('app.platform_owner_email');
-        $password = config('app.platform_owner_password');
-
-        if (! is_string($email) || $email === '' || ! is_string($password) || $password === '') {
-            return;
-        }
-
         $owner = User::firstOrCreate(
-            ['email' => $email],
+            ['email' => 'platform.owner@hotel.com'],
             [
-                'name' => config('app.platform_owner_name', 'Platform Owner'),
-                'password' => $password,
+                'name' => 'Platform Owner',
+                'password' => 'password',
                 'is_global_admin' => true,
                 'email_verified_at' => now(),
             ]
@@ -122,26 +115,26 @@ class AdminSeeder extends Seeder
     }
 
     /**
-     * @return array{global_admin: \Spatie\Permission\Contracts\Role, property_owner: \Spatie\Permission\Contracts\Role, branch_gm: \Spatie\Permission\Contracts\Role, front_desk: \Spatie\Permission\Contracts\Role, housekeeper: \Spatie\Permission\Contracts\Role, kitchen_staff: \Spatie\Permission\Contracts\Role, laundry_attendant: \Spatie\Permission\Contracts\Role, cashier: \Spatie\Permission\Contracts\Role, auditor: \Spatie\Permission\Contracts\Role}
+     * @return array{global_admin: Role, property_owner: Role, branch_gm: Role, front_desk: Role, housekeeper: Role, kitchen_staff: Role, laundry_attendant: Role, cashier: Role, auditor: Role}
      */
     private function getRoles(): array
     {
         return [
-            'global_admin' => Role::findByName('Global Admin'),
-            'property_owner' => Role::findByName('Property Owner'),
-            'branch_gm' => Role::findByName('Branch GM'),
-            'front_desk' => Role::findByName('Front Desk'),
-            'housekeeper' => Role::findByName('Housekeeper'),
-            'kitchen_staff' => Role::findByName('Kitchen Staff'),
-            'laundry_attendant' => Role::findByName('Laundry Attendant'),
-            'cashier' => Role::findByName('Cashier'),
-            'auditor' => Role::findByName('Auditor'),
+            'global_admin' => Role::query()->where('name', 'Global Admin')->firstOrFail(),
+            'property_owner' => Role::query()->where('name', 'Property Owner')->firstOrFail(),
+            'branch_gm' => Role::query()->where('name', 'Branch GM')->firstOrFail(),
+            'front_desk' => Role::query()->where('name', 'Front Desk')->firstOrFail(),
+            'housekeeper' => Role::query()->where('name', 'Housekeeper')->firstOrFail(),
+            'kitchen_staff' => Role::query()->where('name', 'Kitchen Staff')->firstOrFail(),
+            'laundry_attendant' => Role::query()->where('name', 'Laundry Attendant')->firstOrFail(),
+            'cashier' => Role::query()->where('name', 'Cashier')->firstOrFail(),
+            'auditor' => Role::query()->where('name', 'Auditor')->firstOrFail(),
         ];
     }
 
     /**
      * @param  array{downtown: Branch, seaside: Branch}  $branches
-     * @param  array{global_admin: \Spatie\Permission\Contracts\Role, property_owner: \Spatie\Permission\Contracts\Role, branch_gm: \Spatie\Permission\Contracts\Role, front_desk: \Spatie\Permission\Contracts\Role, housekeeper: \Spatie\Permission\Contracts\Role, kitchen_staff: \Spatie\Permission\Contracts\Role, laundry_attendant: \Spatie\Permission\Contracts\Role, cashier: \Spatie\Permission\Contracts\Role, auditor: \Spatie\Permission\Contracts\Role}  $roles
+     * @param  array{global_admin: Role, property_owner: Role, branch_gm: Role, front_desk: Role, housekeeper: Role, kitchen_staff: Role, laundry_attendant: Role, cashier: Role, auditor: Role}  $roles
      */
     private function createUsers(array $branches, array $roles): void
     {

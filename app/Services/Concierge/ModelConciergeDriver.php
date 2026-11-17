@@ -19,6 +19,7 @@ class ModelConciergeDriver implements ConciergeDriver
         private readonly ConciergeAiProvider $provider,
     ) {}
 
+    /** @param array<int, array<string, mixed>> $history */
     public function interpret(ConciergeThread $thread, string $body, array $history = []): ConciergeIntent
     {
         try {
@@ -59,9 +60,20 @@ class ModelConciergeDriver implements ConciergeDriver
     private function toIntent(ConciergeAiResponse $response, ConciergeThread $thread): ConciergeIntent
     {
         $payload = json_decode($response->text, true);
+        $payload = is_array($payload) ? $payload : [];
         $intentName = is_string($payload['intent'] ?? null) ? $payload['intent'] : ConciergeIntent::UNKNOWN;
-        $confidence = (float) ($payload['confidence'] ?? 0.0);
-        $args = is_array($payload['args'] ?? null) ? $payload['args'] : [];
+        $rawConfidence = $payload['confidence'] ?? null;
+        $confidence = is_numeric($rawConfidence) ? max(0.0, min(1.0, (float) $rawConfidence)) : 0.0;
+        $rawArgs = $payload['args'] ?? null;
+        $args = [];
+
+        if (is_array($rawArgs)) {
+            foreach ($rawArgs as $key => $value) {
+                if (is_string($key)) {
+                    $args[$key] = $value;
+                }
+            }
+        }
         $entryId = is_int($payload['kb_entry_id'] ?? null) ? $payload['kb_entry_id'] : null;
 
         $entry = $entryId !== null

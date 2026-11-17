@@ -72,7 +72,6 @@ use Spatie\Activitylog\Support\LogOptions;
     'cdr_secret',
     'locale',
     'current_business_date',
-    'overbooking_policy',
     'tax_rate',
     'tax_label',
     'is_active',
@@ -97,7 +96,6 @@ class Branch extends Model
             'is_primary' => 'boolean',
             'tax_rate' => 'decimal:2',
             'current_business_date' => 'date',
-            'overbooking_policy' => 'array',
         ];
     }
 
@@ -181,6 +179,12 @@ class Branch extends Model
     public function paymentTransactions(): HasMany
     {
         return $this->hasMany(PaymentTransaction::class);
+    }
+
+    /** @return HasMany<OverbookingAllowance, $this> */
+    public function overbookingAllowances(): HasMany
+    {
+        return $this->hasMany(OverbookingAllowance::class);
     }
 
     /**

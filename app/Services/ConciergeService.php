@@ -40,27 +40,39 @@ class ConciergeService
 
     private const OPT_OUT_PATTERN = '/\b(?:stop|stop messaging|stop messages|unsubscribe|unsubscribe me|opt ?out|optout|end marketing)\b/i';
 
+    /**
+     * Subscription entitlement that gates the AI concierge module per
+     * tenant. A tenant without it keeps human-only concierge flows.
+     */
+    public const ENTITLEMENT_KEY = 'channels.concierge';
+
     public function __construct(
         private readonly WhatsAppCloudApiService $whatsapp,
         private readonly ConciergeDriver $driver,
+        private readonly EntitlementService $entitlements,
     ) {}
 
-    public static function make(?ConciergeAiProvider $provider = null): self
+    public static function make(?ConciergeAiProvider $provider = null, ?Branch $branch = null): self
     {
-        return new self(new WhatsAppCloudApiService, self::driver($provider));
+        return new self(new WhatsAppCloudApiService, self::driver($provider, $branch), new EntitlementService);
     }
 
-    private static function driver(?ConciergeAiProvider $provider): ConciergeDriver
+    private static function driver(?ConciergeAiProvider $provider = null, ?Branch $branch = null): ConciergeDriver
     {
         if ($provider !== null) {
             return new ModelConciergeDriver($provider);
         }
 
         $manager = app(ConciergeAiManager::class);
+        $configured = $branch instanceof Branch
+            ? $manager->isConfigured($branch)
+            : $manager->isConfigured();
 
-        return $manager->isConfigured()
-            ? new ModelConciergeDriver($manager->provider())
-            : new HeuristicConciergeDriver;
+        if (! $configured) {
+            return new HeuristicConciergeDriver;
+        }
+
+        return new ModelConciergeDriver($branch instanceof Branch ? $manager->provider($branch) : $manager->provider());
     }
 
     /**
@@ -117,6 +129,18 @@ class ConciergeService
 
         if ($this->isOptOut($body)) {
             $this->handleOptOut($thread);
+
+            return $inbound;
+        }
+
+        if (! $this->conciergeEntitled($branch)) {
+            $this->requestHandoff($thread, 'not_entitled');
+
+            return $inbound;
+        }
+
+        if ($this->isFlagged($branch, $body)) {
+            $this->requestHandoff($thread, 'content_flagged');
 
             return $inbound;
         }
@@ -182,9 +206,60 @@ class ConciergeService
 
     private function isOptOut(string $body): bool
     {
-        $normalized = mb_strtolower(trim((string) preg_replace('/\s+/', ' ', $body) ?? ''));
+        $normalized = mb_strtolower(trim(preg_replace('/\s+/', ' ', $body) ?? ''));
 
         return preg_match(self::OPT_OUT_PATTERN, $normalized) === 1;
+    }
+
+    /**
+     * SaaS tiering: the AI concierge module is a subscription entitlement
+     * (`channels.concierge`). Tenants without it keep human-only flows.
+     */
+    private function conciergeEntitled(Branch $branch): bool
+    {
+        return $this->entitlements->allows($branch->tenant_id, self::ENTITLEMENT_KEY);
+    }
+
+    /**
+     * Branch-configured content guard: guest turns mentioning a
+     * negative keyword are never answered by the AI and go straight to
+     * the human team.
+     */
+    private function isFlagged(Branch $branch, string $body): bool
+    {
+        $normalized = mb_strtolower(trim(preg_replace('/\s+/', ' ', $body) ?? ''));
+
+        foreach ($this->negativeKeywords($branch) as $keyword) {
+            if ($keyword === '') {
+                continue;
+            }
+
+            if (preg_match('/\b'.preg_quote($keyword, '/').'\b/i', $normalized) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function negativeKeywords(Branch $branch): array
+    {
+        $settings = $branch->settings;
+        $concierge = is_array($settings['concierge'] ?? null) ? $settings['concierge'] : [];
+        $ai = is_array($concierge['ai'] ?? null) ? $concierge['ai'] : [];
+        $raw = $ai['negative_keywords'] ?? [];
+        $keywords = [];
+
+        foreach ((array) $raw as $keyword) {
+            if (is_string($keyword) && trim($keyword) !== '') {
+                $keywords[] = mb_strtolower(trim($keyword));
+            }
+        }
+
+        return $keywords;
     }
 
     private function linkIdentity(ConciergeThread $thread, string $waId): void

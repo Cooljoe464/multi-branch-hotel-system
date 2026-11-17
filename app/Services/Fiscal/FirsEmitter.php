@@ -144,7 +144,7 @@ class FirsEmitter implements EInvoiceEmitter
         }
 
         if (! $this->allowVendorCall($branch, $error)) {
-            return $this->statusFailure($error);
+            return $this->statusFailure($error ?? 'FIRS status request is temporarily unavailable.');
         }
 
         $payload = ['reference' => $reference];
@@ -210,7 +210,7 @@ class FirsEmitter implements EInvoiceEmitter
         }
 
         if (! $this->allowVendorCall($branch, $error)) {
-            return $this->failedResult($error);
+            return $this->failedResult($error ?? 'FIRS credit note request is temporarily unavailable.');
         }
 
         $payload['originalInvoiceReference'] = $original->irn;
@@ -274,7 +274,20 @@ class FirsEmitter implements EInvoiceEmitter
             return ['ok' => false, 'documents' => [], 'error' => 'FIRS reconciliation response was malformed.'];
         }
 
-        return ['ok' => true, 'documents' => $documents, 'error' => null];
+        $normalizedDocuments = [];
+        foreach ($documents as $document) {
+            if (is_array($document)) {
+                $normalizedDocument = [];
+
+                foreach ($document as $key => $value) {
+                    $normalizedDocument[(string) $key] = $value;
+                }
+
+                $normalizedDocuments[] = $normalizedDocument;
+            }
+        }
+
+        return ['ok' => true, 'documents' => $normalizedDocuments, 'error' => null];
     }
 
     public function statusEndpoint(Branch $branch): ?string

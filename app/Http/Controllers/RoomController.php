@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Services\EntitlementService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -65,6 +68,19 @@ class RoomController extends Controller
 
         if ($roomType->branch_id !== (int) $user->branch_id && ! $user->is_global_admin) {
             abort(403, 'The selected room type does not belong to this property.');
+        }
+
+        $tenantId = Branch::query()->whereKey($user->branch_id)->value('tenant_id');
+        $tenantId = is_int($tenantId) ? $tenantId : null;
+
+        if ($tenantId !== null && app(EntitlementService::class)->limitExceeded(
+            $tenantId,
+            'limits.rooms.max',
+            Room::query()->whereIn('branch_id', Branch::query()->where('tenant_id', $tenantId)->select('id'))->count(),
+        )) {
+            throw ValidationException::withMessages([
+                'number' => 'The plan room limit has been reached. Upgrade the plan to add more rooms.',
+            ]);
         }
 
         $room = Room::create([

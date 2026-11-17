@@ -79,9 +79,9 @@ class FolioService
     /**
      * @param  array<string, mixed>|null  $metadata  Stored on the transaction (e.g. night-audit rate markers).
      */
-    public function postDebit(Folio $folio, string $category, string $description, int $amount, ?int $postedBy = null, ?int $taxRateBps = null, ?string $referenceType = null, ?int $referenceId = null, ?int $expectedVersion = null, ?int $taxProfileId = null, ?string $windowCode = null, ?string $journalEvent = null, ?array $metadata = null): Transaction
+    public function postDebit(Folio $folio, string $category, string $description, int $amount, ?int $postedBy = null, ?int $taxRateBps = null, ?string $referenceType = null, ?int $referenceId = null, ?int $expectedVersion = null, ?int $taxProfileId = null, ?string $windowCode = null, ?string $journalEvent = null, ?array $metadata = null, ?string $businessDate = null): Transaction
     {
-        return DB::transaction(function () use ($folio, $category, $description, $amount, $postedBy, $taxRateBps, $referenceType, $referenceId, $expectedVersion, $taxProfileId, $windowCode, $journalEvent, $metadata) {
+        return DB::transaction(function () use ($folio, $category, $description, $amount, $postedBy, $taxRateBps, $referenceType, $referenceId, $expectedVersion, $taxProfileId, $windowCode, $journalEvent, $metadata, $businessDate) {
             $lockedFolio = Folio::where('id', $folio->id)->lockForUpdate()->first();
 
             if (! $lockedFolio) {
@@ -92,6 +92,7 @@ class FolioService
                 throw new StaleModelException(Folio::class, $lockedFolio->id, $expectedVersion);
             }
 
+            $postingDate = $businessDate ?? (new BusinessDateService)->current($lockedFolio->branch)->business_date->toDateString();
             $taxAmount = 0;
             if ($taxRateBps !== null && $taxRateBps > 0) {
                 $taxAmount = (int) round($amount * $taxRateBps / 10000);
@@ -100,7 +101,7 @@ class FolioService
             $taxSnapshot = ['version' => 'legacy', 'rate_bps' => $taxRateBps];
 
             if ($taxProfileId !== null) {
-                $computed = $this->taxForProfile($lockedFolio, $taxProfileId, $category, $amount);
+                $computed = $this->taxForProfile($lockedFolio, $taxProfileId, $category, $amount, $postingDate);
                 $taxAmount = $computed['total_minor'];
                 $taxSnapshot = $computed['snapshot'];
             }
@@ -109,7 +110,7 @@ class FolioService
                 'folio_id' => $folio->id,
                 'folio_window_id' => $this->resolveWindow($lockedFolio, $category, $windowCode)->id,
                 'cashier_shift_id' => $this->openShiftId($postedBy, (int) $lockedFolio->branch_id),
-                'business_date' => (new BusinessDateService)->current($lockedFolio->branch)->business_date->toDateString(),
+                'business_date' => $postingDate,
                 'currency_code' => $folio->currency_code,
                 'type' => 'debit',
                 'category' => $category,
@@ -130,7 +131,7 @@ class FolioService
                 'version' => $lockedFolio->version + 1,
             ]);
 
-            $this->journalize($lockedFolio, $transaction, $journalEvent ?? 'charge.posted', $postedBy);
+            $this->journalize($lockedFolio, $transaction, $journalEvent ?? 'charge.posted', $postedBy, $postingDate);
 
             event(new TransactionPosted($lockedFolio, $transaction));
 
@@ -430,7 +431,7 @@ class FolioService
      * database transaction. The journal key derives from the transaction
      * id, so retried postings journal exactly once.
      */
-    private function journalize(Folio $folio, Transaction $transaction, string $event, ?int $postedBy): void
+    private function journalize(Folio $folio, Transaction $transaction, string $event, ?int $postedBy, ?string $businessDate = null): void
     {
         // Zero-amount folio lines (adjustments, comps) are legal on the
         // folio but carry no ledger movement, so they skip the journal.
@@ -446,7 +447,7 @@ class FolioService
 
         (new PostingService(new JournalService))->post(
             branch: $branch,
-            businessDate: (new BusinessDateService)->current($branch)->business_date->toDateString(),
+            businessDate: $businessDate ?? (new BusinessDateService)->current($branch)->business_date->toDateString(),
             event: $event,
             amountMinor: $transaction->amount,
             source: $transaction,
@@ -460,7 +461,7 @@ class FolioService
      *
      * @return array{total_minor: int, snapshot: array<string, mixed>}
      */
-    private function taxForProfile(Folio $folio, int $taxProfileId, string $category, int $amount): array
+    private function taxForProfile(Folio $folio, int $taxProfileId, string $category, int $amount, string $businessDate): array
     {
         $profile = TaxProfile::where('id', $taxProfileId)
             ->where('branch_id', $folio->branch_id)
@@ -469,7 +470,7 @@ class FolioService
 
         $taxService = new TaxService;
         $exempt = $taxService->exemptionsFor($folio->branch_id, $folio->reservation);
-        $computed = $taxService->compute($amount, $profile, $category, $exempt);
+        $computed = $taxService->compute($amount, $profile, $category, $exempt, $businessDate);
 
         return ['total_minor' => $computed['total_minor'], 'snapshot' => $computed['snapshot']];
     }

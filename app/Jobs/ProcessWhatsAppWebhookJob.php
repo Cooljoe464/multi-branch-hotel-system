@@ -44,7 +44,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             return;
         }
 
-        $service = ConciergeService::make();
+        $service = ConciergeService::make(null, $branch);
 
         foreach ($this->messages as $message) {
             $service->handleInbound($branch, $message, $this->contact);

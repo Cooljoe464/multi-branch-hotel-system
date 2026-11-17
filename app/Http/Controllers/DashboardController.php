@@ -5,16 +5,21 @@ namespace App\Http\Controllers;
 use App\Models\Room;
 use App\Services\AnalyticsService;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request): Response|RedirectResponse
     {
         $user = $request->user();
         abort_unless($user !== null, 401);
+
+        if ($user->is_global_admin && $user->branch_id === null) {
+            return redirect()->route('platform.subscriptions.index');
+        }
 
         $branch = $user->currentBranch;
         abort_unless($branch !== null, 403, 'No branch context set.');

@@ -24,7 +24,7 @@ class SetWebActorContext
             ? $request->string('email')->value()
             : null;
 
-        return app(TenantDatabaseContext::class)->run(
+        $response = app(TenantDatabaseContext::class)->run(
             $userId,
             null,
             function () use ($request, $next): Response {
@@ -39,5 +39,11 @@ class SetWebActorContext
             actorType: $userId === null ? 'guest' : 'user',
             loginEmail: $loginEmail !== '' ? $loginEmail : null,
         );
+
+        if (! $response instanceof Response) {
+            abort(500);
+        }
+
+        return $response;
     }
 }

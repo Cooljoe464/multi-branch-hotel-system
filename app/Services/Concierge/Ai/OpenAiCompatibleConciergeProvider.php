@@ -33,10 +33,13 @@ class OpenAiCompatibleConciergeProvider implements ConciergeAiProvider
             throw new RuntimeException('Concierge AI provider request failed.');
         }
 
-        $message = $response->json('choices.0.message') ?? [];
+        $message = $response->json('choices.0.message');
+        $message = is_array($message) ? $message : [];
         $text = is_string($message['content'] ?? null) ? $message['content'] : '';
 
-        return new ConciergeAiResponse($text, $this->toolCalls($message['tool_calls'] ?? []));
+        $toolCalls = $message['tool_calls'] ?? [];
+
+        return new ConciergeAiResponse($text, $this->toolCalls(is_array($toolCalls) ? $toolCalls : []));
     }
 
     /**
@@ -61,7 +64,7 @@ class OpenAiCompatibleConciergeProvider implements ConciergeAiProvider
     }
 
     /**
-     * @param  array<int, mixed>  $toolCalls
+     * @param  array<mixed>  $toolCalls
      * @return array<int, array<string, mixed>>
      */
     private function toolCalls(array $toolCalls): array
@@ -74,7 +77,8 @@ class OpenAiCompatibleConciergeProvider implements ConciergeAiProvider
             }
 
             $function = is_array($toolCall['function'] ?? null) ? $toolCall['function'] : [];
-            $decoded = json_decode((string) ($function['arguments'] ?? '{}'), true);
+            $arguments = $function['arguments'] ?? '{}';
+            $decoded = json_decode(is_string($arguments) ? $arguments : '{}', true);
 
             $out[] = [
                 'name' => is_string($function['name'] ?? null) ? $function['name'] : 'unknown',

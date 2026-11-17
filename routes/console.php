@@ -60,6 +60,7 @@ Schedule::job(new RunBillingCycleJob)->dailyAt('00:30')->onOneServer()->withoutO
 
 // ── Hotspot ─────────────────────────────────────
 Schedule::command('hotspot:expire-sessions')->everyFifteenMinutes()->onOneServer()->withoutOverlapping(10);
+Schedule::command('hotspot:sync-accounting')->everyFiveMinutes()->onOneServer()->withoutOverlapping(5);
 
 // ── Intelligence ──────────────────────────────
 Schedule::job(new AnomalyScanJob)->hourly()->onOneServer()->withoutOverlapping(50);

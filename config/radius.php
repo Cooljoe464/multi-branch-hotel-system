@@ -18,6 +18,7 @@ return [
 
     'timeout_secs' => (int) env('RADIUS_TIMEOUT', 3),
     'retries' => (int) env('RADIUS_RETRIES', 2),
+    'shared_secret' => env('RADIUS_SHARED_SECRET'),
 
     // Second DB connection name holding radcheck/radreply/radacct.
     'connection' => env('RADIUS_DB_CONNECTION', 'radius'),

@@ -86,6 +86,11 @@ class GenerateApiDocs extends Command
                     ['name' => 'to', 'in' => 'query', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'date']],
                 ],
             ],
+            'api.v1.reports.concierge' => [
+                'summary' => 'Concierge ROI report: deflection rate, revenue impact and sentiment trends.',
+                'abilities' => ['analytics.view'],
+                'parameters' => [$branchHeader],
+            ],
             'api.v1.webhooks.deliveries' => [
                 'summary' => 'List recent webhook deliveries for this consumer.',
                 'abilities' => ['webhooks.replay'],
@@ -125,6 +130,154 @@ class GenerateApiDocs extends Command
                 'abilities' => ['saas.view'],
                 'parameters' => [$branchHeader],
             ],
+            'public.v1.holds.store' => [
+                'summary' => 'Place a short-lived inventory hold from an unexpired, unused quote. Browser preflight identifies the key with the publishable_key query parameter.',
+                'security' => [['publicApiKey' => []]],
+                'abilities' => ['holds.create'],
+                'parameters' => [
+                    ['name' => 'X-API-Key', 'in' => 'header', 'required' => true, 'schema' => ['type' => 'string']],
+                    ['name' => 'publishable_key', 'in' => 'query', 'required' => false, 'description' => 'Use only on browser OPTIONS preflight; actual requests send X-API-Key.', 'schema' => ['type' => 'string']],
+                    $idempotencyHeader,
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'required' => ['quote_token', 'session_id'],
+                                'properties' => [
+                                    'quote_token' => ['type' => 'string'],
+                                    'session_id' => ['type' => 'string', 'maxLength' => 128],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'public.v1.properties.show' => [
+                'summary' => 'Return public property details for the property bound to this API key.',
+                'security' => [['publicApiKey' => []]],
+                'parameters' => [['name' => 'propertyId', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]],
+            ],
+            'public.v1.room-types.index' => [
+                'summary' => 'List active room types and public descriptive details for this property.',
+                'security' => [['publicApiKey' => []]],
+                'parameters' => [],
+            ],
+            'public.v1.availability' => [
+                'summary' => 'Check room-type availability for a future stay at the property bound to this key.',
+                'security' => [['publicApiKey' => []]],
+                'parameters' => [
+                    ['name' => 'room_type_id', 'in' => 'query', 'required' => true, 'schema' => ['type' => 'integer']],
+                    ['name' => 'check_in', 'in' => 'query', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'date']],
+                    ['name' => 'check_out', 'in' => 'query', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'date']],
+                ],
+            ],
+            'public.v1.quotes.store' => [
+                'summary' => 'Create an expiring rate and tax quote for a future stay.',
+                'security' => [['publicApiKey' => []]],
+                'parameters' => [$idempotencyHeader],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'required' => ['room_type_id', 'check_in', 'check_out'],
+                                'properties' => [
+                                    'room_type_id' => ['type' => 'integer'],
+                                    'rate_plan_id' => ['type' => 'integer'],
+                                    'check_in' => ['type' => 'string', 'format' => 'date'],
+                                    'check_out' => ['type' => 'string', 'format' => 'date'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'public.v1.holds.destroy' => [
+                'summary' => 'Release an inventory hold owned by the publishable API key. Browser preflight identifies the key with the publishable_key query parameter.',
+                'security' => [['publicApiKey' => []]],
+                'abilities' => ['holds.release'],
+                'parameters' => [
+                    ['name' => 'X-API-Key', 'in' => 'header', 'required' => true, 'schema' => ['type' => 'string']],
+                    ['name' => 'publishable_key', 'in' => 'query', 'required' => false, 'description' => 'Use only on browser OPTIONS preflight; actual requests send X-API-Key.', 'schema' => ['type' => 'string']],
+                    $idempotencyHeader,
+                ],
+            ],
+            'public.v1.payments.intents.store' => [
+                'summary' => 'Initialize hosted checkout for an active inventory hold using the property payment connection.',
+                'security' => [['publicApiKey' => []]],
+                'parameters' => [$idempotencyHeader],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'required' => ['hold_id', 'guest_name', 'guest_email', 'adults'],
+                                'properties' => [
+                                    'hold_id' => ['type' => 'integer'],
+                                    'guest_name' => ['type' => 'string', 'maxLength' => 128],
+                                    'guest_email' => ['type' => 'string', 'format' => 'email'],
+                                    'guest_phone' => ['type' => 'string', 'maxLength' => 32],
+                                    'adults' => ['type' => 'integer', 'minimum' => 1],
+                                    'children' => ['type' => 'integer', 'minimum' => 0],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'public.v1.reservations.show' => [
+                'summary' => 'Read a confirmed public booking using its one-time-issued booking access token.',
+                'security' => [['publicApiKey' => []]],
+                'parameters' => [
+                    ['name' => 'confirmationNumber', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ['name' => 'X-Booking-Token', 'in' => 'header', 'required' => true, 'schema' => ['type' => 'string']],
+                ],
+            ],
+            'public.v1.reservations.cancel' => [
+                'summary' => 'Cancel a public booking under the property cancellation policy and return any cancellation fee.',
+                'security' => [['publicApiKey' => []]],
+                'parameters' => [
+                    ['name' => 'confirmationNumber', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ['name' => 'X-Booking-Token', 'in' => 'header', 'required' => true, 'schema' => ['type' => 'string']],
+                    $idempotencyHeader,
+                ],
+            ],
+            'api.v1.sync.push' => [
+                'summary' => 'Push offline command envelopes and receive applied or conflict statuses.',
+                'abilities' => ['offline.sync'],
+                'parameters' => [$branchHeader, $idempotencyHeader],
+            ],
+            'api.v1.sync.pull' => [
+                'summary' => 'Pull command and provisional-stay status changes for an offline device.',
+                'abilities' => ['offline.sync'],
+                'parameters' => [$branchHeader],
+            ],
+            'api.v1.sync.override-token' => [
+                'summary' => 'Issue a single-use, expiring manager override token for a conflict.',
+                'abilities' => ['reservations.checkin'],
+                'parameters' => [$branchHeader, $idempotencyHeader],
+            ],
+            'api.v1.edge.heartbeat' => [
+                'summary' => 'Record an edge-agent heartbeat after protocol compatibility validation.',
+                'abilities' => ['edge.heartbeat'],
+                'parameters' => [
+                    ['name' => 'Authorization', 'in' => 'header', 'required' => true, 'schema' => ['type' => 'string']],
+                    ['name' => 'X-Edge-Protocol', 'in' => 'header', 'required' => true, 'schema' => ['type' => 'string']],
+                ],
+            ],
+            'api.v1.edge.policy' => [
+                'summary' => 'Return the current and accepted previous edge protocol versions.',
+                'abilities' => ['edge.policy'],
+                'parameters' => [
+                    ['name' => 'Authorization', 'in' => 'header', 'required' => true, 'schema' => ['type' => 'string']],
+                    ['name' => 'X-Edge-Protocol', 'in' => 'header', 'required' => true, 'schema' => ['type' => 'string']],
+                ],
+            ],
         ];
     }
 
@@ -136,7 +289,7 @@ class GenerateApiDocs extends Command
         $names = [];
         foreach (Route::getRoutes()->getRoutes() as $route) {
             $name = $route->getName();
-            if (is_string($name) && str_starts_with($name, 'api.v1.')) {
+            if (is_string($name) && (str_starts_with($name, 'api.v1.') || str_starts_with($name, 'public.v1.'))) {
                 $names[] = $name;
             }
         }
@@ -151,7 +304,7 @@ class GenerateApiDocs extends Command
         foreach (Route::getRoutes()->getRoutes() as $route) {
             $name = $route->getName();
 
-            if (! is_string($name) || ! str_starts_with($name, 'api.v1.')) {
+            if (! is_string($name) || (! str_starts_with($name, 'api.v1.') && ! str_starts_with($name, 'public.v1.'))) {
                 continue;
             }
 
@@ -172,30 +325,45 @@ class GenerateApiDocs extends Command
                     continue;
                 }
 
+                $responses = [
+                    '200' => ['description' => 'OK'],
+                    '201' => ['description' => 'Created'],
+                    '401' => ['description' => 'Missing, invalid, or expired token.'],
+                    '403' => ['description' => 'Scope or branch outside the token.'],
+                    '404' => ['description' => 'Unknown id at this property.'],
+                    '422' => ['description' => 'Validation failed or idempotency key missing.'],
+                ];
+
+                if (str_starts_with($name, 'api.v1.edge.')) {
+                    $responses['426'] = ['description' => 'Unsupported protocol version; response includes current and supported versions.'];
+                }
+
                 $paths[$uri][$verb] = [
                     'operationId' => $name,
                     'summary' => $spec['summary'],
-                    'security' => [['bearerAuth' => $spec['abilities']]],
+                    'security' => $spec['security'] ?? [['bearerAuth' => $spec['abilities']]],
                     'parameters' => $spec['parameters'],
-                    'responses' => [
-                        '200' => ['description' => 'OK'],
-                        '201' => ['description' => 'Created'],
-                        '401' => ['description' => 'Missing, invalid, or expired token.'],
-                        '403' => ['description' => 'Scope or branch outside the token.'],
-                        '404' => ['description' => 'Unknown id at this property.'],
-                        '422' => ['description' => 'Validation failed or idempotency key missing.'],
-                    ],
+                    'responses' => $responses,
                 ];
+
+                if (isset($spec['requestBody'])) {
+                    $paths[$uri][$verb]['requestBody'] = $spec['requestBody'];
+                }
+
+                if (str_starts_with($name, 'public.v1.')) {
+                    $paths[$uri][$verb]['servers'] = [['url' => '/']];
+                }
             }
         }
 
         $document = [
             'openapi' => '3.1.0',
-            'info' => ['title' => 'Hotel PMS Partner API', 'version' => '1'],
+            'info' => ['title' => 'Hotel PMS and Public API', 'version' => '1'],
             'servers' => [['url' => '/api']],
             'components' => [
                 'securitySchemes' => [
                     'bearerAuth' => ['type' => 'http', 'scheme' => 'bearer', 'description' => 'Sanctum consumer token.'],
+                    'publicApiKey' => ['type' => 'apiKey', 'in' => 'header', 'name' => 'X-API-Key', 'description' => 'Branch-scoped public API key.'],
                 ],
             ],
             'paths' => $paths,

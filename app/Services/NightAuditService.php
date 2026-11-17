@@ -224,51 +224,89 @@ class NightAuditService
      */
     private function postRoomChargeLines(Branch $branch, Reservation $reservation, string $date): array
     {
-        $folio = Folio::where('reservation_id', $reservation->id)->first();
-        $folioService = new FolioService;
+        return DB::transaction(function () use ($branch, $reservation, $date): array {
+            $lockedReservation = Reservation::query()
+                ->whereKey($reservation->id)
+                ->lockForUpdate()
+                ->with('room')
+                ->firstOrFail();
+            $folio = Folio::query()->where('reservation_id', $lockedReservation->id)->lockForUpdate()->first();
+            $folioService = new FolioService;
 
-        if (! $folio) {
-            $folio = $folioService->createFolio($branch->id, $reservation->id, null, "Guest Folio: {$reservation->guest_name}");
-        }
+            if (! $folio) {
+                $folio = $folioService->createFolio(
+                    $branch->id,
+                    $lockedReservation->id,
+                    null,
+                    "Guest Folio: {$lockedReservation->guest_name}",
+                );
+            }
 
-        $alreadyPosted = Transaction::where('folio_id', $folio->id)
-            ->where('business_date', $date)
-            ->where('is_voided', false)
-            ->where(fn ($query) => $query
-                ->where('metadata->rate_night', $date)
-                // Legacy rows predate the rate_night marker; plain rates
-                // always posted a single room_rate line.
-                ->orWhere(fn ($legacy) => $legacy->whereNull('metadata')->where('category', 'room_rate')))
-            ->exists();
+            // Legacy plain-rate rows have no component marker. Preserve their
+            // historical one-line behavior without suppressing new package lines.
+            $legacyPlainRate = Transaction::query()
+                ->where('folio_id', $folio->id)
+                ->where('business_date', $date)
+                ->where('is_voided', false)
+                ->whereNull('metadata')
+                ->where('category', 'room_rate')
+                ->exists();
 
-        if ($alreadyPosted) {
-            return [];
-        }
+            if ($legacyPlainRate) {
+                return [];
+            }
 
-        $taxRateBps = (int) ($branch->tax_rate * 100);
-        $roomNumber = $reservation->room->number ?? 'N/A';
-        $components = $this->componentsForNight($reservation, $date);
+            $taxRateBps = (int) ($branch->tax_rate * 100);
+            $roomNumber = $lockedReservation->room->number ?? 'N/A';
+            $components = $this->componentsForNight($lockedReservation, $date);
+            $seenCodes = [];
+            $postedLines = [];
 
-        $charges = [];
-        foreach ($components as $component) {
-            $isRoom = $component['category'] === 'room_rate';
+            foreach ($components as $index => $component) {
+                $lineSequence = $index + 1;
+                $code = $component['code'];
+                $seenCodes[$code] = ($seenCodes[$code] ?? 0) + 1;
+                $existingLines = Transaction::query()
+                    ->where('folio_id', $folio->id)
+                    ->where('business_date', $date)
+                    ->where('is_voided', false)
+                    ->where('metadata->rate_night', $date)
+                    ->where('metadata->rate_component', $code)
+                    ->orderBy('id')
+                    ->get(['id', 'metadata']);
 
-            $charges[] = $folioService->postDebit(
-                $folio,
-                $component['category'],
-                $isRoom
-                    ? "Room charge: {$roomNumber} - {$date}"
-                    : "{$component['label']}: {$roomNumber} - {$date}",
-                $component['amount_minor'],
-                null,
-                $isRoom ? $taxRateBps : 0,
-                referenceType: null,
-                referenceId: null,
-                metadata: ['rate_night' => $date, 'rate_component' => $component['code']],
-            );
-        }
+                $hasExactLine = $existingLines->contains(fn (Transaction $line): bool => ($line->metadata['line_seq'] ?? null) === $lineSequence
+                );
+                $legacyOccurrence = $existingLines->filter(fn (Transaction $line): bool => ! isset($line->metadata['line_seq'])
+                )->count() >= $seenCodes[$code];
 
-        return $charges;
+                if ($hasExactLine || $legacyOccurrence) {
+                    continue;
+                }
+
+                $isRoom = $component['category'] === 'room_rate';
+                $postedLines[] = $folioService->postDebit(
+                    $folio,
+                    $component['category'],
+                    $isRoom
+                        ? "Room charge: {$roomNumber} - {$date}"
+                        : "{$component['label']}: {$roomNumber} - {$date}",
+                    $component['amount_minor'],
+                    null,
+                    $isRoom ? $taxRateBps : 0,
+                    referenceType: null,
+                    referenceId: null,
+                    metadata: [
+                        'rate_night' => $date,
+                        'rate_component' => $code,
+                        'line_seq' => $lineSequence,
+                    ],
+                    businessDate: $date,
+                );
+            }
+
+            return $postedLines;
+        }, 3);
     }
 
     /**

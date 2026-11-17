@@ -162,9 +162,13 @@ class TenantDatabaseContext
     {
         $context = $connection->selectOne("select current_setting('app.user_id', true) as user_id, current_setting('app.tenant_id', true) as tenant_id, current_setting('app.actor_type', true) as actor_type, current_setting('app.is_global_admin', true) as is_global_admin, current_setting('app.branch_id', true) as branch_id, current_setting('app.login_email', true) as login_email");
 
+        if (! $context instanceof \stdClass) {
+            return ['user_id' => null, 'tenant_id' => null, 'actor_type' => 'user', 'is_global_admin' => false, 'branch_id' => null, 'login_email' => null];
+        }
+
         return [
-            'user_id' => $context->user_id === '' ? null : $context->user_id,
-            'tenant_id' => $context->tenant_id === '' ? null : $context->tenant_id,
+            'user_id' => is_string($context->user_id) && $context->user_id !== '' ? $context->user_id : null,
+            'tenant_id' => is_string($context->tenant_id) && $context->tenant_id !== '' ? $context->tenant_id : null,
             'actor_type' => is_string($context->actor_type) && $context->actor_type !== '' ? $context->actor_type : 'user',
             'is_global_admin' => in_array($context->is_global_admin, [true, 1, '1', 't', 'true'], true),
             'branch_id' => is_string($context->branch_id) && $context->branch_id !== '' ? $context->branch_id : null,

@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\Payments\FlutterwaveDriver;
 use App\Services\Payments\PaystackDriver;
 
 return [
@@ -18,6 +19,7 @@ return [
 
     'drivers' => [
         'paystack' => PaystackDriver::class,
+        'flutterwave' => FlutterwaveDriver::class,
     ],
 
 ];

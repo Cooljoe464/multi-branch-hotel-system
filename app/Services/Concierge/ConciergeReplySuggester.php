@@ -56,7 +56,7 @@ class ConciergeReplySuggester
 
     private function systemPrompt(ConciergeThread $thread): string
     {
-        $branchName = $thread->branch?->name ?? 'this branch';
+        $branchName = $thread->branch->name;
 
         $entries = ConciergeKbEntry::forBranch($thread->branch_id)
             ->active()

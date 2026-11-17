@@ -2,15 +2,53 @@
 
 use App\Models\Branch;
 use App\Models\Folio;
+use App\Models\OverbookingAllowance;
+use App\Models\PublicApiQuote;
+use App\Models\RatePlan;
 use App\Models\Reservation;
 use App\Models\Room;
+use App\Models\RoomType;
+use App\Models\Supplier;
+use App\Models\SupplierInputVatInvoice;
 use App\Models\Task;
+use App\Models\TaxRuleVersion;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\PublicApiKeyService;
+use App\Support\TenantDatabaseContext;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
+
+function withRlsRuntimeRole(callable $callback): mixed
+{
+    $role = DB::selectOne(<<<'SQL'
+        SELECT rolname
+        FROM pg_roles
+        WHERE NOT rolsuper
+            AND NOT rolbypassrls
+            AND has_table_privilege(rolname, 'public.public_api_quotes', 'SELECT')
+            AND has_table_privilege(rolname, 'public.overbooking_allowances', 'SELECT')
+            AND has_table_privilege(rolname, 'public.supplier_input_vat_invoices', 'SELECT')
+        ORDER BY CASE WHEN rolname = 'hotel_app' THEN 0 ELSE 1 END, rolname
+        LIMIT 1
+        SQL);
+
+    if (! is_object($role) || ! is_string($role->rolname ?? null)) {
+        test()->markTestSkipped('No non-BYPASSRLS runtime role has access to the tenant-scoped tables.');
+    }
+
+    $roleName = str_replace('"', '""', $role->rolname);
+    DB::statement('SET LOCAL ROLE "'.$roleName.'"');
+
+    try {
+        return $callback();
+    } finally {
+        DB::statement('RESET ROLE');
+    }
+}
 
 beforeEach(function () {
     $this->seed(RoleSeeder::class);
@@ -27,7 +65,7 @@ beforeEach(function () {
     $this->frontDeskA->branches()->syncWithoutDetaching([$this->branchA->id]);
 });
 
-test('branch gm from branch a cannot view reservation from branch b', function () {
+test('AC-033 branch gm from branch a cannot view reservation from branch b', function () {
     $reservationB = Reservation::factory()->confirmed()->create([
         'branch_id' => $this->branchB->id,
     ]);
@@ -264,4 +302,117 @@ test('front desk cannot access cross-branch search', function () {
     $this->actingAs($this->frontDeskA)
         ->get("/reservations/cross-branch/search{$query}")
         ->assertForbidden();
+});
+
+test('AC-033 public API quotes stay isolated between tenant database contexts', function () {
+    $roomType = RoomType::factory()->create(['branch_id' => $this->branchB->id]);
+    $ratePlan = RatePlan::factory()->forBranch($this->branchB->id)->create([
+        'valid_from' => now()->subYear()->toDateString(),
+        'valid_to' => null,
+    ]);
+    $apiKey = app(PublicApiKeyService::class)->issue($this->branchB, ['scopes' => ['availability.view']])['key'];
+    $quote = PublicApiQuote::factory()->forBooking($apiKey, $roomType, $ratePlan)->create();
+    $tenantContext = app(TenantDatabaseContext::class);
+
+    $visibleToTenantA = $tenantContext->run(
+        null,
+        $this->branchA->tenant_id,
+        fn (): bool => withRlsRuntimeRole(fn (): bool => PublicApiQuote::query()->whereKey($quote->id)->exists()),
+        actorType: 'test',
+    );
+    $visibleToTenantB = $tenantContext->run(
+        null,
+        $this->branchB->tenant_id,
+        fn (): bool => PublicApiQuote::query()->whereKey($quote->id)->exists(),
+        actorType: 'test',
+    );
+
+    expect($visibleToTenantA)->toBeFalse()
+        ->and($visibleToTenantB)->toBeTrue();
+});
+
+test('AC-033 overbooking allowances remain tenant isolated under pooled database contexts', function () {
+    $roomType = RoomType::factory()->create(['branch_id' => $this->branchB->id]);
+    $creator = User::factory()->create(['branch_id' => $this->branchB->id]);
+    $allowance = OverbookingAllowance::factory()->create([
+        'tenant_id' => $this->branchB->tenant_id,
+        'branch_id' => $this->branchB->id,
+        'room_type_id' => $roomType->id,
+        'created_by' => $creator->id,
+    ]);
+    $tenantContext = app(TenantDatabaseContext::class);
+
+    $visibleToTenantA = $tenantContext->run(
+        null,
+        $this->branchA->tenant_id,
+        fn (): bool => withRlsRuntimeRole(fn (): bool => OverbookingAllowance::query()->whereKey($allowance->id)->exists()),
+        actorType: 'test',
+    );
+    $visibleToTenantB = $tenantContext->run(
+        null,
+        $this->branchB->tenant_id,
+        fn (): bool => OverbookingAllowance::query()->whereKey($allowance->id)->exists(),
+        actorType: 'test',
+    );
+
+    expect($visibleToTenantA)->toBeFalse()
+        ->and($visibleToTenantB)->toBeTrue();
+});
+
+test('AC-033 effective tax rules remain isolated between tenant database contexts', function () {
+    $rule = TaxRuleVersion::query()->create([
+        'tenant_id' => $this->branchB->tenant_id,
+        'branch_id' => $this->branchB->id,
+        'rule_key' => 'tax_component.VAT.rate_bps',
+        'value' => ['rate_bps' => 750],
+        'effective_from' => now()->toDateString(),
+        'evidence_snapshot' => ['source' => 'fixture'],
+        'approval_reference' => 'TEST-TAX-APPROVAL',
+    ]);
+    $tenantContext = app(TenantDatabaseContext::class);
+
+    $visibleToTenantA = $tenantContext->run(
+        null,
+        $this->branchA->tenant_id,
+        fn (): bool => withRlsRuntimeRole(fn (): bool => TaxRuleVersion::query()->whereKey($rule->id)->exists()),
+        actorType: 'test',
+    );
+    $visibleToTenantB = $tenantContext->run(
+        null,
+        $this->branchB->tenant_id,
+        fn (): bool => TaxRuleVersion::query()->whereKey($rule->id)->exists(),
+        actorType: 'test',
+    );
+
+    expect($visibleToTenantA)->toBeFalse()
+        ->and($visibleToTenantB)->toBeTrue();
+});
+
+test('AC-033 supplier input VAT invoices remain isolated between tenant database contexts', function () {
+    $supplier = Supplier::query()->create([
+        'branch_id' => $this->branchB->id,
+        'name' => 'Tenant B Supplier',
+    ]);
+    $invoice = SupplierInputVatInvoice::factory()->create([
+        'tenant_id' => $this->branchB->tenant_id,
+        'branch_id' => $this->branchB->id,
+        'supplier_id' => $supplier->id,
+    ]);
+    $tenantContext = app(TenantDatabaseContext::class);
+
+    $visibleToTenantA = $tenantContext->run(
+        null,
+        $this->branchA->tenant_id,
+        fn (): bool => withRlsRuntimeRole(fn (): bool => SupplierInputVatInvoice::query()->whereKey($invoice->id)->exists()),
+        actorType: 'test',
+    );
+    $visibleToTenantB = $tenantContext->run(
+        null,
+        $this->branchB->tenant_id,
+        fn (): bool => SupplierInputVatInvoice::query()->whereKey($invoice->id)->exists(),
+        actorType: 'test',
+    );
+
+    expect($visibleToTenantA)->toBeFalse()
+        ->and($visibleToTenantB)->toBeTrue();
 });

@@ -11,10 +11,11 @@ use App\Models\Task;
 use App\Models\Transaction;
 use App\Services\AvailabilityService;
 use App\Services\FolioService;
+use App\Services\NightAuditService;
 use App\Services\RoomMoveService;
-use Carbon\Carbon;
 use Database\Seeders\ChartSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -59,7 +60,7 @@ beforeEach(function () {
     $this->service = app(RoomMoveService::class);
 });
 
-it('moves future nights, preserves history and folio totals', function () {
+it('AC-036 moves future nights, preserves history and folio totals', function () {
     Http::fake(['*' => Http::response(['card_id' => 'CARD-1'], 200)]);
 
     $folio = (new FolioService)->createFolio($this->branch->id, $this->reservation->id, null, 'Guest Folio');
@@ -91,6 +92,34 @@ it('moves future nights, preserves history and folio totals', function () {
 
     expect(Task::where('room_id', $this->oldRoom->id)->where('type', 'turnover')->exists())->toBeTrue();
     expect(Task::where('room_id', $this->newRoom->id)->where('type', 'inspection')->exists())->toBeTrue();
+});
+
+it('AC-036 uses the property business date when a room move crosses UTC midnight', function () {
+    Http::fake(['*' => Http::response(['card_id' => 'CARD-1'], 200)]);
+    $utcDate = Carbon::now('UTC')->toDateString();
+    $this->travelTo(Carbon::parse($utcDate.' 23:30:00', 'UTC'));
+
+    $this->service->move($this->reservation, $this->newRoom, $this->user);
+
+    $propertyDate = Carbon::now('Africa/Lagos')->toDateString();
+    $pastAndCurrentNights = ReservationNight::forReservation($this->reservation->id)
+        ->where('stay_date', '<', $propertyDate)
+        ->pluck('room_id')->unique()->all();
+    $remainingNights = ReservationNight::forReservation($this->reservation->id)
+        ->where('stay_date', '>=', $propertyDate)
+        ->pluck('room_id')->unique()->all();
+
+    expect($pastAndCurrentNights)->toBe([$this->oldRoom->id])
+        ->and($remainingNights)->toBe([$this->newRoom->id]);
+
+    $audit = (new NightAuditService)->forBranch($this->branch);
+    $businessDate = Carbon::parse($propertyDate);
+    expect($audit->postRoomCharges($businessDate)['posted'])->toBe(1)
+        ->and($audit->postRoomCharges($businessDate)['posted'])->toBe(0)
+        ->and(Transaction::where('business_date', $propertyDate)
+            ->where('category', 'room_rate')
+            ->where('description', "Room charge: {$this->newRoom->number} - {$propertyDate}")
+            ->count())->toBe(1);
 });
 
 it('rejects moves into occupied rooms', function () {
@@ -127,7 +156,7 @@ it('rolls everything back when key reissue fails', function () {
     expect(ReservationMove::count())->toBe(0);
 });
 
-it('serializes concurrent moves and replays idempotently', function () {
+it('AC-037 serializes concurrent moves and replays idempotently', function () {
     Http::fake(['*' => Http::response(['card_id' => 'CARD-1'], 200)]);
 
     $third = Room::factory()->create([

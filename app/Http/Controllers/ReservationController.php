@@ -31,6 +31,7 @@ use App\Services\RateEngine;
 use App\Services\TabletService;
 use App\Services\UpsellService;
 use App\Services\WifiService;
+use App\Support\BranchTime;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
@@ -455,11 +456,15 @@ class ReservationController extends Controller
             return back()->withErrors(['status' => 'This reservation cannot be checked in.']);
         }
 
+        $room = $reservation->room;
+
         // Front desk picks the room at check-in time when none is assigned.
         if (! $reservation->room_id) {
             $requestedRoomId = $request->integer('room_id');
 
             if ($requestedRoomId <= 0) {
+                $this->flagRelocationWhenNoRoomIsAvailable($reservation);
+
                 return back()->withErrors(['room_id' => 'No room assigned to this reservation.']);
             }
 
@@ -470,20 +475,25 @@ class ReservationController extends Controller
             }
 
             if (! in_array($candidate->status, ['available', 'reserved'])) {
+                if ($this->flagRelocationWhenNoRoomIsAvailable($reservation)) {
+                    return back()->withErrors(['room_id' => 'No physical room is available. This overbooked stay requires relocation.']);
+                }
+
                 return back()->withErrors(['room_id' => 'This room is not available.']);
             }
 
-            $reservation->update(['room_id' => $candidate->id]);
-            $reservation->load(['branch', 'room', 'guest']);
+            $room = $candidate;
         }
-
-        $room = $reservation->room;
 
         if (! $room || $room->branch_id !== $reservation->branch_id) {
             abort(403, 'The assigned room does not belong to this property.');
         }
 
         if (! in_array($room->status, ['available', 'reserved'])) {
+            if ($this->flagRelocationWhenNoRoomIsAvailable($reservation)) {
+                return back()->withErrors(['room_id' => 'No physical room is available. This overbooked stay requires relocation.']);
+            }
+
             return back()->withErrors(['room_id' => 'This room is not available.']);
         }
 
@@ -495,6 +505,10 @@ class ReservationController extends Controller
             ->exists();
 
         if ($hasOverlap) {
+            if ($this->flagRelocationWhenNoRoomIsAvailable($reservation)) {
+                return back()->withErrors(['room_id' => 'No physical room is available. This overbooked stay requires relocation.']);
+            }
+
             return back()->withErrors(['room_id' => 'This room is already booked for the reservation dates.']);
         }
 
@@ -502,13 +516,14 @@ class ReservationController extends Controller
             (new AvailabilityService)->setRoomForRemainingNights(
                 $reservation,
                 $room,
-                now()->toDateString(),
+                BranchTime::today($reservation->branch),
             );
         } catch (AvailabilityException $e) {
             return back()->withErrors(['room_id' => $e->getMessage()]);
         }
 
         $reservation->update([
+            'room_id' => $room->id,
             'status' => 'checked_in',
             'actual_check_in_at' => now(),
         ]);
@@ -661,6 +676,42 @@ class ReservationController extends Controller
         }
 
         return $this->flashSuccess('Guest checked out from room '.$reservation->room?->number.'.');
+    }
+
+    private function flagRelocationWhenNoRoomIsAvailable(Reservation $reservation): bool
+    {
+        if (! $reservation->overbooked) {
+            return false;
+        }
+
+        $occupiedRoomIds = Reservation::query()
+            ->where('branch_id', $reservation->branch_id)
+            ->where('id', '!=', $reservation->id)
+            ->whereNotNull('room_id')
+            ->whereIn('status', ['pending', 'confirmed', 'reserved', 'checked_in'])
+            ->where('check_in_date', '<', $reservation->check_out_date)
+            ->where('check_out_date', '>', $reservation->check_in_date)
+            ->pluck('room_id');
+
+        $roomAvailable = Room::query()
+            ->where('branch_id', $reservation->branch_id)
+            ->where('room_type_id', $reservation->room_type_id)
+            ->where('is_active', true)
+            ->whereIn('status', ['available', 'reserved'])
+            ->whereNotIn('id', $occupiedRoomIds)
+            ->exists();
+
+        if ($roomAvailable) {
+            return false;
+        }
+
+        $reservation->update(['metadata' => array_merge($reservation->metadata ?? [], [
+            'relocation_required' => true,
+            'relocation_reason' => 'No compatible physical room was available at arrival.',
+            'relocation_flagged_at' => now()->toIso8601String(),
+        ])]);
+
+        return true;
     }
 
     public function cancel(Request $request, Reservation $reservation): RedirectResponse

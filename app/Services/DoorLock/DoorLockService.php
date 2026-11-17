@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\DoorLockAuditLog;
 use App\Models\DoorLockGateway;
 use App\Models\Reservation;
+use App\Services\EntitlementService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -22,6 +23,7 @@ class DoorLockService
         'salto' => SaltoProvider::class,
         'duowin' => DuowinProvider::class,
         'dormakaba' => DormakabaProvider::class,
+        'ttlock' => TTLockProvider::class,
     ];
 
     public function forBranch(Branch $branch): self
@@ -40,7 +42,7 @@ class DoorLockService
             throw new \RuntimeException('No active door lock gateway configured for branch: '.$branch->name);
         }
 
-        $provider = $this->getProvider($gateway);
+        $provider = $this->getProvider($gateway, $branch);
 
         $room = $reservation->room;
         if (! $room) {
@@ -92,7 +94,7 @@ class DoorLockService
             throw new \RuntimeException('No successful key issuance found for reservation '.$reservation->confirmation_number);
         }
 
-        $provider = $this->getProvider($gateway);
+        $provider = $this->getProvider($gateway, $branch);
 
         $revokeLog = DoorLockAuditLog::create([
             'branch_id' => $branch->id,
@@ -171,12 +173,17 @@ class DoorLockService
             ->first();
     }
 
-    private function getProvider(DoorLockGateway $gateway): LockProvider
+    private function getProvider(DoorLockGateway $gateway, Branch $branch): LockProvider
     {
         $providerClass = self::$providers[$gateway->provider] ?? null;
 
         if (! $providerClass || ! class_exists($providerClass)) {
             throw new \RuntimeException("Unsupported lock provider: {$gateway->provider}");
+        }
+
+        $entitlement = 'locks.provider.'.$gateway->provider;
+        if (! app(EntitlementService::class)->allows($branch->tenant_id, $entitlement)) {
+            throw new \RuntimeException("The subscription does not include lock provider [{$gateway->provider}].");
         }
 
         return new $providerClass;

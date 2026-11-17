@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $posted_by
  * @property bool $is_taxable
  * @property int $tax_amount
+ * @property array<string, mixed>|null $tax_snapshot
  * @property bool $is_voided
  * @property Carbon|null $business_date
  * @property Carbon|null $voided_at

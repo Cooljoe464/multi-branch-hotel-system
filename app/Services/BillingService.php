@@ -22,18 +22,21 @@ class BillingService
     public function generateInvoice(Subscription $subscription, CarbonInterface $periodStart): ?BillingInvoice
     {
         $periodStart = $periodStart->copy()->startOfMonth();
-        $subscription->loadMissing('plan');
-        $plan = $subscription->plan;
 
-        if ($plan->monthly_price_minor === 0) {
-            return null;
-        }
+        return DB::transaction(function () use ($subscription, $periodStart): ?BillingInvoice {
+            $lockedSubscription = Subscription::query()
+                ->with('plan')
+                ->whereKey($subscription->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $plan = $lockedSubscription->plan;
 
-        return DB::transaction(function () use ($subscription, $periodStart, $plan): BillingInvoice {
-            Subscription::query()->whereKey($subscription->id)->lockForUpdate()->first();
+            if ($plan->monthly_price_minor === 0) {
+                return null;
+            }
 
             $existing = BillingInvoice::query()
-                ->where('subscription_id', $subscription->id)
+                ->where('subscription_id', $lockedSubscription->id)
                 ->whereDate('period_start', $periodStart->toDateString())
                 ->first();
 
@@ -46,8 +49,8 @@ class BillingService
             $issuedAt = now();
 
             $invoice = BillingInvoice::create([
-                'tenant_id' => $subscription->tenant_id,
-                'subscription_id' => $subscription->id,
+                'tenant_id' => $lockedSubscription->tenant_id,
+                'subscription_id' => $lockedSubscription->id,
                 'number' => sprintf(
                     '%s-%s-%d',
                     config()->string('billing.invoice_prefix'),
@@ -66,7 +69,7 @@ class BillingService
             ]);
 
             $invoice->lines()->create([
-                'tenant_id' => $subscription->tenant_id,
+                'tenant_id' => $lockedSubscription->tenant_id,
                 'description' => $plan->name.' plan, '.$periodStart->format('F Y'),
                 'quantity' => 1,
                 'unit_amount_minor' => $subtotal,

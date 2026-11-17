@@ -25,10 +25,16 @@ return new class extends Migration
             ->orderBy('id')
             ->chunkById(100, function ($branches): void {
                 foreach ($branches as $branch) {
+                    $branchId = filter_var($branch->id ?? null, FILTER_VALIDATE_INT);
+
+                    if (! is_int($branchId)) {
+                        throw new RuntimeException('A legacy branch has an invalid ID.');
+                    }
+
                     $createdAt = $branch->created_at ?? now();
                     $tenantId = DB::table('tenants')->insertGetId([
                         'name' => $branch->name,
-                        'slug' => 'legacy-property-'.$branch->id,
+                        'slug' => 'legacy-property-'.$branchId,
                         'billing_email' => $branch->email,
                         'country' => $branch->country,
                         'metadata' => json_encode([

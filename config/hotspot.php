@@ -23,5 +23,8 @@ return [
 
     'queue' => env('HOTSPOT_QUEUE', 'network'),
 
+    'mikrotik_fake' => (bool) env('MIKROTIK_FAKE', true),
+    'mikrotik_timeout' => (int) env('MIKROTIK_TIMEOUT', 5),
+
     'voucher_length' => (int) env('HOTSPOT_VOUCHER_LENGTH', 12),
 ];

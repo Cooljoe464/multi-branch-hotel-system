@@ -7,10 +7,12 @@ use App\Models\ConciergeMessage;
 use App\Models\ConciergeThread;
 use App\Models\Consent;
 use App\Models\Guest;
+use App\Models\Plan;
 use App\Models\RatePlan;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Models\Subscription;
 use App\Models\UpsellAcceptance;
 use App\Models\UpsellOffer;
 use App\Services\Concierge\Ai\ConciergeAiProvider;
@@ -360,6 +362,146 @@ it('answers from the branch knowledge base through the model-backed concierge dr
         ->toContain('AI assistant');
 
     expect($thread->messages()->where('role', ConciergeMessage::ROLE_GUEST)->count())->toBe(1);
+});
+
+it('answers branch-scoped concierge turns with the branch ai provider override', function () {
+    $branch = conciergeBranch([
+        'settings' => [
+            'whatsapp' => [
+                'enabled' => true,
+                'phone_number_id' => '123456789012345',
+                'waba_id' => '098765432109876',
+                'verify_token' => 'verify-me',
+                'access_token_enc' => 'enc:'.Crypt::encryptString('test-access-token'),
+                'app_secret_enc' => 'enc:'.Crypt::encryptString('test-app-secret'),
+            ],
+            'concierge' => ['ai' => ['provider' => 'anthropic', 'model' => 'claude-3-5-haiku-latest']],
+        ],
+    ]);
+
+    $entry = ConciergeKbEntry::create([
+        'branch_id' => $branch->id,
+        'topic' => 'Wi-Fi',
+        'question' => 'What is the Wi-Fi password?',
+        'answer' => 'Connect to GUEST-WIFI with password HOTEL2026.',
+        'keywords' => ['wifi', 'internet', 'password'],
+        'active' => true,
+    ]);
+
+    config([
+        'services.concierge_ai.providers.anthropic' => [
+            'base_url' => 'https://api.anthropic.com',
+            'api_key' => 'test-key',
+            'model' => 'claude-3-5-haiku-latest',
+        ],
+    ]);
+
+    Http::fake([
+        'graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.outbound']]], 200),
+        'api.anthropic.com/*' => Http::response([
+            'content' => [
+                ['type' => 'text', 'text' => '{"intent":"faq","confidence":0.9,"kb_entry_id":'.$entry->id.',"args":[]}'],
+            ],
+        ], 200),
+    ]);
+
+    ConciergeService::make(null, $branch)->handleInbound($branch, [
+        'from' => $this->waId,
+        'id' => 'wamid.branchai.1',
+        'type' => 'text',
+        'text' => ['body' => 'What is the wifi password?'],
+    ]);
+
+    $thread = ConciergeThread::where('whatsapp_wa_id', $this->waId)->firstOrFail();
+    $reply = $thread->messages()->where('role', ConciergeMessage::ROLE_ASSISTANT)->firstOrFail();
+
+    expect($reply->body)
+        ->toContain('GUEST-WIFI')
+        ->toContain('AI assistant');
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'api.anthropic.com'));
+});
+
+it('hands off to the human team when a branch negative keyword is flagged', function () {
+    $branch = conciergeBranch([
+        'settings' => [
+            'whatsapp' => [
+                'enabled' => true,
+                'phone_number_id' => '123456789012345',
+                'waba_id' => '098765432109876',
+                'verify_token' => 'verify-me',
+                'access_token_enc' => 'enc:'.Crypt::encryptString('test-access-token'),
+                'app_secret_enc' => 'enc:'.Crypt::encryptString('test-app-secret'),
+            ],
+            'concierge' => ['ai' => ['provider' => 'anthropic', 'model' => 'claude-3-5-haiku-latest', 'negative_keywords' => ['competitor']]],
+        ],
+    ]);
+
+    ConciergeKbEntry::create([
+        'branch_id' => $branch->id,
+        'topic' => 'Wi-Fi',
+        'question' => 'What is the Wi-Fi password?',
+        'answer' => 'Connect to GUEST-WIFI with password HOTEL2026.',
+        'keywords' => ['wifi', 'internet', 'password'],
+        'active' => true,
+    ]);
+
+    ConciergeService::make(null, $branch)->handleInbound($branch, [
+        'from' => $this->waId,
+        'id' => 'wamid.flag.1',
+        'type' => 'text',
+        'text' => ['body' => 'I was considering switching to a competitor for my next stay.'],
+    ]);
+
+    $thread = ConciergeThread::where('whatsapp_wa_id', $this->waId)->firstOrFail();
+
+    expect($thread->fresh()->status)->toBe(ConciergeThread::STATUS_HANDOFF);
+
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.'));
+});
+
+it('keeps the concierge human-only for tenants without the concierge entitlement', function () {
+    $tenant = $this->branch->tenant;
+    Subscription::factory()->for($tenant)->for(Plan::factory())->create(['status' => Subscription::STATUS_ACTIVE]);
+
+    ConciergeKbEntry::create([
+        'branch_id' => $this->branch->id,
+        'topic' => 'Wi-Fi',
+        'question' => 'What is the Wi-Fi password?',
+        'answer' => 'Connect to GUEST-WIFI with password HOTEL2026.',
+        'keywords' => ['wifi', 'internet', 'password'],
+        'active' => true,
+    ]);
+
+    ConciergeService::make(null, $this->branch)->handleInbound($this->branch, [
+        'from' => $this->waId,
+        'id' => 'wamid.noent.1',
+        'type' => 'text',
+        'text' => ['body' => 'What is the wifi password?'],
+    ]);
+
+    $thread = ConciergeThread::where('whatsapp_wa_id', $this->waId)->firstOrFail();
+
+    expect($thread->fresh()->status)->toBe(ConciergeThread::STATUS_HANDOFF);
+
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.'));
+});
+
+it('persists branch concierge ai provider and model overrides', function () {
+    $this->actingAs($this->admin)
+        ->put(route('concierge.settings.update', ['branch' => $this->branch->id]), [
+            'enabled' => true,
+            'ai_provider' => 'anthropic',
+            'ai_model' => 'claude-3-5-haiku-latest',
+        ])
+        ->assertRedirect();
+
+    expect($this->branch->fresh()->settings['concierge']['ai'])
+        ->toBe([
+            'provider' => 'anthropic',
+            'model' => 'claude-3-5-haiku-latest',
+            'negative_keywords' => [],
+        ]);
 });
 
 it('honours guest opt-out from marketing and stops the concierge flow', function () {

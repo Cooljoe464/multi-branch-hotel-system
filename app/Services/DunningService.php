@@ -6,6 +6,7 @@ use App\Models\BillingInvoice;
 use App\Models\Subscription;
 use App\Notifications\SubscriptionStateNotification;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -23,19 +24,25 @@ class DunningService
     public function advance(Subscription $subscription, ?CarbonInterface $now = null): ?string
     {
         $now ??= now();
-        $startingStatus = $subscription->status;
+        $status = DB::transaction(function () use ($subscription, $now): ?string {
+            $locked = Subscription::query()->whereKey($subscription->id)->lockForUpdate()->firstOrFail();
+            $startingStatus = $locked->status;
 
-        while ($this->step($subscription, $now)) {
-            // Keep stepping until nothing more is due, so a long outage catches up in one run.
-        }
+            while ($this->step($locked, $now)) {
+                // Catch up every due transition while holding this subscription's row lock.
+            }
 
-        if ($subscription->status === $startingStatus) {
+            return $locked->status === $startingStatus ? null : $locked->status;
+        });
+
+        if ($status === null) {
             return null;
         }
 
+        $subscription->refresh();
         $this->notify($subscription);
 
-        return $subscription->status;
+        return $status;
     }
 
     private function step(Subscription $subscription, CarbonInterface $now): bool

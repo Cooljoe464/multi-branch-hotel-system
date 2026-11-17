@@ -20,3 +20,27 @@ test('authenticated users can visit the dashboard', function () {
     $response = $this->get(route('dashboard'));
     $response->assertOk();
 });
+
+test('platform owners without a branch are redirected to platform subscriptions', function () {
+    $user = User::factory()->create([
+        'branch_id' => null,
+        'is_global_admin' => true,
+    ]);
+    $this->actingAs($user);
+
+    $response = $this->get(route('dashboard'));
+
+    $response->assertRedirect(route('platform.subscriptions.index'));
+});
+
+test('users without a branch still get a 403 on the dashboard', function () {
+    $user = User::factory()->create([
+        'branch_id' => null,
+        'is_global_admin' => false,
+    ]);
+    $this->actingAs($user);
+
+    $response = $this->get(route('dashboard'));
+
+    $response->assertForbidden();
+});

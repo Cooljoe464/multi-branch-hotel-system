@@ -3,11 +3,13 @@
 namespace App\Providers;
 
 use App\Contracts\EInvoiceEmitter;
+use App\Contracts\RadiusCoaTransport;
 use App\Events\FolioClosed;
 use App\Listeners\QueueEinvoiceForClosedFolio;
 use App\Models\User;
 use App\Services\ConciergeAiManager;
 use App\Services\Fiscal\FirsEmitter;
+use App\Services\Radius\UdpRadiusCoaTransport;
 use App\Support\TenantDatabaseContext;
 use App\Support\TenantQueueContext;
 use Carbon\CarbonImmutable;
@@ -34,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(TenantQueueContext::class);
         $this->app->bind(EInvoiceEmitter::class, FirsEmitter::class);
+        $this->app->bind(RadiusCoaTransport::class, UdpRadiusCoaTransport::class);
         $this->app->singleton(ConciergeAiManager::class);
     }
 
@@ -110,6 +113,14 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('folio', function (Request $request) {
             return Limit::perMinute(20)->by($request->user()->id ?? $request->ip());
+        });
+
+        RateLimiter::for('guest-portal', function (Request $request) {
+            return Limit::perMinute(30)->by($request->ip());
+        });
+
+        RateLimiter::for('inbound-webhook', function (Request $request) {
+            return Limit::perMinute(300)->by($request->ip());
         });
     }
 

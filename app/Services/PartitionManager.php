@@ -61,7 +61,7 @@ class PartitionManager
             "SELECT relrowsecurity FROM pg_class WHERE oid = 'public.activity_log'::regclass",
         );
 
-        if (! in_array($parent->relrowsecurity ?? false, [true, 1, '1', 't', 'true'], true)) {
+        if (! is_object($parent) || ! in_array($parent->relrowsecurity ?? false, [true, 1, '1', 't', 'true'], true)) {
             return;
         }
 

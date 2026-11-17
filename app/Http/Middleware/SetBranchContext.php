@@ -26,11 +26,7 @@ class SetBranchContext
             return $response;
         }
 
-        if (! $user instanceof User) {
-            abort(403);
-        }
-
-        return app(TenantDatabaseContext::class)->run($user->id, null, function () use ($request, $next, $user): Response {
+        $response = app(TenantDatabaseContext::class)->run($user->id, null, function () use ($request, $next, $user): Response {
             $branch = $this->resolveBranch($request, $user);
 
             if ($branch) {
@@ -46,6 +42,12 @@ class SetBranchContext
 
             return $response;
         }, isGlobalAdmin: (bool) ($user->is_global_admin ?? false));
+
+        if (! $response instanceof Response) {
+            abort(500);
+        }
+
+        return $response;
     }
 
     private function resolveBranch(Request $request, ?User $user): ?Branch

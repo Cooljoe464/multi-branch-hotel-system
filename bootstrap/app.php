@@ -2,12 +2,18 @@
 
 use App\Exceptions\AvailabilityException;
 use App\Exceptions\StaleModelException;
+use App\Http\Controllers\Api\V1\PublicBookingController;
+use App\Http\Controllers\Api\V1\PublicInventoryHoldController;
+use App\Http\Controllers\PaymentConnectionWebhookController;
 use App\Http\Middleware\ApiBranchScope;
+use App\Http\Middleware\AuthenticateEdgeAgent;
+use App\Http\Middleware\AuthenticatePublicApiKey;
 use App\Http\Middleware\EnsureEntitled;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ReadFromReplica;
 use App\Http\Middleware\RequireIdempotencyKey;
+use App\Http\Middleware\RequirePublicApiScope;
 use App\Http\Middleware\SetBranchContext;
 use App\Http\Middleware\SetSanctumActorContext;
 use App\Http\Middleware\SetWebActorContext;
@@ -19,6 +25,7 @@ use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Sanctum\Http\Middleware\CheckAbilities;
 use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
@@ -32,7 +39,49 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
+        channels: __DIR__.'/../routes/channels.php',
         health: '/up',
+        then: function (): void {
+            Route::middleware(['api', AuthenticatePublicApiKey::class])->prefix('public/v1')->group(function (): void {
+                Route::get('/properties/{propertyId}', [PublicBookingController::class, 'property'])
+                    ->middleware('public-api.scope:availability.view')
+                    ->name('public.v1.properties.show');
+                Route::get('/room-types', [PublicBookingController::class, 'roomTypes'])
+                    ->middleware('public-api.scope:availability.view')
+                    ->name('public.v1.room-types.index');
+                Route::get('/availability', [PublicBookingController::class, 'availability'])
+                    ->middleware('public-api.scope:availability.view')
+                    ->name('public.v1.availability');
+                Route::post('/quotes', [PublicBookingController::class, 'quote'])
+                    ->middleware(['public-api.scope:availability.view', RequireIdempotencyKey::class])
+                    ->name('public.v1.quotes.store');
+                Route::post('/payments/intents', [PublicBookingController::class, 'paymentIntent'])
+                    ->middleware(['public-api.scope:payments.create', RequireIdempotencyKey::class])
+                    ->name('public.v1.payments.intents.store');
+                Route::get('/reservations/{confirmationNumber}', [PublicBookingController::class, 'reservation'])
+                    ->middleware('public-api.scope:reservations.view')
+                    ->name('public.v1.reservations.show');
+                Route::post('/reservations/{confirmationNumber}/cancel', [PublicBookingController::class, 'cancelReservation'])
+                    ->middleware(['public-api.scope:reservations.cancel', RequireIdempotencyKey::class])
+                    ->name('public.v1.reservations.cancel');
+
+                Route::options('/holds', fn () => response()->noContent());
+                Route::options('/holds/{hold}', fn () => response()->noContent());
+
+                Route::post('/holds', [PublicInventoryHoldController::class, 'store'])
+                    ->middleware(['public-api.scope:holds.create', RequireIdempotencyKey::class])
+                    ->name('public.v1.holds.store');
+
+                Route::delete('/holds/{hold}', [PublicInventoryHoldController::class, 'destroy'])
+                    ->middleware(['public-api.scope:holds.release', RequireIdempotencyKey::class])
+                    ->name('public.v1.holds.destroy');
+            });
+
+            Route::middleware(['api', 'throttle:120,1'])->prefix('webhooks')->post('/{provider}/{connectionId}', [PaymentConnectionWebhookController::class, 'handle'])
+                ->whereIn('provider', ['paystack', 'flutterwave'])
+                ->whereNumber('connectionId')
+                ->name('webhooks.payment.connection');
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
@@ -50,11 +99,17 @@ return Application::configure(basePath: dirname(__DIR__))
             'branch.scope' => ApiBranchScope::class,
             'entitled' => EnsureEntitled::class,
             'replica' => ReadFromReplica::class,
+            'edge.agent' => AuthenticateEdgeAgent::class,
+            'public-api.scope' => RequirePublicApiScope::class,
         ]);
 
         $middleware->prependToPriorityList(
             SubstituteBindings::class,
             SetBranchContext::class,
+        );
+        $middleware->prependToPriorityList(
+            SubstituteBindings::class,
+            AuthenticatePublicApiKey::class,
         );
         $middleware->prependToPriorityList(
             AuthenticatesRequests::class,

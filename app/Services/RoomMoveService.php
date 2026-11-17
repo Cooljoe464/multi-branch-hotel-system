@@ -11,7 +11,7 @@ use App\Models\Room;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\DoorLock\DoorLockService;
-use Illuminate\Support\Carbon;
+use App\Support\BranchTime;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -32,9 +32,7 @@ class RoomMoveService
         ?string $idempotencyKey = null,
         array $options = [],
     ): ReservationMove {
-        $today = Carbon::today()->toDateString();
-
-        return DB::transaction(function () use ($reservation, $toRoom, $movedBy, $idempotencyKey, $options, $today) {
+        return DB::transaction(function () use ($reservation, $toRoom, $movedBy, $idempotencyKey, $options) {
             if ($idempotencyKey !== null) {
                 $replay = ReservationMove::where('reservation_id', $reservation->id)
                     ->where('idempotency_key', $idempotencyKey)
@@ -69,10 +67,11 @@ class RoomMoveService
 
             $reason = $options['reason'] ?? null;
             $reason = is_string($reason) ? $reason : null;
+            $businessDate = BranchTime::today($locked->branch);
 
             // Repoint future nights (conflict-checked inside); past
             // nights keep the old room for an accurate history.
-            (new AvailabilityService)->setRoomForRemainingNights($locked, $target, $today);
+            (new AvailabilityService)->setRoomForRemainingNights($locked, $target, $businessDate);
 
             $locked->update(['room_id' => $target->id]);
             $target->update(['status' => 'occupied']);

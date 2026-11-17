@@ -17,9 +17,9 @@ class PaystackDriver implements PaymentDriver
 
     private string $baseUrl;
 
-    public function __construct()
+    public function __construct(?string $secretKey = null)
     {
-        $secretKey = config('services.paystack.secret_key', '');
+        $secretKey ??= config('services.paystack.secret_key', '');
         $this->secretKey = is_string($secretKey) ? $secretKey : '';
         $this->baseUrl = 'https://api.paystack.co';
     }

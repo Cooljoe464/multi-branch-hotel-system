@@ -102,6 +102,15 @@ class GuestPortalControllerTest extends TestCase
         $response->assertJsonValidationErrors('email');
     }
 
+    public function test_guest_portal_routes_are_throttled(): void
+    {
+        for ($i = 0; $i < 30; $i++) {
+            $this->get('/guest/folio/NOPE-'.$i)->assertStatus(404);
+        }
+
+        $this->get('/guest/folio/NOPE-final')->assertStatus(429);
+    }
+
     public function test_guest_profile_renders(): void
     {
         $guest = Guest::factory()->create([

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { Form, Head } from '@inertiajs/vue3';
+import { Form, Head, router } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import TextLink from '@/components/TextLink.vue';
 import { logout } from '@/routes';
 import { send } from '@/routes/verification';
+import { purgeOfflineData } from '@/lib/offlineSync';
+import { toast } from 'vue-sonner';
 
 defineOptions({
     layout: {
@@ -17,6 +19,17 @@ defineOptions({
 defineProps<{
     status?: string;
 }>();
+
+async function handleLogout(event: MouseEvent): Promise<void> {
+    event.preventDefault();
+    try {
+        await purgeOfflineData('logout');
+    } catch {
+        toast.error('Could not clear offline data. You were not logged out.');
+        return;
+    }
+    router.post(logout());
+}
 </script>
 
 <template>
@@ -40,7 +53,12 @@ defineProps<{
             Resend verification email
         </Button>
 
-        <TextLink :href="logout()" as="button" class="mx-auto block text-sm">
+        <TextLink
+            :href="logout()"
+            as="button"
+            class="mx-auto block text-sm"
+            @click="handleLogout"
+        >
             Log out
         </TextLink>
     </Form>

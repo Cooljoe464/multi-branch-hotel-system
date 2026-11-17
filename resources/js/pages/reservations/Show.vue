@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, Link, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import MoveDialog from '@/components/MoveDialog.vue';
@@ -8,11 +8,18 @@ import UpsellPanel from '@/components/UpsellPanel.vue';
 import { ArrowLeft } from '@lucide/vue';
 import { formatDate, formatDateTime } from '@/lib/dates';
 import { formatCurrency as formatCurrencyRaw } from '@/lib/format';
+import {
+    provisionalStatusForReservation,
+    queueOfflineCommand,
+    type LocalProvisionalStatus,
+} from '@/lib/offlineSync';
 
 interface Room {
     id: number;
     number: string;
     floor: string;
+    status: string;
+    condition: string;
 }
 
 interface RoomType {
@@ -96,6 +103,51 @@ const selectedTier = ref<string>(
         ? String(props.hotspotSelection.hotspot_tier_id)
         : '',
 );
+const localProvisionalStatus = ref<LocalProvisionalStatus | null>(null);
+const hasLocalProvisionalCheckIn = computed(
+    () => localProvisionalStatus.value !== null,
+);
+const localProvisionalStatusLabel = computed(() => {
+    switch (localProvisionalStatus.value?.status) {
+        case 'pending':
+            return 'Provisional check-in pending sync';
+        case 'applied':
+            return 'Provisional check-in awaiting staff reconciliation';
+        case 'conflict':
+            return 'Offline check-in conflict';
+        case 'rejected':
+            return 'Offline check-in rejected';
+        default:
+            return '';
+    }
+});
+
+async function refreshLocalProvisionalStatus(): Promise<void> {
+    localProvisionalStatus.value = await provisionalStatusForReservation(
+        props.reservation.id,
+    );
+}
+
+function handleOfflineCommandUpdate(): void {
+    void refreshLocalProvisionalStatus();
+}
+
+onMounted(() => {
+    void refreshLocalProvisionalStatus();
+    window.addEventListener(
+        'hospitality:offline-command-updated',
+        handleOfflineCommandUpdate,
+    );
+    window.addEventListener('hospitality:offline-purged', handleOfflineCommandUpdate);
+});
+
+onUnmounted(() => {
+    window.removeEventListener(
+        'hospitality:offline-command-updated',
+        handleOfflineCommandUpdate,
+    );
+    window.removeEventListener('hospitality:offline-purged', handleOfflineCommandUpdate);
+});
 
 const saveTier = () => {
     if (!selectedTier.value) return;
@@ -154,6 +206,42 @@ const statusBadgeVariant: Record<string, string> = {
 
 const checkIn = () => {
     if (confirm('Check in this reservation?')) {
+        if (!navigator.onLine && props.reservation.room) {
+            if (
+                props.reservation.room.status !== 'available' ||
+                props.reservation.room.condition !== 'clean'
+            ) {
+                window.alert(
+                    'Offline check-in is only available for a room cached as vacant and clean.',
+                );
+                return;
+            }
+
+            void queueOfflineCommand({
+                command_type: 'check_in.provisional',
+                payload: {
+                    reservation_id: props.reservation.id,
+                    room_id: props.reservation.room.id,
+                    room_type_id: props.reservation.room_type.id,
+                    guest_name: props.reservation.guest_name,
+                    guest_email: props.reservation.guest_email,
+                    check_in_date: props.reservation.check_in_date,
+                    check_out_date: props.reservation.check_out_date,
+                },
+            }).then(() => {
+                window.alert(
+                    'Check-in saved as provisional. It is unpaid and not a tax invoice; it will sync when online.',
+                );
+            }).catch((error: unknown) => {
+                window.alert(
+                    error instanceof Error
+                        ? error.message
+                        : 'Offline check-in could not be saved.',
+                );
+            });
+            return;
+        }
+
         router.post(`/reservations/${props.reservation.id}/check-in`);
     }
 };
@@ -202,8 +290,9 @@ const showMove = ref(false);
                 <div class="flex flex-wrap gap-2">
                     <Button
                         v-if="
-                            reservation.status === 'confirmed' ||
-                            reservation.status === 'reserved'
+                            !hasLocalProvisionalCheckIn &&
+                            (reservation.status === 'confirmed' ||
+                            reservation.status === 'reserved')
                         "
                         variant="default"
                         class="bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
@@ -315,6 +404,18 @@ const showMove = ref(false);
                             </Badge>
                         </dd>
                     </div>
+                    <div
+                        v-if="hasLocalProvisionalCheckIn"
+                        class="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        <p class="font-semibold">{{ localProvisionalStatusLabel }}</p>
+                        <p class="mt-1">Unpaid. Identity not verified. Not a tax invoice.</p>
+                        <p v-if="localProvisionalStatus?.reason" class="mt-1">
+                            {{ localProvisionalStatus.reason }}
+                        </p>
+                    </div>
                     <div class="flex justify-between">
                         <dt class="text-muted-foreground">Room:</dt>
                         <dd class="text-foreground">
@@ -380,7 +481,7 @@ const showMove = ref(false);
                             {{ formatCurrency(reservation.total_amount) }}
                         </dd>
                     </div>
-                    <div class="flex justify-between">
+                    <div v-if="!hasLocalProvisionalCheckIn" class="flex justify-between">
                         <dt class="text-muted-foreground">Amount Paid:</dt>
                         <dd class="text-foreground">
                             {{ formatCurrency(reservation.amount_paid) }}
@@ -389,7 +490,7 @@ const showMove = ref(false);
                     <div class="flex justify-between">
                         <dt class="text-muted-foreground">Payment Status:</dt>
                         <dd class="text-foreground">
-                            {{ reservation.payment_status }}
+                            {{ hasLocalProvisionalCheckIn ? 'Unpaid — not verified offline' : reservation.payment_status }}
                         </dd>
                     </div>
                 </dl>

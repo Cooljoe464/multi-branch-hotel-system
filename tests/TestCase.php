@@ -5,6 +5,7 @@ namespace Tests;
 use App\Models\Branch;
 use App\Models\ChartAccount;
 use App\Models\User;
+use App\Support\Network\DnsResolver;
 use Database\Seeders\ChartSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
@@ -18,6 +19,16 @@ abstract class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Tests never touch real DNS: every hostname resolves to a public
+        // address unless a test binds its own resolver to exercise the SSRF guard.
+        $this->app->instance(DnsResolver::class, new class extends DnsResolver
+        {
+            public function resolve(string $host): array
+            {
+                return filter_var($host, FILTER_VALIDATE_IP) !== false ? [$host] : ['93.184.216.34'];
+            }
+        });
 
         // Reference data every posting path requires: without chart
         // accounts and posting rules, folio charges cannot journal.

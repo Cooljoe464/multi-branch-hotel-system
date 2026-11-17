@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\Branch;
 use App\Services\Concierge\Ai\AnthropicConciergeProvider;
 use App\Services\Concierge\Ai\ConciergeAiResponse;
 use App\Services\Concierge\Ai\OpenAiCompatibleConciergeProvider;
+use App\Services\ConciergeAiManager;
 use Illuminate\Support\Facades\Http;
 
 it('completes an OpenAI-compatible chat completion and returns the assistant text', function () {
@@ -57,6 +59,43 @@ it('parses tool calls from an OpenAI-compatible chat completion', function () {
     expect($response->toolCalls)->toBe([
         ['name' => 'request_late_checkout', 'arguments' => ['offer_id' => 12, 'fee_minor' => 5000]],
     ]);
+});
+
+it('resolves the branch ai override provider when the branch overrides concierge ai', function () {
+    config([
+        'services.concierge_ai.providers.anthropic' => [
+            'base_url' => 'https://api.anthropic.com',
+            'api_key' => 'test-key',
+            'model' => 'claude-3-5-haiku-latest',
+        ],
+    ]);
+
+    $branch = Branch::factory()->create([
+        'settings' => ['concierge' => ['ai' => ['provider' => 'anthropic', 'model' => 'claude-3-5-haiku-latest']]],
+    ]);
+
+    $manager = app(ConciergeAiManager::class);
+
+    expect($manager->isConfigured($branch))->toBeTrue()
+        ->and($manager->isConfigured())->toBeFalse()
+        ->and($manager->provider($branch))->toBeInstanceOf(AnthropicConciergeProvider::class);
+});
+
+it('falls back to the global concierge provider when the branch has no ai override', function () {
+    config([
+        'services.concierge_ai.providers.openai' => [
+            'base_url' => 'https://api.openai.com/v1',
+            'api_key' => 'test-key',
+            'model' => 'gpt-4o-mini',
+        ],
+    ]);
+
+    $branch = Branch::factory()->create();
+
+    $manager = app(ConciergeAiManager::class);
+
+    expect($manager->isConfigured($branch))->toBeTrue()
+        ->and($manager->provider($branch))->toBeInstanceOf(OpenAiCompatibleConciergeProvider::class);
 });
 
 it('completes an Anthropic messages request and joins text blocks', function () {

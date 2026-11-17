@@ -41,8 +41,16 @@ class PlanSeeder extends Seeder
                 'pms.reservations', 'pms.front_desk', 'finance.folios',
                 'pms.group_booking', 'wifi.vouchers', 'wifi.tier_upsell',
                 'locks.issue', 'pos.sales', 'channels.sync', 'events.bookings',
+                'api.public', 'channels.concierge',
+                'locks.provider.assa_abloy', 'locks.provider.salto', 'locks.provider.duowin',
+                'locks.provider.dormakaba', 'locks.provider.ttlock',
             ],
-            'limits' => ['limits.rooms.max' => 100, 'limits.properties.max' => 1],
+            'limits' => [
+                'limits.rooms.max' => 100,
+                'limits.properties.max' => 1,
+                'limits.api.keys.max' => 5,
+                'limits.api.daily_calls' => 10_000,
+            ],
         ],
         'enterprise' => [
             'name' => 'Enterprise',
@@ -52,8 +60,16 @@ class PlanSeeder extends Seeder
                 'pms.reservations', 'pms.front_desk', 'finance.folios',
                 'pms.group_booking', 'wifi.vouchers', 'wifi.tier_upsell',
                 'locks.issue', 'pos.sales', 'channels.sync', 'events.bookings',
+                'api.public', 'channels.concierge',
+                'locks.provider.assa_abloy', 'locks.provider.salto', 'locks.provider.duowin',
+                'locks.provider.dormakaba', 'locks.provider.ttlock',
             ],
-            'limits' => ['limits.rooms.max' => 1000, 'limits.properties.max' => 50],
+            'limits' => [
+                'limits.rooms.max' => 1000,
+                'limits.properties.max' => 50,
+                'limits.api.keys.max' => 25,
+                'limits.api.daily_calls' => 100_000,
+            ],
         ],
     ];
 

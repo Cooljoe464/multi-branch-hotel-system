@@ -4,14 +4,24 @@ import { LogOut, Settings } from '@lucide/vue';
 import UserInfo from '@/components/UserInfo.vue';
 import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
+import { purgeOfflineData } from '@/lib/offlineSync';
+import { toast } from 'vue-sonner';
 import type { User } from '@/types';
 
 type Props = {
     user: User;
 };
 
-const handleLogout = () => {
+const handleLogout = async (event: MouseEvent) => {
+    event.preventDefault();
+    try {
+        await purgeOfflineData('logout');
+    } catch {
+        toast.error('Could not clear offline data. You were not logged out.');
+        return;
+    }
     router.flushAll();
+    router.post(logout());
 };
 
 defineProps<Props>();

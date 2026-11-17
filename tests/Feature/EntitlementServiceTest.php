@@ -95,7 +95,7 @@ test('trialing, past due and grace subscriptions keep every plan entitlement', f
     'grace' => Subscription::STATUS_GRACE,
 ]);
 
-test('restricted and cancelled subscriptions block premium modules but keep checkout safety entitlements', function (string $state) {
+test('AC-042 restricted and cancelled subscriptions block premium modules but keep checkout safety entitlements', function (string $state) {
     $tenant = Tenant::factory()->create();
     $plan = subscribedPlan(['pms.reservations', 'pos.sales', 'finance.folios', 'pms.front_desk', 'locks.issue', 'wifi.vouchers']);
     Subscription::factory()->for($tenant)->for($plan)->create(['status' => $state]);
