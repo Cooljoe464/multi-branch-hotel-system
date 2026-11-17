@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
-use App\Models\ChannelRate;
+use App\Models\ChannelMapping;
+use App\Models\ChannelMessage;
 use App\Models\RatePlan;
 use App\Models\RoomType;
 use App\Services\ChannelSyncService;
 use Database\Factories\ChannelProviderFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class ChannelSyncServiceTest extends TestCase
@@ -24,8 +26,10 @@ class ChannelSyncServiceTest extends TestCase
         $this->branch = Branch::factory()->create();
     }
 
-    public function test_sync_rates_updates_is_synced(): void
+    public function test_sync_rates_queues_ari_through_the_outbox(): void
     {
+        Queue::fake();
+
         $provider = (new ChannelProviderFactory)->create([
             'branch_id' => $this->branch->id,
             'is_active' => true,
@@ -42,27 +46,38 @@ class ChannelSyncServiceTest extends TestCase
             'rate_multiplier' => 1.0,
             'is_active' => true,
             'valid_from' => now()->subDay()->toDateString(),
-            'valid_to' => now()->addMonth()->toDateString(),
+            'valid_to' => now()->addMonths(2)->toDateString(),
         ]);
 
-        \DB::table('channel_rates')->insert([
+        ChannelMapping::create([
+            'branch_id' => $this->branch->id,
             'channel_provider_id' => $provider->id,
-            'rate_plan_id' => $ratePlan->id,
+            'channel' => $provider->provider,
             'room_type_id' => $roomType->id,
-            'is_synced' => false,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'rate_plan_id' => $ratePlan->id,
+            'channel_room_code' => 'DLX',
+            'channel_rate_code' => 'BAR',
         ]);
 
-        $service = new ChannelSyncService;
-        $result = $service->syncRates($provider);
+        $result = (new ChannelSyncService)->syncRates($provider);
 
-        $this->assertEquals(1, $result['synced']);
         $this->assertEmpty($result['errors']);
+        $this->assertSame(ChannelSyncService::HORIZON_DAYS, $result['synced']);
+        $this->assertSame($result['synced'], ChannelMessage::where('channel_provider_id', $provider->id)->count());
+        $this->assertNotNull($provider->fresh()->last_sync_at);
+    }
 
-        $rate = ChannelRate::first();
-        $this->assertTrue($rate->is_synced);
-        $this->assertNotNull($rate->last_synced_at);
+    public function test_sync_rates_reports_missing_mappings(): void
+    {
+        $provider = (new ChannelProviderFactory)->create([
+            'branch_id' => $this->branch->id,
+            'is_active' => true,
+        ]);
+
+        $result = (new ChannelSyncService)->syncRates($provider);
+
+        $this->assertSame(0, $result['synced']);
+        $this->assertNotEmpty($result['errors']);
     }
 
     public function test_sync_rates_returns_early_for_inactive_provider(): void
@@ -79,22 +94,18 @@ class ChannelSyncServiceTest extends TestCase
         $this->assertNotEmpty($result['errors']);
     }
 
-    public function test_pull_reservations_creates_records(): void
+    public function test_pull_reservations_never_fabricates_bookings(): void
     {
         $provider = (new ChannelProviderFactory)->create([
             'branch_id' => $this->branch->id,
             'is_active' => true,
         ]);
 
-        $service = new ChannelSyncService;
-        $result = $service->pullReservations($provider);
+        $result = (new ChannelSyncService)->pullReservations($provider);
 
-        $this->assertGreaterThanOrEqual(1, $result['pulled']);
-        $this->assertEmpty($result['errors']);
-        $this->assertDatabaseHas('channel_reservations', [
-            'channel_provider_id' => $provider->id,
-            'sync_status' => 'pending',
-        ]);
+        $this->assertSame(0, $result['pulled']);
+        $this->assertNotEmpty($result['errors']);
+        $this->assertDatabaseCount('channel_reservations', 0);
     }
 
     public function test_pull_reservations_returns_early_for_inactive_provider(): void

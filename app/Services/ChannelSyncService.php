@@ -3,12 +3,17 @@
 namespace App\Services;
 
 use App\Models\ChannelProviderModel;
-use App\Models\ChannelReservation;
 use Illuminate\Support\Facades\Log;
 
 class ChannelSyncService
 {
+    public const HORIZON_DAYS = 30;
+
     /**
+     * Queue ARI (rate and availability) pushes for every mapping of the
+     * provider through the ChannelService outbox. Delivery, retry and
+     * acknowledgement are handled by PushAriJob and the channel driver.
+     *
      * @return array{synced: int, errors: list<string>}
      */
     public function syncRates(ChannelProviderModel $provider): array
@@ -17,50 +22,31 @@ class ChannelSyncService
             return ['synced' => 0, 'errors' => ['Provider is inactive.']];
         }
 
-        $rates = $provider->channelRates()->with(['ratePlan', 'roomType'])->get();
-        $pricingService = new PricingService;
-        $branch = $provider->branch;
-        $pricingService->forBranch($branch);
+        try {
+            $messages = app(ChannelService::class)->queueAriForProvider(
+                $provider,
+                now()->toDateString(),
+                now()->addDays(self::HORIZON_DAYS)->toDateString(),
+            );
+        } catch (\Throwable $e) {
+            return ['synced' => 0, 'errors' => ["Queueing rates failed: {$e->getMessage()}"]];
+        }
 
-        $synced = 0;
-        $errors = [];
-
-        foreach ($rates as $rate) {
-            try {
-                if (! $rate->ratePlan || ! $rate->roomType) {
-                    $errors[] = "Rate #{$rate->id}: missing rate plan or room type.";
-
-                    continue;
-                }
-
-                $effectiveRate = $pricingService->getEffectiveRate(
-                    $rate->roomType,
-                    now(),
-                    $rate->ratePlan
-                );
-
-                $rate->update([
-                    'is_synced' => true,
-                    'last_synced_at' => now(),
-                ]);
-
-                $synced++;
-            } catch (\Throwable $e) {
-                $errors[] = "Rate #{$rate->id}: {$e->getMessage()}";
-            }
+        if ($messages === []) {
+            return ['synced' => 0, 'errors' => ['No channel mappings configured for this provider.']];
         }
 
         $provider->update(['last_sync_at' => now()]);
 
-        Log::info("Channel sync completed for provider {$provider->id}", [
-            'synced' => $synced,
-            'errors' => count($errors),
-        ]);
+        Log::info("Channel ARI queued for provider {$provider->id}", ['queued' => count($messages)]);
 
-        return ['synced' => $synced, 'errors' => $errors];
+        return ['synced' => count($messages), 'errors' => []];
     }
 
     /**
+     * Reservations arrive through the signed inbound webhook; the channel
+     * driver contract has no pull operation, so nothing is fabricated here.
+     *
      * @return array{pulled: int, errors: list<string>}
      */
     public function pullReservations(ChannelProviderModel $provider): array
@@ -69,37 +55,9 @@ class ChannelSyncService
             return ['pulled' => 0, 'errors' => ['Provider is inactive.']];
         }
 
-        $fakeBookings = rand(1, 3);
-        $pulled = 0;
-        $errors = [];
-
-        for ($i = 0; $i < $fakeBookings; $i++) {
-            try {
-                ChannelReservation::create([
-                    'channel_provider_id' => $provider->id,
-                    'channel_booking_id' => fake()->uuid(),
-                    'raw_payload' => [
-                        'guest_name' => fake()->name(),
-                        'guest_email' => fake()->safeEmail(),
-                        'check_in' => now()->addDays(rand(1, 14))->toDateString(),
-                        'check_out' => now()->addDays(rand(2, 21))->toDateString(),
-                        'source' => $provider->provider,
-                        'pulled_at' => now()->toDateTimeString(),
-                    ],
-                    'sync_status' => 'pending',
-                ]);
-
-                $pulled++;
-            } catch (\Throwable $e) {
-                $errors[] = "Pull error: {$e->getMessage()}";
-            }
-        }
-
-        Log::info("Channel pull completed for provider {$provider->id}", [
-            'pulled' => $pulled,
-            'errors' => count($errors),
-        ]);
-
-        return ['pulled' => $pulled, 'errors' => $errors];
+        return [
+            'pulled' => 0,
+            'errors' => ['Pulling is not supported: reservations are delivered by the channel webhook.'],
+        ];
     }
 }
