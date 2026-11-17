@@ -3,6 +3,7 @@
 use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\Settings\CashierOutletController;
 use App\Http\Controllers\Settings\CurrencyController;
+use App\Http\Controllers\Settings\DoorLockGatewayController;
 use App\Http\Controllers\Settings\FxRateController;
 use App\Http\Controllers\Settings\PaymentConnectionController;
 use App\Http\Controllers\Settings\PaymentGuardController;
@@ -81,6 +82,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('payment-connections.update');
         Route::delete('settings/payment-connections/{connection}', [PaymentConnectionController::class, 'destroy'])
             ->name('payment-connections.destroy');
+    });
+
+    // Door lock gateway (one per property)
+    Route::middleware(['auth', 'verified', 'permission:door_lock.manage'])->group(function () {
+        Route::get('settings/door-lock', [DoorLockGatewayController::class, 'edit'])
+            ->name('door-lock-gateway.edit');
+        Route::put('settings/door-lock', [DoorLockGatewayController::class, 'update'])
+            ->name('door-lock-gateway.update');
+        Route::delete('settings/door-lock', [DoorLockGatewayController::class, 'destroy'])
+            ->name('door-lock-gateway.destroy');
     });
 
     // Cashier POS Outlet Access (Outlet Managers only)

@@ -17,6 +17,7 @@ import {
     MessagesSquare,
     Plus,
     CreditCard,
+    KeyRound,
     ReceiptText,
     Settings,
     Shield,
@@ -403,6 +404,12 @@ const allNavItems = computed<NavItem[]>(() => [
                 href: '/settings/payment-guard',
                 icon: ShieldAlert,
                 permission: 'settings.manage',
+            },
+            {
+                title: 'Door Lock Gateway',
+                href: '/settings/door-lock',
+                icon: KeyRound,
+                permission: 'door_lock.manage',
             },
             {
                 title: 'Payment Connections',

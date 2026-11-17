@@ -26,6 +26,14 @@ class DoorLockService
         'ttlock' => TTLockProvider::class,
     ];
 
+    /**
+     * @return list<string>
+     */
+    public static function providerKeys(): array
+    {
+        return array_keys(self::$providers);
+    }
+
     public function forBranch(Branch $branch): self
     {
         $this->branch = $branch;
