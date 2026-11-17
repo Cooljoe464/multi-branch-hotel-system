@@ -108,6 +108,12 @@ const allNavItems = computed<NavItem[]>(() => [
                 permission: 'reservations.view',
             },
             {
+                title: 'Relocations',
+                href: '/relocations',
+                icon: CalendarDays,
+                permission: 'reservations.update',
+            },
+            {
                 title: 'Rooms',
                 href: '/rooms',
                 icon: BedDouble,

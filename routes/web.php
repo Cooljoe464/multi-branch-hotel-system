@@ -542,6 +542,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('reservations/{reservation}/check-in', [ReservationController::class, 'checkIn'])
         ->middleware(['permission:reservations.checkin', 'throttle:checkin'])
         ->name('reservations.check-in');
+    Route::get('relocations', [ReservationRelocationController::class, 'index'])
+        ->middleware('permission:reservations.update')
+        ->name('relocations.index');
     Route::post('reservations/{reservation}/relocate', [ReservationRelocationController::class, 'store'])
         ->middleware('permission:reservations.update')
         ->name('reservations.relocate');

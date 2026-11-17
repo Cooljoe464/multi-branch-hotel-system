@@ -99,3 +99,27 @@ it('requires a positive compensation credit for an approved relocation', functio
     expect(fn () => (new RelocationService)->create($reservation, $destination, $room, 0, 'No room.', 'relocate-3'))
         ->toThrow('A positive guest compensation amount is required.');
 });
+
+it('lists overbooked arrivals awaiting relocation and same-tenant destinations', function () {
+    $this->withoutVite();
+    $source = Branch::factory()->create();
+    $destination = Branch::factory()->create(['tenant_id' => $source->tenant_id]);
+    $foreign = Branch::factory()->create();
+    $roomType = RoomType::factory()->create(['branch_id' => $source->id]);
+    $destinationType = RoomType::factory()->create(['branch_id' => $destination->id]);
+    Room::factory()->create(['branch_id' => $destination->id, 'room_type_id' => $destinationType->id, 'status' => 'available']);
+    Room::factory()->create(['branch_id' => $foreign->id, 'room_type_id' => RoomType::factory()->create(['branch_id' => $foreign->id])->id, 'status' => 'available']);
+    Reservation::factory()->forBranch($source->id)->create(['room_type_id' => $roomType->id, 'overbooked' => true, 'status' => 'confirmed']);
+    Reservation::factory()->forBranch($source->id)->create(['room_type_id' => $roomType->id, 'overbooked' => false, 'status' => 'confirmed']);
+    $user = $this->makeAdminUser($source);
+
+    $this->actingAs($user)
+        ->get('/relocations')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('reservations/Relocations')
+            ->has('needing', 1)
+            ->has('destinations', 1)
+            ->where('destinations.0.id', $destination->id)
+            ->has('destinations.0.rooms', 1));
+});
