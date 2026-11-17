@@ -34,15 +34,15 @@ class ChannelTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_can_sync_channel_provider(): void
+    public function test_sync_without_channel_mappings_warns_instead_of_pretending(): void
     {
         $provider = ChannelProviderFactory::new()->forBranch($this->branch->id)->create();
 
         $response = $this->actingAs($this->user)->post("/channels/{$provider->id}/sync");
 
         $response->assertRedirect();
-        $provider->refresh();
-        $this->assertNotNull($provider->last_sync_at);
+        $response->assertSessionHas('warning');
+        $this->assertNull($provider->fresh()->last_sync_at);
     }
 
     public function test_cannot_sync_other_branch_provider(): void
@@ -55,17 +55,15 @@ class ChannelTest extends TestCase
         $response->assertStatus(403);
     }
 
-    public function test_can_pull_reservations(): void
+    public function test_pull_reservations_never_creates_bookings(): void
     {
         $provider = ChannelProviderFactory::new()->forBranch($this->branch->id)->create();
 
         $response = $this->actingAs($this->user)->post("/channels/{$provider->id}/pull");
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('channel_reservations', [
-            'channel_provider_id' => $provider->id,
-            'sync_status' => 'pending',
-        ]);
+        $response->assertSessionHas('warning');
+        $this->assertDatabaseCount('channel_reservations', 0);
     }
 
     public function test_cannot_pull_from_other_branch_provider(): void
