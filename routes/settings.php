@@ -4,6 +4,7 @@ use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\Settings\CashierOutletController;
 use App\Http\Controllers\Settings\CurrencyController;
 use App\Http\Controllers\Settings\FxRateController;
+use App\Http\Controllers\Settings\PaymentConnectionController;
 use App\Http\Controllers\Settings\PaymentGuardController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -68,6 +69,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('settings/payment-guard', [PaymentGuardController::class, 'update'])
             ->middleware('permission:settings.manage')
             ->name('payment-guard.update');
+    });
+
+    // Hotel payment gateway connections (Paystack / Flutterwave)
+    Route::middleware(['auth', 'verified', 'permission:branches.manage'])->group(function () {
+        Route::get('settings/payment-connections', [PaymentConnectionController::class, 'index'])
+            ->name('payment-connections.index');
+        Route::post('settings/payment-connections', [PaymentConnectionController::class, 'store'])
+            ->name('payment-connections.store');
+        Route::put('settings/payment-connections/{connection}', [PaymentConnectionController::class, 'update'])
+            ->name('payment-connections.update');
+        Route::delete('settings/payment-connections/{connection}', [PaymentConnectionController::class, 'destroy'])
+            ->name('payment-connections.destroy');
     });
 
     // Cashier POS Outlet Access (Outlet Managers only)

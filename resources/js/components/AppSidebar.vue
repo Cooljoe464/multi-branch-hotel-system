@@ -16,6 +16,7 @@ import {
     LayoutGrid,
     MessagesSquare,
     Plus,
+    CreditCard,
     ReceiptText,
     Settings,
     Shield,
@@ -402,6 +403,12 @@ const allNavItems = computed<NavItem[]>(() => [
                 href: '/settings/payment-guard',
                 icon: ShieldAlert,
                 permission: 'settings.manage',
+            },
+            {
+                title: 'Payment Connections',
+                href: '/settings/payment-connections',
+                icon: CreditCard,
+                permission: 'branches.manage',
             },
             {
                 title: 'WhatsApp Cloud API',
