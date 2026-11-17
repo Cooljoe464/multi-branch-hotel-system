@@ -371,6 +371,13 @@ const allNavItems = computed<NavItem[]>(() => [
                 requiresBranch: true,
             },
             {
+                title: 'ROI Report',
+                href: branchLink('/concierge/report'),
+                icon: BarChart3,
+                permission: 'analytics.view',
+                requiresBranch: true,
+            },
+            {
                 title: 'KB Entries',
                 href: branchLink('/concierge?tab=kb'),
                 icon: FileText,

@@ -8,9 +8,13 @@ use App\Services\ConciergeAnalyticsService;
 use App\Services\SentimentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class ConciergeReportController extends Controller
 {
+    use Concerns\EnsuresBranchAccess;
+
     /**
      * SaaS concierge ROI report: deflection rate, revenue impact and
      * sentiment trends for the resolved branch.
@@ -39,6 +43,29 @@ class ConciergeReportController extends Controller
             );
 
         return response()->json(['data' => $summary]);
+    }
+
+    /**
+     * Staff-facing page for the same ROI numbers the SaaS API exposes.
+     */
+    public function show(Request $request, Branch $branch): Response
+    {
+        $this->ensureBranchAccess($branch);
+
+        $request->validate(['days' => 'nullable|integer|in:7,30,90,365']);
+        $days = $request->integer('days') ?: 30;
+
+        $summary = (new ConciergeAnalyticsService(new SentimentService))
+            ->forBranch($branch)
+            ->getConciergeSummary($days);
+
+        return Inertia::render('concierge/Report', [
+            'branch' => $branch->only(['id', 'name', 'currency_code']),
+            'days' => $days,
+            'deflection' => $summary['deflection'],
+            'revenueImpact' => $summary['revenue_impact'],
+            'sentimentTrend' => $summary['sentiment_trend']->values()->all(),
+        ]);
     }
 
     private function resolveBranch(Request $request, User $user): Branch

@@ -26,6 +26,7 @@ use App\Http\Controllers\CityLedgerController;
 use App\Http\Controllers\CommercialController;
 use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\ConciergeController;
+use App\Http\Controllers\ConciergeReportController;
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CrsController;
 use App\Http\Controllers\DashboardController;
@@ -1287,6 +1288,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('branches/{branch}/concierge', [ConciergeController::class, 'index'])
         ->middleware('permission:concierge.view')
         ->name('concierge.index');
+    Route::get('branches/{branch}/concierge/report', [ConciergeReportController::class, 'show'])
+        ->middleware('permission:analytics.view')
+        ->name('concierge.report');
     Route::post('branches/{branch}/concierge/threads/{thread}/messages', [ConciergeController::class, 'reply'])
         ->middleware('permission:concierge.reply')
         ->name('concierge.reply');

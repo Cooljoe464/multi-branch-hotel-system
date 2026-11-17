@@ -174,3 +174,26 @@ it('exposes the concierge roi report through the api', function () {
             ],
         ]);
 });
+
+it('renders the concierge ROI page for the branch', function () {
+    $this->withoutVite();
+    $thread = ConciergeThread::factory()->forBranch($this->branch->id)->create(['whatsapp_wa_id' => '2348031234500']);
+    ConciergeMessage::factory()->fromGuest()->create(['concierge_thread_id' => $thread->id, 'body' => 'Hi']);
+    ConciergeMessage::factory()->assistant()->create(['concierge_thread_id' => $thread->id, 'body' => 'Hello!']);
+
+    $this->actingAs($this->admin)
+        ->get("/branches/{$this->branch->id}/concierge/report?days=7")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('concierge/Report')
+            ->where('days', 7)
+            ->where('deflection.ai_handled', 1)
+            ->has('revenueImpact')
+            ->has('sentimentTrend'));
+});
+
+it('rejects an unsupported ROI period', function () {
+    $this->actingAs($this->admin)
+        ->get("/branches/{$this->branch->id}/concierge/report?days=13")
+        ->assertSessionHasErrors('days');
+});
