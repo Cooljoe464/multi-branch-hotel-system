@@ -13,6 +13,34 @@ server {
     }
 }
 
+# Local plain-HTTP listener for browser-based local access without a
+# trusted TLS certificate (self-signed bootstrap cert is used for the
+# Let's Encrypt flow on the 443 server block).
+server {
+    listen 8088;
+    server_name _;
+
+    location / {
+        root /app/public;
+        index index.php;
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass php:9000;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME /app/public/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+
+        fastcgi_buffering on;
+        fastcgi_buffer_size 16k;
+        fastcgi_buffers 4 16k;
+
+        fastcgi_read_timeout 300;
+        fastcgi_send_timeout 300;
+    }
+}
+
 server {
     listen 443 ssl http2;
     server_name _;
@@ -120,8 +148,9 @@ server {
 
     location ~ \.php$ {
         fastcgi_pass php:9000;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME /app/public/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
 
         fastcgi_buffering on;
         fastcgi_buffer_size 16k;

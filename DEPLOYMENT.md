@@ -72,8 +72,8 @@ DB_CONNECTION=pgsql
 DB_HOST=postgres
 DB_PORT=5432
 DB_DATABASE=hotel_system
-DB_USERNAME=postgres
-DB_PASSWORD=YOUR_STRONG_PASSWORD
+DB_USERNAME=hotel_app
+DB_PASSWORD=secret
 
 SESSION_DRIVER=redis
 CACHE_STORE=redis
@@ -310,13 +310,13 @@ docker compose exec php php artisan about
 
 ```bash
 # Connect to PostgreSQL
-docker compose exec postgres psql -U postgres -d hotel_system
+docker compose exec postgres psql -U hotel_migrator -d hotel_system
 
 # Create a backup
-docker compose exec postgres pg_dump -U postgres hotel_system > backup_$(date +%Y%m%d).sql
+docker compose exec postgres pg_dump -U hotel_migrator hotel_system > backup_$(date +%Y%m%d).sql
 
 # Restore from backup
-cat backup.sql | docker compose exec -T postgres psql -U postgres -d hotel_system
+cat backup.sql | docker compose exec -T postgres psql -U hotel_migrator -d hotel_system
 ```
 
 ### Reverb (WebSockets)
@@ -429,7 +429,7 @@ sudo crontab -e
 ```
 
 ```
-0 2 * * * cd /opt/hms && docker compose exec -T postgres pg_dump -U postgres hotel_system | gzip > /opt/hms/backups/hotel_system_$(date +\%Y\%m\%d).sql.gz
+0 2 * * * cd /opt/hms && docker compose exec -T postgres pg_dump -U hotel_migrator hotel_system | gzip > /opt/hms/backups/hotel_system_$(date +\%Y\%m\%d).sql.gz
 ```
 
 ### Backup Storage/Uploads
@@ -444,7 +444,7 @@ docker run --rm -v hms-storage_data:/data -v /opt/hms/backups:/backup alpine \
 
 ```bash
 # Restore database
-gunzip -c backups/hotel_system_20260911.sql.gz | docker compose exec -T postgres psql -U postgres -d hotel_system
+gunzip -c backups/hotel_system_20260911.sql.gz | docker compose exec -T postgres psql -U hotel_migrator -d hotel_system
 
 # Restore storage
 docker run --rm -v hms-storage_data:/data -v /opt/hms/backups:/backup alpine \
@@ -463,6 +463,10 @@ docker run --rm -v hms-storage_data:/data -v /opt/hms/backups:/backup alpine \
 | `DB_CONNECTION`         | `pgsql`                | Database driver                                              |
 | `DB_HOST`               | `postgres`             | Docker service name                                          |
 | `DB_DATABASE`           | `hotel_system`         | Database name                                                |
+| `DB_USERNAME`           | `hotel_app`            | PostgreSQL runtime role (least-privilege app user)          |
+| `DB_PASSWORD`           | `secret`               | PostgreSQL runtime password                                 |
+| `DB_MIGRATION_USERNAME` | `hotel_migrator`       | PostgreSQL migration owner role                             |
+| `DB_MIGRATION_PASSWORD` | `secret`               | PostgreSQL migration owner password                        |
 | `SESSION_DRIVER`        | `redis`                | Session storage                                              |
 | `CACHE_STORE`           | `redis`                | Cache storage                                                |
 | `QUEUE_CONNECTION`      | `redis`                | Queue driver                                                 |

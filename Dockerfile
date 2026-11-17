@@ -7,12 +7,12 @@ WORKDIR /app
 
 COPY composer.json composer.lock ./
 RUN composer install \
-    --no-dev \
     --no-interaction \
     --no-scripts \
     --no-autoloader \
     --ignore-platform-req=ext-gd \
     --ignore-platform-req=ext-pcntl \
+    --ignore-platform-req=ext-sockets \
     --prefer-dist
 
 COPY . .
@@ -20,7 +20,6 @@ COPY . .
 RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs \
     && composer dump-autoload \
     --optimize \
-    --no-dev \
     --classmap-authoritative
 
 # ──────────────────────────────────────────────
@@ -133,4 +132,4 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 EXPOSE 9000
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["php-fpm"]
+CMD ["php-fpm", "--nodaemonize"]
