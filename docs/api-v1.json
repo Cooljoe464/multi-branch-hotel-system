@@ -950,6 +950,156 @@
                 }
             }
         },
+        "/api/v1/conflicts": {
+            "get": {
+                "operationId": "api.v1.conflicts.index",
+                "summary": "List offline room conflicts awaiting supervisor resolution at the branch.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "offline.review"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
+        "/api/v1/conflicts/{command}/resolve": {
+            "post": {
+                "operationId": "api.v1.conflicts.resolve",
+                "summary": "Resolve an offline room conflict by reassigning the guest to another clean room or discarding the assignment.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "offline.review"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "X-Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Write key. Replays return the stored response with Idempotent-Replayed.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
+        "/api/v1/conflicts/{command}/discard": {
+            "post": {
+                "operationId": "api.v1.conflicts.discard",
+                "summary": "Discard an offline room conflict assignment without creating a provisional stay.",
+                "security": [
+                    {
+                        "bearerAuth": [
+                            "offline.review"
+                        ]
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Branch-Id",
+                        "in": "header",
+                        "required": false,
+                        "description": "Required for multi-property tokens; ignored for single-property tokens.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "X-Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Write key. Replays return the stored response with Idempotent-Replayed.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                }
+            }
+        },
         "/api/v1/edge/heartbeat": {
             "post": {
                 "operationId": "api.v1.edge.heartbeat",
@@ -1358,6 +1508,71 @@
                                     "children": {
                                         "type": "integer",
                                         "minimum": 0
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "servers": [
+                    {
+                        "url": "/"
+                    }
+                ]
+            }
+        },
+        "/public/v1/reservations": {
+            "post": {
+                "operationId": "public.v1.reservations.store",
+                "summary": "Confirm a verified payment intent into a confirmed public booking.",
+                "security": [
+                    {
+                        "publicApiKey": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Write key. Replays return the stored response with Idempotent-Replayed.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or expired token."
+                    },
+                    "403": {
+                        "description": "Scope or branch outside the token."
+                    },
+                    "404": {
+                        "description": "Unknown id at this property."
+                    },
+                    "422": {
+                        "description": "Validation failed or idempotency key missing."
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "payment_intent_id"
+                                ],
+                                "properties": {
+                                    "payment_intent_id": {
+                                        "type": "string"
                                     }
                                 }
                             }

@@ -38,6 +38,21 @@ class PartitionTransactions extends Command
         'transfer_of_transaction_id', 'void_reason_code_id', 'cashier_shift_id',
     ];
 
+    /**
+     * Inbound links whose child table has no business_date column, so they
+     * cannot become composite foreign keys on the partitioned parent. They
+     * are dropped at cutover (app-level enforcement) and restored on rollback.
+     *
+     * @var list<array{table: string, constraint: string, definition: string}>
+     */
+    private const NON_PARTITIONABLE_INBOUND_FKS = [
+        [
+            'table' => 'relocations',
+            'constraint' => 'relocations_compensation_transaction_id_foreign',
+            'definition' => 'FOREIGN KEY (compensation_transaction_id) REFERENCES transactions(id) ON DELETE SET NULL',
+        ],
+    ];
+
     public function handle(): int
     {
         if ($this->option('rollback')) {
@@ -150,7 +165,7 @@ class PartitionTransactions extends Command
         $this->info("transactions rows: {$total}");
         $this->info('date range: '.($lo ?? 'empty').' .. '.($hi ?? 'empty'));
         $this->info('months to provision: '.count($this->months()));
-        $this->info('FKs to drop: 4 (3 inbound + 1 self-reference). Composite FKs to add: 3.');
+        $this->info('FKs to drop: '.count($this->inboundForeignKeys()).' inbound (composite FKs to add: 3).');
         $this->info('Outbound FKs + 7 indexes recreated on the partitioned parent.');
     }
 
@@ -178,16 +193,17 @@ class PartitionTransactions extends Command
 
     private function cutover(int $batch): void
     {
-        DB::statement('LOCK TABLE transactions, pos_charges, folio_disputes, transaction_splits IN ACCESS EXCLUSIVE MODE');
+        $inboundForeignKeys = $this->inboundForeignKeys();
+        $lockedTables = collect($inboundForeignKeys)
+            ->pluck('table')
+            ->push('transactions')
+            ->unique()
+            ->implode(', ');
 
-        foreach ([
-            'pos_charges_transaction_id_foreign ON pos_charges',
-            'folio_disputes_transaction_id_foreign ON folio_disputes',
-            'transaction_splits_transaction_id_foreign ON transaction_splits',
-            'transactions_transfer_of_transaction_id_foreign ON transactions',
-        ] as $spec) {
-            [$constraint, $table] = explode(' ON ', $spec);
-            DB::statement("ALTER TABLE {$table} DROP CONSTRAINT IF EXISTS {$constraint}");
+        DB::statement("LOCK TABLE {$lockedTables} IN ACCESS EXCLUSIVE MODE");
+
+        foreach ($inboundForeignKeys as $foreignKey) {
+            DB::statement("ALTER TABLE {$foreignKey['table']} DROP CONSTRAINT IF EXISTS {$foreignKey['constraint']}");
         }
 
         $columns = implode(', ', self::COLUMNS);
@@ -276,6 +292,12 @@ class PartitionTransactions extends Command
 
         DB::statement('ANALYZE transactions');
 
+        foreach (self::NON_PARTITIONABLE_INBOUND_FKS as $foreignKey) {
+            if (Schema::hasTable($foreignKey['table'])) {
+                $this->warn("{$foreignKey['table']}.{$foreignKey['constraint']} stays dropped: no business_date for a composite FK (app-level enforcement).");
+            }
+        }
+
         $this->info('transactions partitioned by business_date month.');
     }
 
@@ -288,20 +310,22 @@ class PartitionTransactions extends Command
         }
 
         if ($this->option('dry-run')) {
-            $this->info('Would restore a plain transactions table and the 4 original single-column FKs.');
+            $this->info('Would restore a plain transactions table and the original inbound FKs.');
 
             return 0;
         }
 
-        DB::statement('LOCK TABLE transactions, pos_charges, folio_disputes, transaction_splits IN ACCESS EXCLUSIVE MODE');
+        $inboundForeignKeys = $this->inboundForeignKeys();
+        $lockedTables = collect($inboundForeignKeys)
+            ->pluck('table')
+            ->push('transactions')
+            ->unique()
+            ->implode(', ');
 
-        foreach ([
-            'pos_charges_transaction_composite ON pos_charges',
-            'folio_disputes_transaction_composite ON folio_disputes',
-            'transaction_splits_transaction_composite ON transaction_splits',
-        ] as $spec) {
-            [$constraint, $table] = explode(' ON ', $spec);
-            DB::statement("ALTER TABLE {$table} DROP CONSTRAINT IF EXISTS {$constraint}");
+        DB::statement("LOCK TABLE {$lockedTables} IN ACCESS EXCLUSIVE MODE");
+
+        foreach ($inboundForeignKeys as $foreignKey) {
+            DB::statement("ALTER TABLE {$foreignKey['table']} DROP CONSTRAINT IF EXISTS {$foreignKey['constraint']}");
         }
 
         $columns = implode(', ', self::COLUMNS);
@@ -372,6 +396,10 @@ class PartitionTransactions extends Command
             'ALTER TABLE pos_charges ADD CONSTRAINT pos_charges_transaction_id_foreign FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE SET NULL',
             'ALTER TABLE folio_disputes ADD CONSTRAINT folio_disputes_transaction_id_foreign FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE SET NULL',
             'ALTER TABLE transaction_splits ADD CONSTRAINT transaction_splits_transaction_id_foreign FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE',
+            ...array_map(
+                fn (array $foreignKey): string => "ALTER TABLE {$foreignKey['table']} ADD CONSTRAINT {$foreignKey['constraint']} {$foreignKey['definition']}",
+                self::NON_PARTITIONABLE_INBOUND_FKS,
+            ),
         ] as $ddl) {
             DB::statement($ddl);
         }
@@ -392,6 +420,42 @@ class PartitionTransactions extends Command
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Every inbound foreign key currently pointing at transactions, including
+     * the self-referencing transfer link. Discovered at run time so newly
+     * added links (e.g. relocations.compensation_transaction_id) do not break
+     * the cutover.
+     *
+     * @return list<array{table: string, constraint: string}>
+     */
+    private function inboundForeignKeys(): array
+    {
+        $rows = DB::select(<<<'SQL'
+            SELECT con.conname AS constraint_name, rel.relname AS table_name
+            FROM pg_constraint con
+            JOIN pg_class rel ON rel.oid = con.conrelid
+            JOIN pg_class ref ON ref.oid = con.confrelid
+            JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+            WHERE con.contype = 'f'
+              AND ref.relname = 'transactions'
+              AND nsp.nspname = 'public'
+            ORDER BY rel.relname, con.conname
+            SQL);
+
+        $foreignKeys = [];
+
+        foreach ($rows as $row) {
+            $constraint = is_object($row) ? ($row->constraint_name ?? null) : null;
+            $table = is_object($row) ? ($row->table_name ?? null) : null;
+
+            if (is_string($constraint) && is_string($table)) {
+                $foreignKeys[] = ['table' => $table, 'constraint' => $constraint];
+            }
+        }
+
+        return $foreignKeys;
     }
 
     /**

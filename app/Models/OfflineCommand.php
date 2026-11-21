@@ -14,9 +14,12 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $override_expires_at
  * @property Carbon|null $override_used_at
  * @property Carbon|null $applied_at
+ * @property Carbon|null $resolved_at
  * @property Carbon|null $updated_at
  * @property string|null $override_token_hash
  * @property string|null $reason
+ * @property int|null $resolved_by
+ * @property string|null $resolution_note
  */
 #[Fillable([
     'tenant_id',
@@ -31,6 +34,9 @@ use Illuminate\Support\Carbon;
     'override_expires_at',
     'override_used_at',
     'applied_at',
+    'resolved_by',
+    'resolved_at',
+    'resolution_note',
 ])]
 class OfflineCommand extends Model
 {
@@ -44,6 +50,8 @@ class OfflineCommand extends Model
             'override_expires_at' => 'datetime',
             'override_used_at' => 'datetime',
             'applied_at' => 'datetime',
+            'resolved_at' => 'datetime',
+            'resolved_by' => 'int',
         ];
     }
 

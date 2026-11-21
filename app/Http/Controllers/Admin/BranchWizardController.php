@@ -9,6 +9,7 @@ use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\Tenant;
 use App\Services\EntitlementService;
+use App\Services\SubscriptionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +55,8 @@ class BranchWizardController extends Controller
                 ]);
             }
         }
+
+        $tenantWasNew = $user->currentBranch?->tenant === null;
 
         $branch = DB::transaction(function () use ($data, $user) {
             $tenant = $user->currentBranch?->tenant;
@@ -130,6 +133,10 @@ class BranchWizardController extends Controller
 
             return $branch;
         });
+
+        if ($tenantWasNew) {
+            app(SubscriptionService::class)->startTrial($branch->tenant, 'starter', (int) config('billing.trial_days'));
+        }
 
         return redirect()->route('rooms.index')->with([
             'flash' => [

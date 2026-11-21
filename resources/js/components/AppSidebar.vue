@@ -36,6 +36,7 @@ import {
     Package,
     ArrowLeftRight,
     Banknote,
+    BookOpen,
     Monitor,
     CookingPot,
     WashingMachine,
@@ -467,6 +468,12 @@ const allNavItems = computed<NavItem[]>(() => [
                 title: 'Developers',
                 href: '/developers',
                 icon: Terminal,
+                permission: 'api.view',
+            },
+            {
+                title: 'API Docs',
+                href: '/developer/docs',
+                icon: BookOpen,
                 permission: 'api.view',
             },
             {

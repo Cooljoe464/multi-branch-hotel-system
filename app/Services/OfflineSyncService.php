@@ -131,7 +131,7 @@ class OfflineSyncService
     }
 
     /** @param array<array-key, mixed> $payload */
-    private function applyProvisionalCheckIn(OfflineCommand $command, Branch $branch, array $payload): void
+    public function applyProvisionalCheckIn(OfflineCommand $command, Branch $branch, array $payload): void
     {
         $roomId = filter_var($payload['room_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $roomTypeId = filter_var($payload['room_type_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);

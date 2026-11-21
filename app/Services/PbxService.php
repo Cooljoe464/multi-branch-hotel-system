@@ -8,9 +8,11 @@ use App\Models\Branch;
 use App\Models\CallRecord;
 use App\Models\Folio;
 use App\Models\Reservation;
+use App\Models\Room;
 use App\Models\TelecomRate;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * PBX call billing. CDR webhooks carry HMAC-SHA256 over the raw
@@ -44,9 +46,15 @@ class PbxService
                 return $existing;
             }
 
-            $rate = $this->rateFor($branch, $cdr['destination']);
-            $minutes = (int) ceil($cdr['duration_secs'] / 60);
-            $charge = $minutes * $rate;
+            $isHousekeepingCode = str_starts_with($cdr['destination'], '*2');
+            if ($isHousekeepingCode) {
+                $this->handleHousekeepingDialCode($branch, $cdr['extension'], $cdr['destination']);
+                $charge = 0;
+            } else {
+                $rate = $this->rateFor($branch, $cdr['destination']);
+                $minutes = (int) ceil($cdr['duration_secs'] / 60);
+                $charge = $minutes * $rate;
+            }
 
             $reservation = null;
             if (! empty($cdr['reservation_id'])) {
@@ -116,5 +124,43 @@ class PbxService
             windowCode: 'telecom',
             journalEvent: 'telecom.call',
         );
+    }
+
+    /**
+     * Map dialed housekeeping code from a room telephone handset.
+     * *21 => clean, *22 => inspected, *23 => dirty, *24 => out of order (ooo)
+     */
+    public function handleHousekeepingDialCode(Branch $branch, string $extension, string $dialCode): ?Room
+    {
+        $codeMap = [
+            '*21' => 'clean',
+            '*22' => 'inspected',
+            '*23' => 'dirty',
+            '*24' => 'ooo',
+        ];
+
+        $targetCondition = $codeMap[$dialCode] ?? null;
+        if (! $targetCondition) {
+            return null;
+        }
+
+        // Match extension directly to room number
+        $room = Room::where('branch_id', $branch->id)
+            ->where('number', $extension)
+            ->first();
+
+        if (! $room) {
+            Log::info("Housekeeping dial code {$dialCode} received from unmapped extension: {$extension}");
+
+            return null;
+        }
+
+        $room->condition = $targetCondition;
+        $room->condition_reason = "Updated via PBX telephone handset ({$dialCode})";
+        $room->save();
+
+        Log::info("Room {$room->number} condition set to {$targetCondition} via handset dial code {$dialCode}");
+
+        return $room;
     }
 }

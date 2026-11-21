@@ -27,6 +27,23 @@ interface Connection {
     merchant_reference: string | null;
     has_webhook_secret: boolean;
     webhook_url: string;
+    last_webhook: {
+        event: string;
+        status: string;
+        attempts: number;
+        last_error: string | null;
+        delivered_at: string | null;
+        signature: string;
+    } | null;
+}
+
+interface WebhookTestResult {
+    status: string;
+    event: string;
+    delivery_id: number | null;
+    consumer_name: string | null;
+    attempts: number;
+    last_error: string | null;
 }
 
 defineProps<{
@@ -49,6 +66,63 @@ const blankForm = () => ({
 const form = ref(blankForm());
 const errors = ref<Record<string, string>>({});
 const saving = ref(false);
+
+const webhookResults = ref<Record<number, WebhookTestResult>>({});
+const testingWebhookId = ref<number | null>(null);
+
+const sendTestWebhook = async (connection: Connection) => {
+    testingWebhookId.value = connection.id;
+
+    webhookResults.value = {
+        ...webhookResults.value,
+        [connection.id]: {
+            status: 'pending',
+            event: 'payment.test',
+            delivery_id: null,
+            consumer_name: null,
+            attempts: 0,
+            last_error: null,
+        },
+    };
+
+    try {
+        const response = await fetch(`/settings/payment-connections/${connection.id}/webhook-tests`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+            },
+        });
+
+        const data = (await response.json()) as { data?: WebhookTestResult };
+
+        webhookResults.value = {
+            ...webhookResults.value,
+            [connection.id]: data.data ?? {
+                status: response.ok ? 'pending' : 'failed',
+                event: 'payment.test',
+                delivery_id: null,
+                consumer_name: null,
+                attempts: 0,
+                last_error: null,
+            },
+        };
+    } catch {
+        webhookResults.value = {
+            ...webhookResults.value,
+            [connection.id]: {
+                status: 'failed',
+                event: 'payment.test',
+                delivery_id: null,
+                consumer_name: null,
+                attempts: 0,
+                last_error: 'The test webhook could not be dispatched.',
+            },
+        };
+    } finally {
+        testingWebhookId.value = null;
+    }
+};
 
 const create = () => {
     saving.value = true;
@@ -132,6 +206,51 @@ const remove = (connection: Connection) => {
                     <code class="bg-muted text-foreground mt-1 inline-block rounded px-2 py-1 text-xs">
                         {{ connection.webhook_url }}
                     </code>
+
+                    <p
+                        v-if="connection.last_webhook"
+                        class="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+                    >
+                        Last webhook
+                        <span class="text-foreground font-mono">{{ connection.last_webhook.event }}</span>
+                        <Badge
+                            v-if="connection.last_webhook.status === 'delivered'"
+                            variant="outline"
+                            class="border-green-300 text-green-700 dark:text-green-300"
+                        >
+                            verified
+                        </Badge>
+                        <Badge
+                            v-else-if="connection.last_webhook.status === 'failed'"
+                            variant="outline"
+                            class="border-red-300 text-red-700 dark:text-red-300"
+                        >
+                            {{ connection.last_webhook.status }}
+                        </Badge>
+                        <span>{{ connection.last_webhook.delivered_at }}</span>
+                    </p>
+                    <p v-else class="text-muted-foreground mt-2 text-xs">
+                        No webhook delivered yet for this property.
+                    </p>
+
+                    <div v-if="webhookResults[connection.id]" class="mt-3 flex flex-wrap items-center gap-2">
+                        <Badge
+                            :variant="webhookResults[connection.id].status === 'delivered' ? 'default' : 'outline'"
+                            :class="
+                                webhookResults[connection.id].status === 'delivered'
+                                    ? 'border-green-300 text-green-700 dark:text-green-300'
+                                    : 'border-red-300 text-red-700 dark:text-red-300'
+                            "
+                        >
+                            {{ webhookResults[connection.id].status }}
+                        </Badge>
+                        <span v-if="webhookResults[connection.id].delivery_id" class="text-muted-foreground text-xs">
+                            delivery #{{ webhookResults[connection.id].delivery_id }}
+                        </span>
+                        <span v-if="webhookResults[connection.id].last_error" class="text-destructive text-xs">
+                            {{ webhookResults[connection.id].last_error }}
+                        </span>
+                    </div>
                 </div>
 
                 <div class="flex flex-wrap gap-2">
@@ -149,6 +268,14 @@ const remove = (connection: Connection) => {
                         @click="patch(connection, { status: connection.status === 'active' ? 'disabled' : 'active' })"
                     >
                         {{ connection.status === 'active' ? 'Disable' : 'Enable' }}
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        :disabled="testingWebhookId === connection.id"
+                        @click="sendTestWebhook(connection)"
+                    >
+                        {{ testingWebhookId === connection.id ? 'Sending…' : 'Send test webhook' }}
                     </Button>
                     <Button size="sm" variant="destructive" @click="remove(connection)">
                         Delete

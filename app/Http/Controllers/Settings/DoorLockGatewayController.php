@@ -55,7 +55,26 @@ class DoorLockGatewayController extends Controller
 
         $data = $request->validate([
             'provider' => ['required', Rule::in(DoorLockService::providerKeys())],
-            'api_base_url' => ['required', 'url:https', 'max:255'],
+            'api_base_url' => [
+                'required',
+                'url',
+                'max:255',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! is_string($value)) {
+                        return;
+                    }
+                    $parsed = parse_url($value);
+                    $scheme = strtolower($parsed['scheme'] ?? '');
+                    $host = strtolower($parsed['host'] ?? '');
+                    $isLocal = in_array($host, ['localhost', '127.0.0.1', '::1'], true)
+                        || str_ends_with($host, '.test')
+                        || str_ends_with($host, '.local');
+
+                    if ($scheme !== 'https' && ! $isLocal) {
+                        $fail('The door lock gateway URL must use HTTPS.');
+                    }
+                },
+            ],
             'is_active' => ['nullable', 'boolean'],
             'manual_mode' => ['nullable', 'boolean'],
             'lock_id' => ['nullable', 'string', 'max:128'],

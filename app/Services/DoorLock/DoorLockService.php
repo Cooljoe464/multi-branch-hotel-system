@@ -24,6 +24,9 @@ class DoorLockService
         'duowin' => DuowinProvider::class,
         'dormakaba' => DormakabaProvider::class,
         'ttlock' => TTLockProvider::class,
+        'fias' => FiasLockDriver::class,
+        'lock_sdk' => LockSdkProvider::class,
+        'btlock' => BtLockProvider::class,
     ];
 
     /**
@@ -195,6 +198,62 @@ class DoorLockService
         }
 
         return new $providerClass;
+    }
+
+    public function issuePasscode(Reservation $reservation, ?string $customPin = null): DoorLockAuditLog
+    {
+        $branch = $this->resolveBranch($reservation);
+        $gateway = $this->getGateway($branch);
+
+        if (! $gateway) {
+            throw new \RuntimeException('No active door lock gateway configured for branch: '.$branch->name);
+        }
+
+        $room = $reservation->room;
+        if (! $room) {
+            throw new \RuntimeException('Reservation '.$reservation->confirmation_number.' has no room assigned.');
+        }
+
+        $pin = $customPin ?: $this->generatePin();
+
+        $log = DoorLockAuditLog::create([
+            'branch_id' => $branch->id,
+            'reservation_id' => $reservation->id,
+            'room_id' => $room->id,
+            'gateway_id' => $gateway->id,
+            'action' => 'issue_passcode',
+            'pin_code' => $pin,
+            'valid_from' => $reservation->actual_check_in_at ?? now(),
+            'valid_until' => $reservation->check_out_date->endOfDay(),
+            'status' => 'pending',
+            'payload' => [
+                'type' => 'digital_passcode',
+                'is_biometric_enrolled' => false,
+            ],
+        ]);
+
+        $provider = $this->getProvider($gateway, $branch);
+        $success = $provider->issueKey($gateway, $log);
+
+        if (! $success && ($gateway->settings['manual_mode'] ?? false) === true) {
+            $log->markManual('manual-pin-'.$log->id);
+        }
+
+        return $log->fresh() ?? $log;
+    }
+
+    /**
+     * @param  array<string, mixed>  $biometricData
+     */
+    public function enrollBiometric(DoorLockAuditLog $log, array $biometricData): bool
+    {
+        $payload = $log->payload ?? [];
+        $payload['is_biometric_enrolled'] = true;
+        $payload['biometric_enrolled_at'] = now()->toIso8601String();
+        $payload['biometric_type'] = $biometricData['type'] ?? 'fingerprint';
+        $payload['biometric_template_ref'] = $biometricData['template_ref'] ?? null;
+
+        return $log->update(['payload' => $payload]);
     }
 
     private function generatePin(): string

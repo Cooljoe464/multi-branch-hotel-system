@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Console\Commands\GenerateApiDocs;
 use App\Exceptions\UnsafeWebhookUrl;
 use App\Http\Controllers\Concerns\EnsuresBranchAccess;
 use App\Models\ApiConsumer;
@@ -37,7 +38,15 @@ class DevelopersController extends Controller
         'analytics.export_warehouse',
         'webhooks.replay',
         'saas.view',
+        'scim.manage',
     ];
+
+    public function docs(): Response
+    {
+        return Inertia::render('developers/Docs', [
+            'spec' => GenerateApiDocs::document(),
+        ]);
+    }
 
     public function index(Request $request): Response
     {

@@ -40,4 +40,12 @@ interface PaymentDriver
     public function refund(string $gatewayReference, int $amountMinor): array;
 
     public function void(string $gatewayReference): bool;
+
+    /**
+     * Live account diagnostic: proves the credentials accept API calls and
+     * reports the mode (test/live) plus best-effort merchant identity.
+     *
+     * @return array{status: string, mode: string, merchant_name: ?string, reachable: bool}
+     */
+    public function healthCheck(): array;
 }

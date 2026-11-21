@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\EnsuresBranchAccess;
 use App\Models\Branch;
 use App\Models\CashierShift;
+use App\Models\User;
 use App\Services\BusinessDateService;
 use App\Services\CashierShiftService;
 use Illuminate\Http\RedirectResponse;
@@ -76,6 +77,54 @@ class CashierShiftController extends Controller
         ]);
 
         $closed = $this->shifts->close(
+            $shift,
+            $request->integer('counted_cash_minor'),
+            $request->string('note')->value() !== '' ? $request->string('note')->value() : null,
+        );
+
+        return $this->flashSuccess(
+            $closed->variance_minor === 0
+                ? 'Shift closed. Drawer balances.'
+                : "Shift closed with variance {$closed->variance_minor} minor units."
+        );
+    }
+
+    public function drop(Request $request, CashierShift $shift): RedirectResponse
+    {
+        $this->ensureBranchAccess($shift->branch);
+
+        $request->validate([
+            'amount_minor' => 'required|integer|min:1',
+            'envelope_number' => 'required|string|max:64',
+            'witness_user_id' => 'nullable|exists:users,id',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $witness = $request->filled('witness_user_id')
+            ? User::find($request->integer('witness_user_id'))
+            : null;
+
+        $this->shifts->recordDrop(
+            $shift,
+            $request->integer('amount_minor'),
+            $request->string('envelope_number')->value(),
+            $witness,
+            $request->string('notes')->value() ?: null,
+        );
+
+        return $this->flashSuccess('Cash drop recorded.');
+    }
+
+    public function blindClose(Request $request, CashierShift $shift): RedirectResponse
+    {
+        $this->ensureBranchAccess($shift->branch);
+
+        $request->validate([
+            'counted_cash_minor' => 'required|integer|min:0',
+            'note' => 'nullable|string|max:500',
+        ]);
+
+        $closed = $this->shifts->blindClose(
             $shift,
             $request->integer('counted_cash_minor'),
             $request->string('note')->value() !== '' ? $request->string('note')->value() : null,

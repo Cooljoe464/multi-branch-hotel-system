@@ -112,6 +112,25 @@ class PaymentService
         return $this->driver;
     }
 
+    /**
+     * Diagnostic client for an explicit gateway credential pair (used by the
+     * tenant self-service BYOG connection test).
+     */
+    public function forSecret(string $provider, string $secretKey): self
+    {
+        $driver = $provider === 'flutterwave' ? new FlutterwaveDriver($secretKey) : new PaystackDriver($secretKey);
+
+        if (! $driver instanceof PaymentDriver) {
+            throw new RuntimeException("Payment driver [{$provider}] did not resolve.");
+        }
+
+        $this->driver = $driver;
+        $this->paymentConnectionId = null;
+        $this->paymentConnection = null;
+
+        return $this;
+    }
+
     public function paymentConnection(): ?PaymentConnection
     {
         return $this->paymentConnection;
@@ -483,6 +502,16 @@ class PaymentService
                 $reservation->syncPaymentStatus();
             }
         }
+
+        // Payment success is a published integration event for connected
+        // booking engines; queued delivery is handled by DeliverWebhookJob.
+        app(WebhookDispatcher::class)->dispatch('payment.verified', [
+            'payment_transaction_id' => $paymentTx->id,
+            'reference' => $paymentTx->paystack_reference,
+            'status' => 'success',
+            'amount_minor' => $paymentTx->amount,
+            'currency' => $paymentTx->currency,
+        ], $paymentTx->branch_id);
     }
 
     /**

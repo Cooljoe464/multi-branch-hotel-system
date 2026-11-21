@@ -170,6 +170,47 @@ class FlutterwaveDriver implements PaymentDriver
         return $response->successful();
     }
 
+    public function healthCheck(): array
+    {
+        $response = $this->request()->get("{$this->baseUrl}/subaccounts");
+
+        if (! $response->successful()) {
+            throw new RuntimeException('Flutterwave connection verification failed: '.$response->body());
+        }
+
+        /** @var array<string, mixed> $data */
+        $data = is_array($response->json('data')) ? $response->json('data') : [];
+
+        $merchantName = null;
+        foreach (['business_name', 'account_name', 'name'] as $field) {
+            if (is_string($data[$field] ?? null) && $data[$field] !== '') {
+                $merchantName = $data[$field];
+
+                break;
+            }
+        }
+
+        return [
+            'status' => 'active',
+            'mode' => $this->mode(),
+            'merchant_name' => $merchantName,
+            'reachable' => true,
+        ];
+    }
+
+    private function mode(): string
+    {
+        if (str_starts_with($this->secretKey, 'FLW_LIVE_') || str_starts_with($this->secretKey, 'flw_live_')) {
+            return 'live';
+        }
+
+        if (str_starts_with($this->secretKey, 'FLW_TEST_') || str_starts_with($this->secretKey, 'flw_test_')) {
+            return 'test';
+        }
+
+        return 'unknown';
+    }
+
     private function request(): PendingRequest
     {
         return Http::withToken($this->secretKey)->acceptJson()->asJson();

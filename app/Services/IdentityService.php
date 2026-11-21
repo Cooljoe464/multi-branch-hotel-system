@@ -28,7 +28,7 @@ class IdentityService
         string $docType,
         ?string $docNumber,
         ?UploadedFile $scan,
-        User $by,
+        ?User $by = null,
         array $ocr = [],
     ): GuestIdentityDocument {
         if (! in_array($docType, self::TYPES, true)) {
@@ -63,11 +63,15 @@ class IdentityService
                 OcrDocumentJob::dispatch($doc->id);
             }
 
-            activity('guests')
+            $activity = activity('guests')
                 ->performedOn($guest)
-                ->causedBy($by)
-                ->withProperties(['doc_id' => $doc->id, 'doc_type' => $docType])
-                ->log("Identity document captured ({$docType}).");
+                ->withProperties(['doc_id' => $doc->id, 'doc_type' => $docType]);
+
+            if ($by !== null) {
+                $activity->causedBy($by);
+            }
+
+            $activity->log("Identity document captured ({$docType}).");
 
             return $doc->fresh() ?? $doc;
         });

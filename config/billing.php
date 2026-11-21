@@ -32,4 +32,15 @@ return [
 
     'invoice_prefix' => env('BILLING_INVOICE_PREFIX', 'HOS'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Usage overage rate
+    | --------------------------------------------------------------------
+    |
+    | Rate charged per metered API call beyond a plan's monthly allowance.
+    |
+    */
+
+    'overage_rate_minor' => (int) env('BILLING_OVERAGE_RATE_MINOR', 0),
+
 ];

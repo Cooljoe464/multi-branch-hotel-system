@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Events\ShiftClosed;
 use App\Events\VarianceFlagged;
 use App\Models\Branch;
+use App\Models\CashDrop;
 use App\Models\CashierShift;
 use App\Models\Transaction;
 use App\Models\User;
@@ -122,6 +123,77 @@ class CashierShiftService
             'lines' => $lines,
             'generated_at' => now()->toDateTimeString(),
         ];
+    }
+
+    /**
+     * Record a mid-shift safe drop (cash removed from drawer into safe/envelope).
+     */
+    public function recordDrop(CashierShift $shift, int $amountMinor, string $envelopeNumber, ?User $witness = null, ?string $notes = null): CashDrop
+    {
+        if (! $shift->isOpen()) {
+            throw new LogicException('Cash drops can only be recorded on an open shift.');
+        }
+
+        if ($amountMinor <= 0) {
+            throw new LogicException('Drop amount must be positive.');
+        }
+
+        return CashDrop::create([
+            'cashier_shift_id' => $shift->id,
+            'amount_minor' => $amountMinor,
+            'envelope_number' => $envelopeNumber,
+            'witness_user_id' => $witness?->id,
+            'dropped_at' => now(),
+            'notes' => $notes,
+        ]);
+    }
+
+    /**
+     * Blind close: cashier enters count without seeing expected.
+     * Accounts for mid-shift drops subtracted from drawer.
+     */
+    public function blindClose(CashierShift $shift, int $countedMinor, ?string $note = null): CashierShift
+    {
+        return DB::transaction(function () use ($shift, $countedMinor, $note) {
+            $locked = CashierShift::where('id', $shift->id)->lockForUpdate()->firstOrFail();
+
+            if (! $locked->isOpen()) {
+                throw new LogicException('Shift is already closed.');
+            }
+
+            if ($countedMinor < 0) {
+                throw new LogicException('Counted cash cannot be negative.');
+            }
+
+            $expected = $locked->opening_float_minor + $this->cashPayments($locked) - $this->totalDrops($locked);
+            $variance = $countedMinor - $expected;
+
+            if (abs($variance) > $this->varianceThreshold($locked) && ($note === null || trim($note) === '')) {
+                throw new LogicException('A note is required for variances above threshold.');
+            }
+
+            $locked->update([
+                'expected_cash_minor' => $expected,
+                'counted_cash_minor' => $countedMinor,
+                'variance_minor' => $variance,
+                'status' => CashierShift::STATUS_CLOSED,
+                'closed_at' => now(),
+            ]);
+
+            $fresh = $locked->fresh() ?? $locked;
+            event(new ShiftClosed($fresh));
+
+            if ($variance !== 0) {
+                event(new VarianceFlagged($fresh));
+            }
+
+            return $fresh;
+        });
+    }
+
+    private function totalDrops(CashierShift $shift): int
+    {
+        return (int) CashDrop::where('cashier_shift_id', $shift->id)->sum('amount_minor');
     }
 
     private function cashPayments(CashierShift $shift): int

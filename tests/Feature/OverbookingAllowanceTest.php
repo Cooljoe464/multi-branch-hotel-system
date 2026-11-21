@@ -24,7 +24,7 @@ it('AC-034 requires confirmed MFA and records a scoped, audited allowance', func
     ];
 
     $this->actingAs($user)
-        ->post("/branches/{$branch->id}/overbooking-allowances", $payload)
+        ->postJson("/branches/{$branch->id}/overbooking-allowances", $payload)
         ->assertForbidden();
 
     $user->forceFill(['two_factor_secret' => 'confirmed-secret', 'two_factor_confirmed_at' => now()])->save();

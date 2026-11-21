@@ -19,12 +19,13 @@ use Illuminate\Support\Carbon;
  * @property string|null $billing_email
  * @property string|null $country
  * @property array<string, mixed>|null $metadata
+ * @property bool $portfolio_analytics_consent
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Collection<int, Branch> $branches
  * @property-read Subscription|null $subscription
  */
-#[Fillable(['name', 'legal_name', 'slug', 'billing_email', 'country', 'metadata'])]
+#[Fillable(['name', 'legal_name', 'slug', 'billing_email', 'country', 'metadata', 'portfolio_analytics_consent'])]
 class Tenant extends Model
 {
     /** @use HasFactory<TenantFactory> */
@@ -34,6 +35,7 @@ class Tenant extends Model
     {
         return [
             'metadata' => 'array',
+            'portfolio_analytics_consent' => 'boolean',
         ];
     }
 

@@ -42,6 +42,7 @@ use App\Http\Controllers\ForecastController;
 use App\Http\Controllers\FrontDeskDashboardController;
 use App\Http\Controllers\FunctionSpaceController;
 use App\Http\Controllers\GdprController;
+use App\Http\Controllers\GeneratorController;
 use App\Http\Controllers\GoodsReceiptController;
 use App\Http\Controllers\GroupBlockController;
 use App\Http\Controllers\GroupLedgerController;
@@ -66,6 +67,7 @@ use App\Http\Controllers\JournalController;
 use App\Http\Controllers\KdsController;
 use App\Http\Controllers\KitchenWasteController;
 use App\Http\Controllers\LaundryController;
+use App\Http\Controllers\LinenController;
 use App\Http\Controllers\LostFoundController;
 use App\Http\Controllers\LoyaltyController;
 use App\Http\Controllers\MaintenanceController;
@@ -74,6 +76,8 @@ use App\Http\Controllers\MinibarController;
 use App\Http\Controllers\MobileKeyController;
 use App\Http\Controllers\NightAuditController;
 use App\Http\Controllers\NlReportController;
+use App\Http\Controllers\OfflineConflictController;
+use App\Http\Controllers\OperationalChecklistController;
 use App\Http\Controllers\OutletController;
 use App\Http\Controllers\OverbookingAllowanceController;
 use App\Http\Controllers\PlatformSubscriptionController;
@@ -93,6 +97,8 @@ use App\Http\Controllers\ReservationRelocationController;
 use App\Http\Controllers\RetentionPolicyController;
 use App\Http\Controllers\RevenueReportController;
 use App\Http\Controllers\RoomController;
+use App\Http\Controllers\SpaController;
+use App\Http\Controllers\SsoController;
 use App\Http\Controllers\StatutoryReportController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierInputVatController;
@@ -137,7 +143,8 @@ Route::middleware('throttle:guest-portal')->group(function () {
     Route::get('guest', [GuestPortalController::class, 'index'])->name('guest.index');
     Route::get('guest/folio/{confirmationNumber}', [GuestPortalController::class, 'folio'])->name('guest.folio');
     Route::post('guest/lookup', [GuestPortalController::class, 'searchGuest'])->name('guest.lookup');
-    Route::get('guest/checkin/{confirmationNumber}', [GuestPortalController::class, 'folio'])->name('guest.checkin');
+    Route::get('guest/checkin/{confirmationNumber}', [GuestPortalController::class, 'checkin'])->name('guest.checkin');
+    Route::post('guest/checkin/{confirmationNumber}/submit', [GuestPortalController::class, 'checkinSubmit'])->name('guest.checkin.submit');
 
     // Guest Ordering
     Route::get('guest/order/{confirmationNumber}', [GuestOrderController::class, 'outlets'])->name('guest.order.outlets');
@@ -213,10 +220,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:availability.manage_overbook')
         ->name('overbooking-allowances.index');
     Route::post('branches/{branch}/overbooking-allowances', [OverbookingAllowanceController::class, 'store'])
-        ->middleware(['permission:availability.manage_overbook', RequireIdempotencyKey::class])
+        ->middleware(['permission:availability.manage_overbook', 'mfa', RequireIdempotencyKey::class])
         ->name('overbooking-allowances.store');
     Route::delete('branches/{branch}/overbooking-allowances/{allowance}', [OverbookingAllowanceController::class, 'destroy'])
-        ->middleware(['permission:availability.manage_overbook', RequireIdempotencyKey::class])
+        ->middleware(['permission:availability.manage_overbook', 'mfa', RequireIdempotencyKey::class])
         ->name('overbooking-allowances.destroy');
 
     // Rate restrictions
@@ -466,7 +473,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:folios.transfer')
         ->name('transactions.transfer-master');
 
-    // Cashier shifts + Z-report
+    // Cashier shifts + Z-report + safe drops
     Route::get('branches/{branch}/cashier', [CashierShiftController::class, 'index'])
         ->middleware('permission:cashier.open_shift')
         ->name('cashier.index');
@@ -476,6 +483,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('cashier-shifts/{shift}/close', [CashierShiftController::class, 'close'])
         ->middleware('permission:cashier.close_shift')
         ->name('cashier.close');
+    Route::post('cashier-shifts/{shift}/blind-close', [CashierShiftController::class, 'blindClose'])
+        ->middleware('permission:cashier.close_shift')
+        ->name('cashier.blind-close');
+    Route::post('cashier-shifts/{shift}/drop', [CashierShiftController::class, 'drop'])
+        ->middleware('permission:cashier.close_shift')
+        ->name('cashier.drop');
     Route::get('branches/{branch}/cashier-shifts/{shift}/z-report', [CashierShiftController::class, 'zReport'])
         ->middleware('permission:reports.view')
         ->name('cashier.z-report');
@@ -488,10 +501,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:folios.manage')
         ->name('voids.request');
     Route::post('void-approvals/{approval}/approve', [VoidRefundController::class, 'approve'])
-        ->middleware('permission:cashier.approve_void')
+        ->middleware(['permission:cashier.approve_void', 'mfa'])
         ->name('voids.approve');
     Route::post('void-approvals/{approval}/reject', [VoidRefundController::class, 'reject'])
-        ->middleware('permission:cashier.approve_void')
+        ->middleware(['permission:cashier.approve_void', 'mfa'])
         ->name('voids.reject');
     Route::post('payment-transactions/{paymentTransaction}/refund', [VoidRefundController::class, 'refund'])
         ->middleware('permission:payments.refund')
@@ -549,6 +562,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('relocations', [ReservationRelocationController::class, 'index'])
         ->middleware('permission:reservations.update')
         ->name('relocations.index');
+    Route::get('offline/conflicts', [OfflineConflictController::class, 'page'])
+        ->middleware('permission:offline.review')
+        ->name('offline.conflicts.index');
     Route::post('reservations/{reservation}/relocate', [ReservationRelocationController::class, 'store'])
         ->middleware('permission:reservations.update')
         ->name('reservations.relocate');
@@ -638,6 +654,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:maintenance.manage_assets')
         ->name('asset-health.destroy');
 
+    // Facilities: Generators & Energy Tracking
+    Route::get('branches/{branch}/facilities/generators', [GeneratorController::class, 'index'])
+        ->middleware('permission:maintenance.view')
+        ->name('facilities.generators.index');
+    Route::post('branches/{branch}/facilities/generators/{generator}/start', [GeneratorController::class, 'start'])
+        ->middleware('permission:maintenance.manage')
+        ->name('facilities.generators.start');
+    Route::post('branches/{branch}/facilities/generator-runs/{run}/stop', [GeneratorController::class, 'stop'])
+        ->middleware('permission:maintenance.manage')
+        ->name('facilities.generators.stop');
+    Route::get('branches/{branch}/facilities/fuel', [GeneratorController::class, 'fuel'])
+        ->middleware('permission:maintenance.view')
+        ->name('facilities.fuel.index');
+    Route::post('branches/{branch}/facilities/fuel/log', [GeneratorController::class, 'logFuel'])
+        ->middleware('permission:maintenance.manage')
+        ->name('facilities.fuel.log');
+    Route::get('branches/{branch}/facilities/meters', [GeneratorController::class, 'meters'])
+        ->middleware('permission:maintenance.view')
+        ->name('facilities.meters.index');
+    Route::post('branches/{branch}/facilities/meters/{meter}', [GeneratorController::class, 'updateMeter'])
+        ->middleware('permission:maintenance.manage')
+        ->name('facilities.meters.update');
+
     // Housekeeping schedules (plan/pin: assign perm; publish: Branch GM)
     Route::get('branches/{branch}/housekeeping/schedule', [HkScheduleController::class, 'index'])
         ->middleware('permission:housekeeping.assign')
@@ -725,6 +764,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('analytics', [AnalyticsController::class, 'index'])
         ->middleware(['permission:analytics.view', 'replica'])
         ->name('analytics.index');
+
+    Route::get('analytics/portfolio', [AnalyticsController::class, 'portfolio'])
+        ->middleware('permission:analytics.view')
+        ->name('analytics.portfolio');
 
     // Warehouse feed (R2 snapshots + manifests)
     Route::get('analytics/warehouse', [WarehouseController::class, 'index'])
@@ -1050,6 +1093,57 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:laundry.manage')
         ->name('laundry.verify');
 
+    // Linen management & tracking
+    Route::get('branches/{branch}/housekeeping/linen', [LinenController::class, 'index'])
+        ->middleware('permission:housekeeping.view')
+        ->name('housekeeping.linen.index');
+    Route::post('branches/{branch}/housekeeping/linen/dispatch', [LinenController::class, 'dispatch'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('housekeeping.linen.dispatch');
+    Route::post('branches/{branch}/housekeeping/linen/batches/{batch}/receive', [LinenController::class, 'receive'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('housekeeping.linen.receive');
+    Route::post('branches/{branch}/housekeeping/linen/discard', [LinenController::class, 'discard'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('housekeeping.linen.discard');
+
+    // Operational Checklists
+    Route::get('branches/{branch}/operations/checklists', [OperationalChecklistController::class, 'index'])
+        ->middleware('permission:housekeeping.view')
+        ->name('operations.checklists.index');
+    Route::post('branches/{branch}/operations/checklists', [OperationalChecklistController::class, 'store'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('operations.checklists.store');
+    Route::post('branches/{branch}/operations/checklists/{checklist}/items/{itemId}/check', [OperationalChecklistController::class, 'checkItem'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('operations.checklists.check');
+    Route::post('branches/{branch}/operations/checklists/{checklist}/complete', [OperationalChecklistController::class, 'complete'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('operations.checklists.complete');
+    Route::post('branches/{branch}/operations/checklists/{checklist}/verify', [OperationalChecklistController::class, 'verify'])
+        ->middleware('permission:housekeeping.manage')
+        ->name('operations.checklists.verify');
+
+    // Spa & Wellness
+    Route::get('branches/{branch}/spa/appointments', [SpaController::class, 'index'])
+        ->middleware('permission:reservations.view')
+        ->name('spa.appointments.index');
+    Route::get('branches/{branch}/spa/schedule', [SpaController::class, 'schedule'])
+        ->middleware('permission:reservations.view')
+        ->name('spa.schedule');
+    Route::post('branches/{branch}/spa/book', [SpaController::class, 'book'])
+        ->middleware('permission:reservations.create')
+        ->name('spa.book');
+    Route::post('branches/{branch}/spa/appointments/{appointment}/reschedule', [SpaController::class, 'reschedule'])
+        ->middleware('permission:reservations.update')
+        ->name('spa.reschedule');
+    Route::post('branches/{branch}/spa/appointments/{appointment}/complete', [SpaController::class, 'complete'])
+        ->middleware('permission:reservations.update')
+        ->name('spa.complete');
+    Route::post('branches/{branch}/spa/appointments/{appointment}/cancel', [SpaController::class, 'cancel'])
+        ->middleware('permission:reservations.cancel')
+        ->name('spa.cancel');
+
     // Channels
     Route::get('channels', [ChannelManagerController::class, 'index'])
         ->middleware(['permission:channels.view', 'entitled:channels.sync'])
@@ -1097,6 +1191,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('developers', [DevelopersController::class, 'index'])
         ->middleware('permission:api.view')
         ->name('developers.index');
+    Route::get('developer/docs', [DevelopersController::class, 'docs'])
+        ->middleware('permission:api.view')
+        ->name('developer.docs');
+
+    // Enterprise SSO (OIDC: Google Workspace, Microsoft Entra ID, Okta)
+    Route::get('sso/{provider}/authorize', [SsoController::class, 'authorize'])
+        ->name('sso.authorize');
+    Route::get('sso/{provider}/callback', [SsoController::class, 'callback'])
+        ->name('sso.callback');
     Route::post('developers/consumers', [DevelopersController::class, 'store'])
         ->middleware('permission:api.manage_consumers')
         ->name('developers.store');

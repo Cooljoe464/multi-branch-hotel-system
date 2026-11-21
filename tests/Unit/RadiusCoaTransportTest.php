@@ -64,6 +64,7 @@ function configureRadiusUnitTest(): void
     $container->instance('log', Mockery::mock()->shouldIgnoreMissing());
     Container::setInstance($container);
     Facade::setFacadeApplication($container);
+    Facade::clearResolvedInstances();
 }
 
 function coaResponse(string $request, string $secret, int $code, bool $includeMessageAuthenticator = true): string

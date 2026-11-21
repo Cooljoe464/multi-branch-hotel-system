@@ -140,6 +140,18 @@ class InventoryHoldService
                 foreach ($holds as $hold) {
                     $this->release($hold);
                     $released++;
+
+                    // Expired holds are the only automated release path; notify
+                    // connected booking-engine consumers so they can stop holding.
+                    app(WebhookDispatcher::class)->dispatch('hold.expired', [
+                        'hold_id' => $hold->id,
+                        'quote_id' => $hold->public_api_quote_id,
+                        'room_type_id' => $hold->room_type_id,
+                        'check_in' => $hold->check_in?->toDateString(),
+                        'check_out' => $hold->check_out?->toDateString(),
+                        'api_key_id' => $hold->api_key_id,
+                        'session_id' => $hold->session_id,
+                    ], $hold->branch_id);
                 }
             });
 

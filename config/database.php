@@ -97,6 +97,9 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Pin the session timezone to the application clock so timestamptz
+            // columns round-trip without shifting when the server default differs.
+            'timezone' => env('DB_TIMEZONE', 'UTC'),
         ],
 
         'migration' => [
@@ -112,6 +115,7 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'timezone' => env('DB_TIMEZONE', 'UTC'),
         ],
 
         // Async read replica. Writes always stay on pgsql; heavy
@@ -129,6 +133,7 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'timezone' => env('DB_TIMEZONE', 'UTC'),
         ],
 
         'radius' => [

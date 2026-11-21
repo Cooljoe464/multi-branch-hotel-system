@@ -2,15 +2,22 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Exceptions\AvailabilityException;
 use App\Http\Controllers\Controller;
+use App\Models\ApiConsumer;
 use App\Models\Branch;
 use App\Models\PaymentConnection;
+use App\Models\WebhookDelivery;
+use App\Services\PaymentService;
+use App\Services\WebhookDispatcher;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 /**
  * Hotel-owned payment gateway credentials. Secrets are write-only: the page
@@ -42,9 +49,26 @@ class PaymentConnectionController extends Controller
             ])
             ->values();
 
+        $lastDelivery = WebhookDelivery::query()
+            ->whereIn('api_consumer_id', $this->webhookConsumerIds($branch))
+            ->latest('id')
+            ->first();
+
+        $webhookLast = $lastDelivery === null ? null : [
+            'event' => $lastDelivery->event,
+            'status' => $lastDelivery->status,
+            'attempts' => $lastDelivery->attempts,
+            'last_error' => $lastDelivery->last_error,
+            'delivered_at' => $lastDelivery->created_at?->toIso8601String(),
+            'signature' => $lastDelivery->signature,
+        ];
+
         return Inertia::render('settings/PaymentConnections', [
             'branch' => $branch->only(['id', 'name']),
-            'connections' => $connections,
+            'connections' => $connections->map(fn (array $connection): array => [
+                ...$connection,
+                'last_webhook' => $webhookLast,
+            ])->values(),
             'providers' => PaymentConnection::PROVIDERS,
         ]);
     }
@@ -139,6 +163,117 @@ class PaymentConnectionController extends Controller
         $connection->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Payment connection removed.']);
+    }
+
+    /**
+     * Live BYOG diagnostic: pings the hotel's own gateway credentials
+     * (stored key or a freshly provided one) and reports account status,
+     * mode match and merchant identity.
+     *
+     * @return array<string, mixed>
+     */
+    public function test(Request $request, PaymentConnection $connection): JsonResponse
+    {
+        $branch = $this->branch($request);
+        $this->ensureOwned($branch, $connection);
+
+        if ($connection->status !== 'active') {
+            return response()->json([
+                'data' => [
+                    'status' => 'inactive',
+                    'provider' => $connection->provider,
+                    'mode' => $connection->mode,
+                    'merchant_name' => $connection->merchant_reference,
+                    'reachable' => false,
+                ],
+            ], 200);
+        }
+
+        $secretKey = $connection->secret_key;
+        if (is_string($request->input('secret_key')) && trim($request->input('secret_key')) !== '') {
+            $secretKey = trim($request->input('secret_key'));
+        }
+
+        if (trim($secretKey) === '') {
+            return response()->json([
+                'data' => [
+                    'status' => 'invalid',
+                    'provider' => $connection->provider,
+                    'mode' => $connection->mode,
+                    'merchant_name' => null,
+                    'reachable' => false,
+                ],
+            ], 422);
+        }
+
+        try {
+            $service = app(PaymentService::class)->forSecret($connection->provider, $secretKey);
+            $health = $service->driver()->healthCheck();
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'data' => [
+                    'status' => 'invalid',
+                    'provider' => $connection->provider,
+                    'mode' => $connection->mode,
+                    'merchant_name' => null,
+                    'reachable' => false,
+                    'reason' => $exception->getMessage(),
+                ],
+            ], 422);
+        }
+
+        return response()->json(['data' => $health]);
+    }
+
+    public function sendWebhookTest(Request $request, PaymentConnection $connection): JsonResponse
+    {
+        $branch = $this->branch($request);
+        $this->ensureOwned($branch, $connection);
+
+        try {
+            $delivery = app(WebhookDispatcher::class)->dispatchTest('payment.test', [
+                'connection' => [
+                    'id' => $connection->id,
+                    'provider' => $connection->provider,
+                    'mode' => $connection->mode,
+                ],
+            ], (int) ($connection->branch_id ?? $branch->id));
+        } catch (AvailabilityException $exception) {
+            return response()->json(['data' => [
+                'status' => 'failed',
+                'event' => 'payment.test',
+                'delivery_id' => null,
+                'consumer_name' => null,
+                'attempts' => 0,
+                'last_error' => $exception->getMessage(),
+            ]], 422);
+        }
+
+        return response()->json(['data' => [
+            'status' => $delivery->status,
+            'event' => 'payment.test',
+            'delivery_id' => $delivery->id,
+            'consumer_name' => $delivery->consumer?->name,
+            'attempts' => $delivery->attempts,
+            'last_error' => $delivery->last_error,
+        ]]);
+    }
+
+    private function webhookConsumerIds(Branch $branch): array
+    {
+        $consumerIds = ApiConsumer::query()
+            ->where('branch_id', $branch->id)
+            ->where('is_active', true)
+            ->pluck('id')
+            ->all();
+
+        foreach (ApiConsumer::query()->whereNotNull('branch_ids')->get() as $consumer) {
+            if ($consumer->is_active && in_array($branch->id, $consumer->reachableBranchIds(), true)) {
+                $consumerIds[] = $consumer->id;
+            }
+        }
+
+        return array_values(array_unique($consumerIds));
     }
 
     private function clearDefault(int $tenantId, ?int $branchId): void

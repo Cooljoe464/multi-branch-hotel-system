@@ -5,10 +5,13 @@ namespace App\Services;
 use App\Events\MobileKeyIssued;
 use App\Events\MobileKeyRevoked;
 use App\Exceptions\AvailabilityException;
+use App\Models\DoorLockGateway;
 use App\Models\MobileKey;
 use App\Models\Reservation;
+use App\Services\MobileKey\AssaAbloyMobileAccessVendor;
 use App\Services\MobileKey\FakeMobileKeyVendor;
 use App\Services\MobileKey\MobileKeyVendor;
+use App\Services\MobileKey\SaltoJustInVendor;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -21,9 +24,20 @@ use Illuminate\Support\Str;
  */
 class MobileKeyService
 {
-    private function vendor(): MobileKeyVendor
+    private function vendor(?Reservation $reservation = null): MobileKeyVendor
     {
-        return new FakeMobileKeyVendor;
+        $vendorName = config('services.mobile_key.vendor');
+
+        if (! $vendorName && $reservation) {
+            $gateway = DoorLockGateway::where('branch_id', $reservation->branch_id)->where('is_active', true)->first();
+            $vendorName = $gateway?->provider;
+        }
+
+        return match ($vendorName) {
+            'assa_abloy' => app(AssaAbloyMobileAccessVendor::class),
+            'salto' => app(SaltoJustInVendor::class),
+            default => app(FakeMobileKeyVendor::class),
+        };
     }
 
     /**
@@ -68,7 +82,7 @@ class MobileKeyService
         $degraded = false;
 
         try {
-            $this->vendor()->provision($key);
+            $this->vendor($reservation)->provision($key);
         } catch (\Throwable $e) {
             $degraded = true;
             Log::warning('Mobile key vendor unreachable; plastic fallback.', [
@@ -91,7 +105,7 @@ class MobileKeyService
         $key->update(['status' => MobileKey::STATUS_REVOKED]);
 
         try {
-            $this->vendor()->revoke($key);
+            $this->vendor($key->reservation)->revoke($key);
         } catch (\Throwable $e) {
             Log::warning('Mobile key revoke failed at vendor.', ['key_id' => $key->id, 'error' => $e->getMessage()]);
         }

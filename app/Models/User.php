@@ -32,6 +32,8 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string $locale
  * @property Carbon|null $email_verified_at
  * @property string $password
+ * @property string|null $sso_issuer
+ * @property string|null $sso_subject
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
@@ -47,7 +49,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property-read Branch|null $currentBranch
  * @property-read Collection<int, Branch> $branches
  */
-#[Fillable(['name', 'email', 'password', 'branch_id', 'is_global_admin', 'locale'])]
+#[Fillable(['name', 'email', 'password', 'branch_id', 'is_global_admin', 'locale', 'sso_issuer', 'sso_subject'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {

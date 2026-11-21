@@ -54,6 +54,20 @@ return [
         'reconcile_endpoint' => env('FIRS_RECONCILE_ENDPOINT'),
     ],
 
+    'afri_invoice' => [
+        'endpoint' => env('AFRI_INVOICE_ENDPOINT', 'https://api.afrinvoice.com/v1'),
+        'api_key' => env('AFRI_INVOICE_API_KEY'),
+        'service_id' => env('AFRI_INVOICE_SERVICE_ID'),
+        'environment' => env('AFRI_INVOICE_ENV', 'sandbox'),
+    ],
+
+    'termii' => [
+        'endpoint' => env('TERMII_ENDPOINT', 'https://api.ng.termii.com/api'),
+        'api_key' => env('TERMII_API_KEY'),
+        'sender_id' => env('TERMII_SENDER_ID', 'Hospitality'),
+        'channel' => env('TERMII_CHANNEL', 'dnd'),
+    ],
+
     // Identity OCR vendor (NIN/passport scans). Empty endpoint disables
     // vendor OCR and captures stay manual with ocr_pending status.
     // Overridable per platform through the SecretManager key ocr.api_key.

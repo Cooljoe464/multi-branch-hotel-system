@@ -44,7 +44,23 @@ class BillingService
                 return $existing;
             }
 
-            $subtotal = $plan->monthly_price_minor;
+            $usage = app(UsageMeterService::class)->monthlyApiCalls($lockedSubscription->tenant_id, $periodStart);
+            $allowance = app(UsageMeterService::class)->monthlyAllowance($plan, $periodStart);
+            $overage = app(UsageMeterService::class)->overageFor($plan, $usage, $allowance);
+            $overageRate = max(0, (int) config('billing.overage_rate_minor', 0));
+            $overageAmount = $overage * $overageRate;
+
+            $smsUsage = app(UsageMeterService::class)->monthlyOutboundSms($lockedSubscription->tenant_id, $periodStart);
+            $smsAllowance = app(UsageMeterService::class)->meteredAllowance($plan, 'sms', $periodStart);
+            $smsOverage = $smsAllowance > 0 ? max(0, $smsUsage - $smsAllowance) : 0;
+            $smsAmount = $smsOverage * $overageRate;
+
+            $aiUsage = app(UsageMeterService::class)->monthlyAiConversations($lockedSubscription->tenant_id, $periodStart);
+            $aiAllowance = app(UsageMeterService::class)->meteredAllowance($plan, 'ai', $periodStart);
+            $aiOverage = $aiAllowance > 0 ? max(0, $aiUsage - $aiAllowance) : 0;
+            $aiAmount = $aiOverage * $overageRate;
+
+            $subtotal = $plan->monthly_price_minor + $overageAmount + $smsAmount + $aiAmount;
             $tax = intdiv($subtotal * config()->integer('billing.vat_basis_points') + 5000, 10000);
             $issuedAt = now();
 
@@ -75,6 +91,36 @@ class BillingService
                 'unit_amount_minor' => $subtotal,
                 'amount_minor' => $subtotal,
             ]);
+
+            if ($overage > 0 && $overageAmount > 0) {
+                $invoice->lines()->create([
+                    'tenant_id' => $lockedSubscription->tenant_id,
+                    'description' => 'API overage, '.$periodStart->format('F Y').' ('.$overage.' calls)',
+                    'quantity' => $overage,
+                    'unit_amount_minor' => $overageRate,
+                    'amount_minor' => $overageAmount,
+                ]);
+            }
+
+            if ($smsOverage > 0 && $smsAmount > 0) {
+                $invoice->lines()->create([
+                    'tenant_id' => $lockedSubscription->tenant_id,
+                    'description' => 'Outbound SMS overage, '.$periodStart->format('F Y').' ('.$smsOverage.' messages)',
+                    'quantity' => $smsOverage,
+                    'unit_amount_minor' => $overageRate,
+                    'amount_minor' => $smsAmount,
+                ]);
+            }
+
+            if ($aiOverage > 0 && $aiAmount > 0) {
+                $invoice->lines()->create([
+                    'tenant_id' => $lockedSubscription->tenant_id,
+                    'description' => 'AI concierge conversation overage, '.$periodStart->format('F Y').' ('.$aiOverage.' conversations)',
+                    'quantity' => $aiOverage,
+                    'unit_amount_minor' => $overageRate,
+                    'amount_minor' => $aiAmount,
+                ]);
+            }
 
             return $invoice;
         });

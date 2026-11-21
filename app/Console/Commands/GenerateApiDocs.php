@@ -230,6 +230,26 @@ class GenerateApiDocs extends Command
                     ],
                 ],
             ],
+            'public.v1.reservations.store' => [
+                'summary' => 'Confirm a verified payment intent into a confirmed public booking.',
+                'security' => [['publicApiKey' => []]],
+                'abilities' => ['reservations.create'],
+                'parameters' => [$idempotencyHeader],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'required' => ['payment_intent_id'],
+                                'properties' => [
+                                    'payment_intent_id' => ['type' => 'string'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
             'public.v1.reservations.show' => [
                 'summary' => 'Read a confirmed public booking using its one-time-issued booking access token.',
                 'security' => [['publicApiKey' => []]],
@@ -246,6 +266,21 @@ class GenerateApiDocs extends Command
                     ['name' => 'X-Booking-Token', 'in' => 'header', 'required' => true, 'schema' => ['type' => 'string']],
                     $idempotencyHeader,
                 ],
+            ],
+            'api.v1.conflicts.index' => [
+                'summary' => 'List offline room conflicts awaiting supervisor resolution at the branch.',
+                'abilities' => ['offline.review'],
+                'parameters' => [$branchHeader],
+            ],
+            'api.v1.conflicts.resolve' => [
+                'summary' => 'Resolve an offline room conflict by reassigning the guest to another clean room or discarding the assignment.',
+                'abilities' => ['offline.review'],
+                'parameters' => [$branchHeader, $idempotencyHeader],
+            ],
+            'api.v1.conflicts.discard' => [
+                'summary' => 'Discard an offline room conflict assignment without creating a provisional stay.',
+                'abilities' => ['offline.review'],
+                'parameters' => [$branchHeader, $idempotencyHeader],
             ],
             'api.v1.sync.push' => [
                 'summary' => 'Push offline command envelopes and receive applied or conflict statuses.',
@@ -297,7 +332,13 @@ class GenerateApiDocs extends Command
         return $names;
     }
 
-    public function handle(): int
+    /**
+     * The assembled OpenAPI 3.1 document served to the developer docs
+     * portal and exported as the machine-readable snapshot.
+     *
+     * @return array<string, mixed>
+     */
+    public static function document(): array
     {
         $paths = [];
 
@@ -311,9 +352,7 @@ class GenerateApiDocs extends Command
             $spec = self::specs()[$name] ?? null;
 
             if ($spec === null) {
-                $this->error("Undocumented API route: {$name}");
-
-                return 1;
+                continue;
             }
 
             $uri = '/'.ltrim($route->uri(), '/');
@@ -356,7 +395,7 @@ class GenerateApiDocs extends Command
             }
         }
 
-        $document = [
+        return [
             'openapi' => '3.1.0',
             'info' => ['title' => 'Hotel PMS and Public API', 'version' => '1'],
             'servers' => [['url' => '/api']],
@@ -368,7 +407,203 @@ class GenerateApiDocs extends Command
             ],
             'paths' => $paths,
         ];
+    }
 
+    /**
+     * The generated TypeScript client source for the `@hospitalityos/client`
+     * package, derived from the assembled OpenAPI document.
+     */
+    public static function sdkSource(): string
+    {
+        $document = self::document();
+        $paths = $document['paths'];
+        ksort($paths);
+
+        $blocks = [];
+
+        foreach ($paths as $uri => $methods) {
+            foreach ($methods as $verb => $operation) {
+                $blocks[] = self::sdkOperation((string) $uri, (string) $verb, $operation);
+            }
+        }
+
+        return self::sdkHeader()."\n\n".implode("\n\n", $blocks)."\n";
+    }
+
+    /**
+     * @param  array<string, mixed>  $operation
+     */
+    private static function sdkOperation(string $uri, string $verb, array $operation): string
+    {
+        $operationId = (string) $operation['operationId'];
+        $segments = collect(explode('.', $operationId))
+            ->reject(fn (string $segment): bool => $segment === 'v1')
+            ->values()
+            ->toArray();
+        $camelize = fn (string $segment): string => lcfirst(implode('', array_map(
+            fn (string $word): string => ucfirst($word),
+            explode(' ', ucwords(str_replace(['-', '_'], ' ', $segment))),
+        )));
+        $typeName = implode('', array_map(
+            fn (string $segment): string => ucfirst($camelize($segment)),
+            $segments,
+        ));
+        $functionName = lcfirst($typeName);
+        $paramsType = $typeName.'Params';
+        $responseType = $typeName.'Response';
+        $methodType = strtoupper($verb);
+        $hasBody = ! in_array($methodType, ['GET', 'DELETE'], true);
+        $hasRequiredParams = false;
+
+        preg_match_all('/\{([\w-]+)\}/', $uri, $matches);
+        $pathKeys = array_map(
+            fn (string $key): string => self::sdkCamelCase($key),
+            $matches[1] ?? [],
+        );
+
+        $paramFields = [];
+        $branchScoped = false;
+        foreach ($operation['parameters'] ?? [] as $parameter) {
+            $location = (string) ($parameter['in'] ?? '');
+            $name = (string) ($parameter['name'] ?? '');
+
+            if ($location === 'query' || $location === 'path') {
+                $paramFields[] = [
+                    'name' => self::sdkCamelCase($name),
+                    'required' => (bool) ($parameter['required'] ?? false),
+                    'type' => self::sdkType((string) ($parameter['schema']['type'] ?? 'string')),
+                ];
+            }
+
+            if ($name === 'X-Branch-Id') {
+                $branchScoped = true;
+            }
+        }
+
+        if ($branchScoped) {
+            $paramFields[] = ['name' => 'branchId', 'required' => false, 'type' => 'number'];
+        }
+
+        foreach ($paramFields as $field) {
+            if ($field['required']) {
+                $hasRequiredParams = true;
+            }
+        }
+
+        $excluded = '['.implode(', ', array_map(fn (string $key): string => '"'.$key.'"', $pathKeys)).']';
+
+        $block = [
+            'interface '.$paramsType.' {',
+        ];
+        foreach ($paramFields as $field) {
+            $block[] = '    '.$field['name'].($field['required'] ? '' : '?').': '.$field['type'].';';
+        }
+        $block[] = '}';
+        $block[] = '';
+        $block[] = 'type '.$responseType.' = Record<string, unknown>;';
+        $block[] = '';
+        $block[] = 'export const '.$functionName.' = async (';
+        $default = $hasRequiredParams ? '' : ' = {},';
+        $block[] = '    params: '.$paramsType.$default.',';
+        $block[] = '    options: ClientOptions = {},';
+        $block[] = '): Promise<'.$responseType.'> => {';
+        $block[] = '    const response = await fetch(';
+        $block[] = '        `${options.baseUrl ?? "http://localhost"}${buildPath("'.$uri.'", params)}${buildQueryString(params, '.$excluded.')}`,';
+        $block[] = '        {';
+        $block[] = '            method: "'.$methodType.'",';
+        $block[] = '            headers: {';
+        $block[] = '                Accept: "application/json",';
+        $block[] = '                ...(options.bearerToken ? { Authorization: `Bearer ${options.bearerToken}` } : {}),';
+        $block[] = '                ...(options.apiKey ? { "X-API-Key": options.apiKey } : {}),';
+        $block[] = '                ...(options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : {}),';
+        if ($branchScoped) {
+            $block[] = '                ...(params.branchId ? { "X-Branch-Id": String(params.branchId) } : {}),';
+        }
+        $block[] = '            },';
+        if ($hasBody) {
+            $block[] = '            body: JSON.stringify(params),';
+        }
+        $block[] = '        },';
+        $block[] = '    );';
+        $block[] = '';
+        $block[] = '    if (!response.ok) {';
+        $block[] = '        throw new Error(`Request failed with status ${response.status}`);';
+        $block[] = '    }';
+        $block[] = '';
+        $block[] = '    return (await response.json()) as '.$responseType.';';
+        $block[] = '};';
+
+        return implode(PHP_EOL, $block);
+    }
+
+    private static function sdkHeader(): string
+    {
+        return implode("\n", [
+            '/**',
+            ' * Generated by `php artisan openapi:sdk`. Do not edit by hand.',
+            ' * Source of truth: the OpenAPI 3.1 document served at /developer/docs.',
+            ' */',
+            '',
+            'export interface ClientOptions {',
+            '    baseUrl?: string;',
+            '    bearerToken?: string;',
+            '    apiKey?: string;',
+            '    idempotencyKey?: string;',
+            '}',
+            '',
+            'const buildQueryString = (params: Record<string, unknown>, excluded: string[] = []): string => {',
+            '    const search = new URLSearchParams();',
+            '',
+            '    for (const [key, value] of Object.entries(params)) {',
+            '        if (excluded.includes(key)) {',
+            '            continue;',
+            '        }',
+            '',
+            '        if (value === undefined || value === null || value === "") {',
+            '            continue;',
+            '        }',
+            '',
+            '        search.append(key, String(value));',
+            '    }',
+            '',
+            '    const queryString = search.toString();',
+            '',
+            '    return queryString === "" ? "" : `?${queryString}`;',
+            '};',
+            '',
+            'const buildPath = (path: string, params: Record<string, unknown>): string =>',
+            '    path.replace(/\{([\w-]+)\}/g, (match, key: string) => encodeURIComponent(String(params[key] ?? "")));',
+        ]);
+    }
+
+    private static function sdkType(string $type): string
+    {
+        return match ($type) {
+            'integer', 'int32', 'int64' => 'number',
+            'boolean', 'bool' => 'boolean',
+            default => 'string',
+        };
+    }
+
+    private static function sdkCamelCase(string $value): string
+    {
+        $words = explode(' ', ucwords(str_replace(['-', '_'], ' ', $value)));
+
+        return lcfirst(implode('', array_map(fn (string $word): string => ucfirst($word), $words)));
+    }
+
+    public function handle(): int
+    {
+        foreach (self::documentedRoutes() as $route) {
+            if (! array_key_exists($route, self::specs())) {
+                $this->error("Undocumented API route: {$route}");
+
+                return 1;
+            }
+        }
+
+        $document = self::document();
+        $paths = $document['paths'];
         $encoded = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
         if (! is_string($encoded)) {

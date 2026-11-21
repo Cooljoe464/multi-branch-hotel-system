@@ -6,6 +6,7 @@ use App\Exceptions\AvailabilityException;
 use App\Jobs\DeliverWebhookJob;
 use App\Models\ApiConsumer;
 use App\Models\WebhookDelivery;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -51,37 +52,56 @@ class WebhookDispatcher
      */
     public function dispatch(string $event, array $payload, int $branchId): array
     {
+        $deliveries = [];
+
+        foreach ($this->consumersFor($branchId) as $consumer) {
+            if ($consumer->webhookSecrets() === []) {
+                continue;
+            }
+
+            $deliveries[] = $this->deliverTo($consumer, $event, $payload, $branchId);
+        }
+
+        return $deliveries;
+    }
+
+    /**
+     * Dispatch a signed synthetic diagnostic event (for example
+     * `payment.test`) to the branch's webhook consumers so tenants can
+     * verify their endpoint, signing secret and delivery pipeline.
+     */
+    public function dispatchTest(string $event, array $payload, int $branchId): WebhookDelivery
+    {
+        $consumer = $this->consumersFor($branchId)
+            ->first(fn (ApiConsumer $candidate): bool => $candidate->webhook_url !== null && $candidate->webhook_url !== '');
+
+        if ($consumer === null) {
+            throw new AvailabilityException('WEBHOOK_NO_CONSUMER', 'No webhook consumer is registered for this branch.');
+        }
+
+        return $this->deliverTo($consumer, $event, $payload, $branchId);
+    }
+
+    private function deliverTo(ApiConsumer $consumer, string $event, array $payload, int $branchId): WebhookDelivery
+    {
         $body = array_merge($payload, [
             'event' => $event,
             'branch_id' => $branchId,
             'dispatched_at' => now()->toIso8601String(),
         ]);
 
-        $deliveries = [];
+        $delivery = DB::transaction(fn () => WebhookDelivery::create([
+            'api_consumer_id' => $consumer->id,
+            'event' => $event,
+            'payload' => $body,
+            'signature' => self::sign(self::encode($body), $consumer->webhookSecrets()[0]),
+            'status' => WebhookDelivery::STATUS_PENDING,
+            'attempts' => 0,
+        ]));
 
-        foreach ($this->consumersFor($branchId) as $consumer) {
-            $secrets = $consumer->webhookSecrets();
+        DeliverWebhookJob::dispatch($delivery->id, $consumer->id);
 
-            if ($secrets === []) {
-                continue;
-            }
-
-            $secret = $secrets[0];
-
-            $delivery = DB::transaction(fn () => WebhookDelivery::create([
-                'api_consumer_id' => $consumer->id,
-                'event' => $event,
-                'payload' => $body,
-                'signature' => self::sign(self::encode($body), $secret),
-                'status' => WebhookDelivery::STATUS_PENDING,
-                'attempts' => 0,
-            ]));
-
-            DeliverWebhookJob::dispatch($delivery->id, $consumer->id);
-            $deliveries[] = $delivery;
-        }
-
-        return $deliveries;
+        return $delivery->fresh() ?? $delivery;
     }
 
     /**
@@ -130,14 +150,13 @@ class WebhookDispatcher
     }
 
     /**
-     * @return list<ApiConsumer>
+     * @return Collection<int, ApiConsumer>
      */
-    private function consumersFor(int $branchId): array
+    private function consumersFor(int $branchId): Collection
     {
-        return array_values(ApiConsumer::active()
+        return ApiConsumer::active()
             ->whereNotNull('webhook_url')
             ->get()
-            ->filter(fn (ApiConsumer $c) => in_array($branchId, $c->reachableBranchIds(), true))
-            ->all());
+            ->filter(fn (ApiConsumer $c) => in_array($branchId, $c->reachableBranchIds(), true));
     }
 }

@@ -50,11 +50,12 @@ class ConciergeService
         private readonly WhatsAppCloudApiService $whatsapp,
         private readonly ConciergeDriver $driver,
         private readonly EntitlementService $entitlements,
+        private readonly UsageMeterService $usage,
     ) {}
 
     public static function make(?ConciergeAiProvider $provider = null, ?Branch $branch = null): self
     {
-        return new self(new WhatsAppCloudApiService, self::driver($provider, $branch), new EntitlementService);
+        return new self(new WhatsAppCloudApiService, self::driver($provider, $branch), new EntitlementService, new UsageMeterService);
     }
 
     private static function driver(?ConciergeAiProvider $provider = null, ?Branch $branch = null): ConciergeDriver
@@ -146,6 +147,7 @@ class ConciergeService
         }
 
         $intent = $this->driver->interpret($thread, $body);
+        $this->usage->record('ai', $branch->tenant_id, $branch->id, now());
 
         try {
             $this->executeIntent($thread, $intent, $body);

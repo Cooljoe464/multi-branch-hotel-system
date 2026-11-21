@@ -16,8 +16,12 @@ use App\Models\ChannelReconciliationRun;
 use App\Models\ChannelReservation;
 use App\Models\PaymentMethod;
 use App\Models\Reservation;
+use App\Services\Channels\ChannexDriver;
+use App\Services\Channels\CloudbedsDriver;
 use App\Services\Channels\FailingChannelDriver;
 use App\Services\Channels\LogChannelDriver;
+use App\Services\Channels\RateGainDriver;
+use App\Services\Channels\SiteMinderDriver;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -35,6 +39,10 @@ class ChannelService
     protected static array $drivers = [
         'log' => LogChannelDriver::class,
         'failing' => FailingChannelDriver::class,
+        'siteminder' => SiteMinderDriver::class,
+        'rategain' => RateGainDriver::class,
+        'cloudbeds' => CloudbedsDriver::class,
+        'channex' => ChannexDriver::class,
     ];
 
     /**

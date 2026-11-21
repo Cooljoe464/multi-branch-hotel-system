@@ -11,6 +11,7 @@ use App\Models\PaymentConnection;
 use App\Models\PaymentTransaction;
 use App\Models\PublicApiQuote;
 use App\Models\PublicPaymentIntent;
+use App\Models\Reservation;
 use App\Models\RoomType;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -181,6 +182,21 @@ class PublicPaymentIntentService
                 ]);
             }
 
+            $reservation = $this->confirm($intent);
+
+            $transaction->update(['reservation_id' => $reservation->id]);
+
+            return $intent->fresh() ?? $intent;
+        }, 3);
+    }
+
+    /**
+     * Converts a verified public payment intent's inventory hold into a
+     * confirmed public booking (hold release → reservation → folio link).
+     */
+    public function confirm(PublicPaymentIntent $intent): Reservation
+    {
+        return DB::transaction(function () use ($intent): Reservation {
             $hold = InventoryHold::query()->whereKey($intent->hold_id)->lockForUpdate()->firstOrFail();
             if (! $hold->active()) {
                 throw new AvailabilityException('PUBLIC_HOLD_EXPIRED', 'The inventory hold expired before provider confirmation.');
@@ -224,7 +240,6 @@ class PublicPaymentIntentService
 
             $folio = Folio::query()->whereKey($intent->folio_id)->lockForUpdate()->firstOrFail();
             $folio->update(['reservation_id' => $reservation->id, 'description' => 'Guest Folio: '.$intent->guest_name]);
-            $transaction->update(['reservation_id' => $reservation->id]);
             $intent->update(['reservation_id' => $reservation->id, 'status' => 'paid']);
 
             app(WebhookDispatcher::class)->dispatch('reservation.confirmed', [
@@ -233,8 +248,8 @@ class PublicPaymentIntentService
                 'source' => 'public_api',
             ], $branch->id);
 
-            return $intent->fresh() ?? $intent;
-        }, 3);
+            return $reservation;
+        });
     }
 
     public function markFailed(PaymentTransaction $transaction): void

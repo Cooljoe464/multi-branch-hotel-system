@@ -65,7 +65,7 @@ const removeTier = (id: number) =>
     <Head title="CRM & Loyalty" />
     <div class="space-y-8 p-6">
         <div>
-            <h1 class="text-2xl font-semibold">CRM — {{ branch.name }}</h1>
+            <h1 class="text-2xl font-semibold">CRM â€” {{ branch.name }}</h1>
             <p class="text-muted-foreground text-sm">
                 Tiers, wallets, consent coverage. Points buy folio credit at 10
                 minor each.
@@ -86,7 +86,7 @@ const removeTier = (id: number) =>
                     </button>
                 </div>
                 <div class="text-muted-foreground font-mono text-xs">
-                    {{ t.threshold_nights }}+ nights ·
+                    {{ t.threshold_nights }}+ nights Â·
                     {{ (t.earn_bps / 100).toFixed(0) }}% earn
                 </div>
             </div>
@@ -107,7 +107,7 @@ const removeTier = (id: number) =>
                 <Input id="tier-nights" v-model="tierForm.threshold_nights" type="number" min="0" />
             </div>
             <div>
-                <Label for="tier-bps">Earn rate (bps, 10000 = 1�)</Label>
+                <Label for="tier-bps">Earn rate (bps, 10000 = 1×)</Label>
                 <Input id="tier-bps" v-model="tierForm.earn_bps" type="number" min="0" />
             </div>
             <Button type="submit" :disabled="tierForm.processing">Save tier</Button>

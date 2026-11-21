@@ -10,6 +10,7 @@ use App\Http\Controllers\Settings\PaymentConnectionController;
 use App\Http\Controllers\Settings\PaymentGuardController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\TaxComplianceController;
 use App\Http\Controllers\Settings\WhatsAppController;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
@@ -73,6 +74,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('payment-guard.update');
     });
 
+    // Tax & Compliance (NRS E-Invoicing / Afri Invoice)
+    Route::middleware(['auth', 'verified', 'permission:fiscal.view'])->group(function () {
+        Route::get('settings/tax-compliance', [TaxComplianceController::class, 'edit'])
+            ->name('settings.tax-compliance.edit');
+        Route::put('settings/tax-compliance', [TaxComplianceController::class, 'update'])
+            ->middleware('permission:fiscal.retry')
+            ->name('settings.tax-compliance.update');
+        Route::post('settings/tax-compliance/test', [TaxComplianceController::class, 'test'])
+            ->middleware('permission:fiscal.retry')
+            ->name('settings.tax-compliance.test');
+    });
+
     // Hotel payment gateway connections (Paystack / Flutterwave)
     Route::middleware(['auth', 'verified', 'permission:branches.manage'])->group(function () {
         Route::get('settings/payment-connections', [PaymentConnectionController::class, 'index'])
@@ -83,6 +96,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('payment-connections.update');
         Route::delete('settings/payment-connections/{connection}', [PaymentConnectionController::class, 'destroy'])
             ->name('payment-connections.destroy');
+        Route::post('settings/payment-connections/{connection}/test', [PaymentConnectionController::class, 'test'])
+            ->name('payment-connections.test');
+        Route::post('settings/payment-connections/{connection}/webhook-tests', [PaymentConnectionController::class, 'sendWebhookTest'])
+            ->name('payment-connections.webhook-tests');
     });
 
     // Door lock gateway (one per property)

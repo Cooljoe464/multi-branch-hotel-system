@@ -1,8 +1,13 @@
 <?php
 
+use App\Models\ApiKey;
+use App\Models\ApiKeyDailyUsage;
 use App\Models\BillingInvoice;
+use App\Models\Branch;
 use App\Models\Plan;
+use App\Models\PlanEntitlement;
 use App\Models\Subscription;
+use App\Models\TenantUsageDaily;
 use App\Services\BillingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -55,11 +60,103 @@ test('invoice generation uses the plan attached when the subscription row is loc
         ->and($invoice->subtotal_minor)->toBe(12_000_000);
 });
 
+test('adds metered api overage to the invoice when the tenant exceeded the plan allowance', function () {
+    config(['billing.overage_rate_minor' => 500]);
+
+    $plan = Plan::factory()->create(['monthly_price_minor' => 10_000_000, 'name' => 'Growth']);
+    PlanEntitlement::create([
+        'plan_id' => $plan->id,
+        'entitlement_key' => 'limits.api.daily_calls',
+        'value_type' => 'integer_limit',
+        'value' => '10',
+    ]);
+    $subscription = Subscription::factory()->for($plan)->create();
+    $tenantId = $subscription->tenant_id;
+
+    $branch = Branch::factory()->create(['tenant_id' => $tenantId]);
+    $apiKey = ApiKey::factory()->create(['tenant_id' => $tenantId, 'branch_id' => $branch->id]);
+    ApiKeyDailyUsage::factory()->create([
+        'api_key_id' => $apiKey->id,
+        'usage_date' => now()->startOfMonth()->toDateString(),
+        'request_count' => 350,
+    ]);
+
+    $invoice = app(BillingService::class)->generateInvoice($subscription, now());
+
+    expect($invoice)->not->toBeNull()
+        ->and($invoice->subtotal_minor)->toBe(10_000_000 + (350 - 300) * 500)
+        ->and($invoice->lines)->toHaveCount(2)
+        ->and($invoice->lines()->get()->last()->description)->toContain('API overage')
+        ->and($invoice->lines()->get()->last()->amount_minor)->toBe(50 * 500);
+});
+
 test('does not bill a contract plan priced at zero', function () {
     $subscription = billedSubscription(0);
 
     expect(app(BillingService::class)->generateInvoice($subscription, now()))->toBeNull()
         ->and(BillingInvoice::query()->count())->toBe(0);
+});
+
+test('adds metered sms overage to the invoice when the tenant exceeded the plan allowance', function () {
+    config(['billing.overage_rate_minor' => 500]);
+
+    $plan = Plan::factory()->create(['monthly_price_minor' => 10_000_000, 'name' => 'Growth']);
+    PlanEntitlement::create([
+        'plan_id' => $plan->id,
+        'entitlement_key' => 'limits.sms.monthly',
+        'value_type' => 'integer_limit',
+        'value' => '10',
+    ]);
+    $subscription = Subscription::factory()->for($plan)->create();
+    $tenantId = $subscription->tenant_id;
+
+    $branch = Branch::factory()->create(['tenant_id' => $tenantId]);
+    TenantUsageDaily::create([
+        'tenant_id' => $tenantId,
+        'branch_id' => $branch->id,
+        'usage_date' => now()->startOfMonth()->toDateString(),
+        'metric' => 'sms',
+        'count' => 25,
+    ]);
+
+    $invoice = app(BillingService::class)->generateInvoice($subscription, now());
+
+    expect($invoice)->not->toBeNull()
+        ->and($invoice->subtotal_minor)->toBe(10_000_000 + (25 - 10) * 500)
+        ->and($invoice->lines)->toHaveCount(2)
+        ->and($invoice->lines()->get()->last()->description)->toContain('Outbound SMS overage')
+        ->and($invoice->lines()->get()->last()->amount_minor)->toBe(15 * 500);
+});
+
+test('adds metered ai concierge overage to the invoice when the tenant exceeded the plan allowance', function () {
+    config(['billing.overage_rate_minor' => 250]);
+
+    $plan = Plan::factory()->create(['monthly_price_minor' => 10_000_000, 'name' => 'Growth']);
+    PlanEntitlement::create([
+        'plan_id' => $plan->id,
+        'entitlement_key' => 'limits.ai.conversations_monthly',
+        'value_type' => 'integer_limit',
+        'value' => '5',
+    ]);
+    $subscription = Subscription::factory()->for($plan)->create();
+    $tenantId = $subscription->tenant_id;
+
+    $branch = Branch::factory()->create(['tenant_id' => $tenantId]);
+    TenantUsageDaily::create([
+        'tenant_id' => $tenantId,
+        'branch_id' => $branch->id,
+        'usage_date' => now()->startOfMonth()->toDateString(),
+        'metric' => 'ai',
+        'count' => 8,
+    ]);
+
+    $invoice = app(BillingService::class)->generateInvoice($subscription, now());
+
+    expect($invoice)->not->toBeNull()
+        ->and($invoice->subtotal_minor)->toBe(10_000_000 + (8 - 5) * 250)
+        ->and($invoice->lines)->toHaveCount(2)
+        ->and($invoice->lines()->get()->last()->description)->toContain('AI concierge conversation overage')
+        ->and($invoice->lines()->get()->last()->amount_minor)->toBe(3 * 250);
 });
 
 test('a matching payment marks the invoice paid and reactivates a delinquent subscription', function () {

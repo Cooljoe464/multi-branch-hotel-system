@@ -14,10 +14,13 @@ use App\Http\Controllers\CdrController;
 use App\Http\Controllers\ChannelWebhookController;
 use App\Http\Controllers\ConciergeReportController;
 use App\Http\Controllers\FlutterwaveWebhookController;
+use App\Http\Controllers\OfflineConflictController;
 use App\Http\Controllers\PaystackWebhookController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\RevenueReportController;
+use App\Http\Controllers\Scim\ScimUserController;
 use App\Http\Controllers\WarehouseController as WarehouseApiController;
+use App\Http\Controllers\Webhooks\TermiiWebhookController;
 use App\Http\Controllers\WifiPortalController;
 use App\Http\Middleware\AuthenticateEdgeAgent;
 use App\Http\Middleware\RequireIdempotencyKey;
@@ -36,6 +39,10 @@ Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle'])
 Route::post('/webhooks/flutterwave', [FlutterwaveWebhookController::class, 'handle'])
     ->middleware('throttle:inbound-webhook')
     ->name('api.webhooks.flutterwave');
+
+Route::post('/webhooks/termii/dsr', [TermiiWebhookController::class, 'handleDsr'])
+    ->middleware('throttle:inbound-webhook')
+    ->name('api.webhooks.termii.dsr');
 
 Route::post('/cdr/{branch}', [CdrController::class, 'store'])
     ->middleware('throttle:60,1')
@@ -129,7 +136,28 @@ Route::prefix('v1/sync')->middleware([SetSanctumActorContext::class, 'auth:sanct
         ->name('api.v1.sync.override-token');
 });
 
+Route::prefix('v1/conflicts')->middleware([SetSanctumActorContext::class, 'auth:sanctum', SetBranchContext::class])->group(function () {
+    Route::get('/', [OfflineConflictController::class, 'index'])
+        ->middleware('permission:offline.review')
+        ->name('api.v1.conflicts.index');
+    Route::post('/{command}/resolve', [OfflineConflictController::class, 'resolve'])
+        ->middleware('permission:offline.review')
+        ->name('api.v1.conflicts.resolve');
+    Route::post('/{command}/discard', [OfflineConflictController::class, 'discard'])
+        ->middleware('permission:offline.review')
+        ->name('api.v1.conflicts.discard');
+});
+
 Route::prefix('v1/edge')->middleware(AuthenticateEdgeAgent::class)->group(function () {
     Route::post('/heartbeat', [EdgeAgentController::class, 'heartbeat'])->name('api.v1.edge.heartbeat');
     Route::get('/policy', [EdgeAgentController::class, 'policy'])->name('api.v1.edge.policy');
+});
+
+Route::middleware(['api', SetSanctumActorContext::class, 'auth:sanctum', 'ability:scim.manage'])->prefix('scim/v2')->group(function () {
+    Route::get('/Users', [ScimUserController::class, 'index'])->name('scim.v2.users.index');
+    Route::post('/Users', [ScimUserController::class, 'store'])->name('scim.v2.users.store');
+    Route::get('/Users/{user}', [ScimUserController::class, 'show'])->name('scim.v2.users.show');
+    Route::put('/Users/{user}', [ScimUserController::class, 'update'])->name('scim.v2.users.update');
+    Route::patch('/Users/{user}', [ScimUserController::class, 'patch'])->name('scim.v2.users.patch');
+    Route::delete('/Users/{user}', [ScimUserController::class, 'destroy'])->name('scim.v2.users.destroy');
 });

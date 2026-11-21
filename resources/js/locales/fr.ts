@@ -183,5 +183,10 @@ export const fr: LocaleDict = {
         stay_history: 'Historique des séjours',
         no_stays: 'Aucun séjour enregistré pour le moment.',
         vip_suffix: 'VIP',
+        checkin_title: 'Enregistrement numérique',
+        checkin_eta: "Heure d’arrivée estimée",
+        checkin_vehicle: 'Immatriculation du véhicule',
+        checkin_signature: 'Signature / note d’enregistrement du client',
+        checkin_submit: 'Finaliser l’enregistrement',
     },
 };

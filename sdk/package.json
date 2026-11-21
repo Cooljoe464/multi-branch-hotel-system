@@ -1,0 +1,12 @@
+{
+    "name": "@hospitalityos/client",
+    "version": "1.0.0",
+    "description": "TypeScript client generated from the HospitalityOS OpenAPI snapshot.",
+    "type": "module",
+    "main": "./client.ts",
+    "types": "./client.ts",
+    "scripts": {
+        "generate": "php artisan openapi:sdk"
+    },
+    "license": "MIT"
+}

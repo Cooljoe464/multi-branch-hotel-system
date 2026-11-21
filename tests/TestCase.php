@@ -5,6 +5,7 @@ namespace Tests;
 use App\Models\Branch;
 use App\Models\ChartAccount;
 use App\Models\User;
+use App\Services\EntitlementService;
 use App\Support\Network\DnsResolver;
 use Database\Seeders\ChartSeeder;
 use Database\Seeders\RoleSeeder;
@@ -35,6 +36,8 @@ abstract class TestCase extends BaseTestCase
         if (Schema::hasTable('chart_accounts') && ! ChartAccount::query()->exists()) {
             $this->seed(ChartSeeder::class);
         }
+
+        app(EntitlementService::class)->flush();
     }
 
     /**

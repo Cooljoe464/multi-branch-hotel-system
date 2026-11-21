@@ -176,6 +176,11 @@ export const en = {
         stay_history: 'Stay History',
         no_stays: 'No stays recorded yet.',
         vip_suffix: 'VIP',
+        checkin_title: 'Digital Check-in',
+        checkin_eta: 'Estimated arrival time',
+        checkin_vehicle: 'Vehicle registration',
+        checkin_signature: 'Guest signature / check-in note',
+        checkin_submit: 'Complete check-in',
     },
 };
 

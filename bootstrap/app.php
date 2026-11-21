@@ -6,8 +6,10 @@ use App\Http\Controllers\Api\V1\PublicBookingController;
 use App\Http\Controllers\Api\V1\PublicInventoryHoldController;
 use App\Http\Controllers\PaymentConnectionWebhookController;
 use App\Http\Middleware\ApiBranchScope;
+use App\Http\Middleware\ApplyApiLifecycle;
 use App\Http\Middleware\AuthenticateEdgeAgent;
 use App\Http\Middleware\AuthenticatePublicApiKey;
+use App\Http\Middleware\EnforceMfa;
 use App\Http\Middleware\EnsureEntitled;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -17,6 +19,8 @@ use App\Http\Middleware\RequirePublicApiScope;
 use App\Http\Middleware\SetBranchContext;
 use App\Http\Middleware\SetSanctumActorContext;
 use App\Http\Middleware\SetWebActorContext;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -26,6 +30,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Laravel\Sanctum\Http\Middleware\CheckAbilities;
 use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
@@ -33,6 +38,7 @@ use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -58,6 +64,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 Route::post('/payments/intents', [PublicBookingController::class, 'paymentIntent'])
                     ->middleware(['public-api.scope:payments.create', RequireIdempotencyKey::class])
                     ->name('public.v1.payments.intents.store');
+                Route::post('/reservations', [PublicBookingController::class, 'store'])
+                    ->middleware(['public-api.scope:reservations.create', RequireIdempotencyKey::class])
+                    ->name('public.v1.reservations.store');
                 Route::get('/reservations/{confirmationNumber}', [PublicBookingController::class, 'reservation'])
                     ->middleware('public-api.scope:reservations.view')
                     ->name('public.v1.reservations.show');
@@ -101,6 +110,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'replica' => ReadFromReplica::class,
             'edge.agent' => AuthenticateEdgeAgent::class,
             'public-api.scope' => RequirePublicApiScope::class,
+            'mfa' => EnforceMfa::class,
         ]);
 
         $middleware->prependToPriorityList(
@@ -128,14 +138,18 @@ return Application::configure(basePath: dirname(__DIR__))
             RequireIdempotencyKey::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        $middleware->api(append: [
+            ApplyApiLifecycle::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => $request->is('api/*') || $request->is('public/*') || $request->expectsJson(),
         );
 
         $exceptions->render(function (StaleModelException $e, Request $request) {
-            if ($request->expectsJson() || $request->is('api/*')) {
+            if ($request->expectsJson() || $request->is('api/*') || $request->is('public/*')) {
                 return response()->json([
                     'message' => $e->getMessage(),
                     'code' => 'STALE_VERSION',
@@ -146,7 +160,7 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (AvailabilityException $e, Request $request) {
-            if ($request->expectsJson() || $request->is('api/*')) {
+            if ($request->expectsJson() || $request->is('api/*') || $request->is('public/*')) {
                 return response()->json([
                     'message' => $e->getMessage(),
                     'code' => $e->availabilityCode,
@@ -155,6 +169,41 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return back()->withErrors(['room_id' => $e->getMessage()]);
+        });
+
+        // RFC 9457 problem+json for API consumers. Specific exception types
+        // register render callbacks above; this catch-all answers JSON clients
+        // and lets non-JSON requests fall through to the default renderer.
+        $exceptions->render(function (Throwable $exception, Request $request): ?Response {
+            if (! ($request->expectsJson() || $request->is('api/*') || $request->is('public/*'))) {
+                return null;
+            }
+
+            $status = match (true) {
+                $exception instanceof ValidationException => 422,
+                $exception instanceof AuthenticationException => 401,
+                $exception instanceof AuthorizationException => 403,
+                $exception instanceof HttpException => $exception->getStatusCode(),
+                default => $exception->status ?? 500,
+            };
+            $isClientError = $status >= 400 && $status < 500;
+
+            $problem = [
+                'type' => $exception instanceof AvailabilityException
+                    ? 'https://schemas.hospitalityos.dev/problems/'.$exception->availabilityCode
+                    : 'about:blank',
+                'title' => $isClientError ? $exception->getMessage() : 'The request could not be processed.',
+                'status' => $status,
+                'detail' => $exception->getMessage(),
+            ];
+
+            if ($exception instanceof ValidationException) {
+                $problem['errors'] = $exception->errors();
+            }
+
+            return response()->json($problem, $status, [
+                'Content-Type' => 'application/problem+json',
+            ]);
         });
 
         $exceptions->respond(function (Response $response, Throwable $exception, Request $request) {

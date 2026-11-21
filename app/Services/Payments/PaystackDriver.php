@@ -144,4 +144,39 @@ class PaystackDriver implements PaymentDriver
     {
         return true;
     }
+
+    public function healthCheck(): array
+    {
+        $response = Http::withHeaders([
+            'Authorization' => "Bearer {$this->secretKey}",
+            'Content-Type' => 'application/json',
+        ])->get("{$this->baseUrl}/transaction/totals");
+
+        if (! $response->successful()) {
+            throw new RuntimeException('Paystack connection verification failed: '.$response->body());
+        }
+
+        /** @var array<string, mixed> $data */
+        $data = is_array($response->json('data')) ? $response->json('data') : [];
+
+        return [
+            'status' => 'active',
+            'mode' => $this->mode(),
+            'merchant_name' => isset($data['merchant_name']) && is_string($data['merchant_name']) ? $data['merchant_name'] : null,
+            'reachable' => true,
+        ];
+    }
+
+    private function mode(): string
+    {
+        if (str_starts_with($this->secretKey, 'sk_live_')) {
+            return 'live';
+        }
+
+        if (str_starts_with($this->secretKey, 'sk_test_')) {
+            return 'test';
+        }
+
+        return 'unknown';
+    }
 }

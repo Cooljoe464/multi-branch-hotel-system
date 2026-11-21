@@ -227,6 +227,35 @@ class PublicBookingController extends Controller
         ]], 201);
     }
 
+    public function store(Request $request): JsonResponse
+    {
+        $branch = $this->branch($request);
+        /** @var ApiKey $apiKey */
+        $apiKey = $request->attributes->get('public_api_key');
+        $request->validate([
+            'payment_intent_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $intent = PublicPaymentIntent::query()
+            ->where('branch_id', $branch->id)
+            ->whereKey($request->integer('payment_intent_id'))
+            ->firstOrFail();
+
+        if ($intent->status !== 'paid') {
+            if ($intent->reservation_id !== null) {
+                abort(409, 'The public payment intent has already been confirmed.');
+            }
+
+            abort(422, 'The public payment intent must be verified before a reservation can be created.');
+        }
+
+        $reservation = $intent->reservation_id === null
+            ? app(PublicPaymentIntentService::class)->confirm($intent)
+            : Reservation::query()->whereKey($intent->reservation_id)->firstOrFail();
+
+        return response()->json(['data' => $this->reservationPayload($reservation)]);
+    }
+
     public function reservation(Request $request, string $confirmationNumber): JsonResponse
     {
         $branch = $this->branch($request);
@@ -240,19 +269,7 @@ class PublicBookingController extends Controller
 
         $this->authorizeBookingToken($request, $apiKey, $reservation);
 
-        return response()->json(['data' => [
-            'confirmation_number' => $reservation->confirmation_number,
-            'status' => $reservation->status,
-            'payment_status' => $reservation->payment_status,
-            'guest_name' => $reservation->guest_name,
-            'guest_email' => $reservation->guest_email,
-            'guest_phone' => $reservation->guest_phone,
-            'room_type_id' => $reservation->room_type_id,
-            'check_in' => $reservation->check_in_date->toDateString(),
-            'check_out' => $reservation->check_out_date->toDateString(),
-            'total_minor' => $reservation->total_amount,
-            'currency_code' => $reservation->currency_code,
-        ]]);
+        return response()->json(['data' => $this->reservationPayload($reservation)]);
     }
 
     public function cancelReservation(
@@ -310,6 +327,23 @@ class PublicBookingController extends Controller
             ->active()
             ->whereKey($roomTypeId)
             ->firstOrFail();
+    }
+
+    private function reservationPayload(Reservation $reservation): array
+    {
+        return [
+            'confirmation_number' => $reservation->confirmation_number,
+            'status' => $reservation->status,
+            'payment_status' => $reservation->payment_status,
+            'guest_name' => $reservation->guest_name,
+            'guest_email' => $reservation->guest_email,
+            'guest_phone' => $reservation->guest_phone,
+            'room_type_id' => $reservation->room_type_id,
+            'check_in' => $reservation->check_in_date->toDateString(),
+            'check_out' => $reservation->check_out_date->toDateString(),
+            'total_minor' => $reservation->total_amount,
+            'currency_code' => $reservation->currency_code,
+        ];
     }
 
     private function authorizeBookingToken(Request $request, ApiKey $apiKey, Reservation $reservation): void

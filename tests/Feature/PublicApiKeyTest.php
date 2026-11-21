@@ -212,6 +212,7 @@ it('AC-049 returns CORS headers and accepts preflight for an allowed origin', fu
     $roomType = RoomType::factory()->create(['branch_id' => $branch->id]);
     Room::factory()->create(['branch_id' => $branch->id, 'room_type_id' => $roomType->id, 'status' => 'available']);
     ['secret' => $secret] = app(PublicApiKeyService::class)->issue($branch, [
+        'scopes' => ['availability.view', 'holds.create', 'holds.release'],
         'allowed_origins' => ['https://allowed.example'],
     ]);
 
@@ -259,6 +260,7 @@ it('AC-048 creates and releases an inventory hold through the public API', funct
     $roomType = RoomType::factory()->create(['branch_id' => $branch->id]);
     Room::factory()->create(['branch_id' => $branch->id, 'room_type_id' => $roomType->id, 'status' => 'available']);
     ['secret' => $secret] = app(PublicApiKeyService::class)->issue($branch, [
+        'scopes' => ['availability.view', 'holds.create', 'holds.release'],
         'hold_limit_per_session' => 1,
     ]);
 
@@ -315,6 +317,7 @@ it('AC-048 rejects a second active hold over the session cap', function () {
     $roomType = RoomType::factory()->create(['branch_id' => $branch->id]);
     Room::factory()->count(2)->create(['branch_id' => $branch->id, 'room_type_id' => $roomType->id, 'status' => 'available']);
     ['secret' => $secret] = app(PublicApiKeyService::class)->issue($branch, [
+        'scopes' => ['availability.view', 'holds.create', 'holds.release'],
         'hold_limit_per_session' => 1,
     ]);
 
@@ -333,9 +336,11 @@ it('AC-048 enforces the IP cap across public API keys for the same property', fu
     $roomType = RoomType::factory()->create(['branch_id' => $branch->id]);
     Room::factory()->count(2)->create(['branch_id' => $branch->id, 'room_type_id' => $roomType->id, 'status' => 'available']);
     ['secret' => $firstKey] = app(PublicApiKeyService::class)->issue($branch, [
+        'scopes' => ['availability.view', 'holds.create', 'holds.release'],
         'hold_limit_per_ip' => 1,
     ]);
     ['secret' => $secondKey] = app(PublicApiKeyService::class)->issue($branch, [
+        'scopes' => ['availability.view', 'holds.create', 'holds.release'],
         'hold_limit_per_ip' => 1,
     ]);
     $basePayload = [
@@ -356,9 +361,11 @@ it('AC-048 enforces the session cap across public API keys for the same property
     $roomType = RoomType::factory()->create(['branch_id' => $branch->id]);
     Room::factory()->count(2)->create(['branch_id' => $branch->id, 'room_type_id' => $roomType->id, 'status' => 'available']);
     ['secret' => $firstKey] = app(PublicApiKeyService::class)->issue($branch, [
+        'scopes' => ['availability.view', 'holds.create', 'holds.release'],
         'hold_limit_per_session' => 1,
     ]);
     ['secret' => $secondKey] = app(PublicApiKeyService::class)->issue($branch, [
+        'scopes' => ['availability.view', 'holds.create', 'holds.release'],
         'hold_limit_per_session' => 1,
     ]);
     $payload = [
@@ -442,8 +449,12 @@ it('scopes idempotency keys to the public API key', function () {
     $branch = Branch::factory()->create();
     $roomType = RoomType::factory()->create(['branch_id' => $branch->id]);
     Room::factory()->count(2)->create(['branch_id' => $branch->id, 'room_type_id' => $roomType->id, 'status' => 'available']);
-    ['secret' => $firstKey] = app(PublicApiKeyService::class)->issue($branch, []);
-    ['secret' => $secondKey] = app(PublicApiKeyService::class)->issue($branch, []);
+    ['secret' => $firstKey] = app(PublicApiKeyService::class)->issue($branch, [
+        'scopes' => ['availability.view', 'holds.create', 'holds.release'],
+    ]);
+    ['secret' => $secondKey] = app(PublicApiKeyService::class)->issue($branch, [
+        'scopes' => ['availability.view', 'holds.create', 'holds.release'],
+    ]);
     $payload = [
         'check_in' => now()->addDay()->toDateString(),
         'check_out' => now()->addDays(2)->toDateString(),

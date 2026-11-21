@@ -8,7 +8,7 @@ use App\Events\FolioClosed;
 use App\Listeners\QueueEinvoiceForClosedFolio;
 use App\Models\User;
 use App\Services\ConciergeAiManager;
-use App\Services\Fiscal\FirsEmitter;
+use App\Services\Fiscal\EInvoiceManager;
 use App\Services\Radius\UdpRadiusCoaTransport;
 use App\Support\TenantDatabaseContext;
 use App\Support\TenantQueueContext;
@@ -35,7 +35,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(TenantQueueContext::class);
-        $this->app->bind(EInvoiceEmitter::class, FirsEmitter::class);
+        $this->app->singleton(EInvoiceManager::class);
+        $this->app->bind(EInvoiceEmitter::class, EInvoiceManager::class);
         $this->app->bind(RadiusCoaTransport::class, UdpRadiusCoaTransport::class);
         $this->app->singleton(ConciergeAiManager::class);
     }

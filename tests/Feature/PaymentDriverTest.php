@@ -7,10 +7,14 @@ use App\Models\PaymentMethod;
 use App\Models\PaymentTransaction;
 use App\Services\BusinessDateService;
 use App\Services\FolioService;
+use App\Services\Payments\FlutterwaveDriver;
+use App\Services\Payments\PaystackDriver;
 use App\Services\PaymentService;
 use Database\Seeders\ChartSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
+use RuntimeException;
 
 uses(RefreshDatabase::class);
 
@@ -67,6 +71,11 @@ function fakeDriver(): PaymentDriver
         public function void(string $gatewayReference): bool
         {
             return true;
+        }
+
+        public function healthCheck(): array
+        {
+            return ['status' => 'active', 'mode' => 'test', 'merchant_name' => 'Fake Merchant', 'reachable' => true];
         }
     };
 }
@@ -134,4 +143,57 @@ it('initializes paystack payments through the driver over HTTP', function () {
         'driver' => 'paystack',
         'kind' => PaymentTransaction::KIND_SALE,
     ]);
+});
+
+it('runs a live health check against the paystack gateway totals endpoint', function () {
+    Http::fake([
+        'api.paystack.co/*' => Http::response([
+            'status' => true,
+            'data' => ['merchant_name' => 'Herd Hotels Ltd'],
+        ], 200),
+    ]);
+
+    $health = (new PaystackDriver('sk_test_abc'))->healthCheck();
+
+    expect($health)->toBe([
+        'status' => 'active',
+        'mode' => 'test',
+        'merchant_name' => 'Herd Hotels Ltd',
+        'reachable' => true,
+    ]);
+});
+
+it('fails the paystack health check when the gateway rejects the credentials', function () {
+    Http::fake([
+        'api.paystack.co/*' => Http::response(['message' => 'Invalid API key'], 401),
+    ]);
+
+    expect(fn () => (new PaystackDriver('sk_test_bad'))->healthCheck())
+        ->toThrow(RuntimeException::class, 'Paystack connection verification failed');
+});
+
+it('runs a live health check against the flutterwave subaccount endpoint', function () {
+    Http::fake([
+        'api.flutterwave.com/*' => Http::response([
+            'data' => ['business_name' => 'Herd Hotels Ltd'],
+        ], 200),
+    ]);
+
+    $health = (new FlutterwaveDriver('FLW_TEST_abc'))->healthCheck();
+
+    expect($health)->toBe([
+        'status' => 'active',
+        'mode' => 'test',
+        'merchant_name' => 'Herd Hotels Ltd',
+        'reachable' => true,
+    ]);
+});
+
+it('fails the flutterwave health check when the gateway rejects the credentials', function () {
+    Http::fake([
+        'api.flutterwave.com/*' => Http::response(['message' => 'Unauthorized'], 401),
+    ]);
+
+    expect(fn () => (new FlutterwaveDriver('FLW_TEST_bad'))->healthCheck())
+        ->toThrow(RuntimeException::class, 'Flutterwave connection verification failed');
 });
