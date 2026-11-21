@@ -6,26 +6,29 @@
 // reservation store path and asserts completion + wall-time SLO.
 // The engine serializes them: exactly 1 winner is expected.
 //
-// NOTE on Windows dev boxes: roughly one run in three stalls a single
-// worker pre-test-body (process alive, frozen, zero output, no DB backend;
-// forensics in hms_load_forensic_snapshot have never shown a lock, a
-// waiter, or CPU burn — it is environmental, not application code). The
-// test therefore retries the whole run once on a freshly migrated
-// database; two consecutive stalls fail loud with forensics attached.
+// The parent runs against a freshly migrated database WITHOUT holding an
+// open transaction: RefreshDatabase wraps each test in a transaction that
+// keeps seeded rows invisible (Postgres never exposes uncommitted data) to
+// the worker processes. Per attempt we terminate stale load backends,
+// reset the schema, migrate fresh and seed before the burst.
+//
+// Worker teardown must kill the full process tree: on Windows the PHPUnit
+// runner is a grandchild of `artisan test` and can outlive the direct child.
 
 use App\Models\Branch;
+use App\Models\ChartAccount;
 use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\User;
+use Database\Seeders\ChartSeeder;
 use Database\Seeders\RoleSeeder;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
-uses(RefreshDatabase::class);
 uses()->group('load');
 
 if (! function_exists('hms_load_forensic_snapshot')) {
@@ -38,15 +41,87 @@ if (! function_exists('hms_load_forensic_snapshot')) {
 
         $out .= "\n--- pg backends (test db) ---\n";
         try {
-            $rows = DB::select("select pid, state, wait_event_type, wait_event, left(query, 100) as q from pg_stat_activity where datname = 'hotel_system_test'");
+            $rows = DB::select('select pid, application_name, state, wait_event_type, wait_event, left(query, 100) as q from pg_stat_activity where datname = current_database()');
             foreach ($rows as $row) {
-                $out .= "{$row->pid} {$row->state} {$row->wait_event_type}/{$row->wait_event} {$row->q}\n";
+                $out .= "{$row->pid} ".($row->application_name ?: '-')." {$row->state} {$row->wait_event_type}/{$row->wait_event} {$row->q}\n";
             }
         } catch (Throwable $e) {
             $out .= 'pg unreachable: '.$e->getMessage()."\n";
         }
 
         return $out;
+    }
+}
+
+if (! function_exists('hms_load_stop_worker')) {
+    /**
+     * Kill a worker process tree. On Linux `stop()` is enough; on Windows the
+     * PHPUnit runner is a grandchild of `artisan test` and must be terminated
+     * via taskkill /T or it survives the artisan parent with DB handles open.
+     */
+    function hms_load_stop_worker(Process $process): void
+    {
+        if (! $process->isRunning()) {
+            return;
+        }
+
+        try {
+            $process->stop(5);
+        } catch (Throwable $e) {
+            // process may have already exited between isRunning and stop
+        }
+
+        $pid = $process->getPid();
+
+        if ($pid > 0 && PHP_OS_FAMILY === 'Windows') {
+            try {
+                Process::run(['taskkill', '/F', '/T', '/PID', (string) $pid], null, 10000);
+            } catch (Throwable $e) {
+                // taskkill unavailable/failed; the stop() above already applied
+            }
+        }
+
+        for ($i = 0; $i < 50; $i++) {
+            if (! $process->isRunning()) {
+                break;
+            }
+
+            usleep(100000);
+        }
+    }
+}
+
+if (! function_exists('hms_load_prepare_database')) {
+    /**
+     * Reset the load database before a burst: bound lock waits, drop stale
+     * load-test backends, fresh-migrate and seed reference data. No open
+     * transaction is held, so worker processes see the committed seed.
+     */
+    function hms_load_prepare_database(TestCase $test): void
+    {
+        try {
+            DB::statement("SET lock_timeout TO '15s'");
+        } catch (Throwable $e) {
+            // session-scoped setting; keep going
+        }
+
+        try {
+            DB::select(
+                'select pg_terminate_backend(pid) from pg_stat_activity
+                 where datname = current_database()
+                   and pid <> pg_backend_pid()
+                   and (application_name like \'hms-load-%\' or state = \'idle in transaction\')'
+            );
+        } catch (Throwable $e) {
+            // best effort stale-backend cleanup; proceed with fresh migrate
+        }
+
+        Artisan::call('migrate:fresh', ['--force' => true]);
+        DB::purge();
+
+        if (Schema::hasTable('chart_accounts') && ! ChartAccount::query()->exists()) {
+            $test->seed(ChartSeeder::class);
+        }
     }
 }
 
@@ -79,10 +154,10 @@ it('handles concurrent contested bookings within the time budget', function () {
     for ($attempt = 1; $attempt <= 2; $attempt++) {
         if ($attempt > 1) {
             fwrite(STDERR, "\n[load] attempt 1 stalled, retrying once on a fresh database\n");
-            Artisan::call('migrate:fresh', ['--force' => true]);
-            $this->seed(RoleSeeder::class);
         }
 
+        hms_load_prepare_database($this);
+        $this->seed(RoleSeeder::class);
         hms_load_seed();
 
         try {
@@ -118,10 +193,21 @@ if (! function_exists('hms_load_burst')) {
             $process = new Process(
                 [PHP_BINARY, 'artisan', 'test', '--compact', '--group=load-worker', '--do-not-cache-result'],
                 base_path(),
-                // Per-worker log channel: N processes appending massive traces
-                // to one laravel.log contend on flock; errorlog goes to the
-                // pumped pipe instead.
-                ['LOAD_WORKER' => (string) $i, 'LOAD_RESULT_DIR' => $dir, 'LOG_CHANNEL' => 'errorlog'],
+                // Per-worker isolation: own pg app name keeps forensics clean,
+                // log channel avoids N processes contending on one laravel.log
+                // flock; explicit DB env keeps workers on the same test database.
+                [
+                    'LOAD_WORKER' => (string) $i,
+                    'LOAD_RESULT_DIR' => $dir,
+                    'LOG_CHANNEL' => 'errorlog',
+                    'PGAPPNAME' => "hms-load-worker-{$i}",
+                    'DB_CONNECTION' => 'pgsql',
+                    'DB_HOST' => '127.0.0.1',
+                    'DB_PORT' => '5432',
+                    'DB_DATABASE' => 'multi_branch_hotel_system',
+                    'DB_USERNAME' => 'postgres',
+                    'DB_PASSWORD' => 'password',
+                ],
                 null,
                 120
             );
@@ -147,9 +233,7 @@ if (! function_exists('hms_load_burst')) {
                 $workerFailures[] = "worker {$i} timed out. worker log tail: {$stuckLog}";
 
                 foreach ($processes as $worker) {
-                    if ($worker->isRunning()) {
-                        $worker->stop(5);
-                    }
+                    hms_load_stop_worker($worker);
                 }
             }
 
@@ -162,9 +246,7 @@ if (! function_exists('hms_load_burst')) {
         }
 
         foreach ($processes as $process) {
-            if ($process->isRunning()) {
-                $process->stop(5);
-            }
+            hms_load_stop_worker($process);
         }
 
         if ($workerFailures !== []) {
