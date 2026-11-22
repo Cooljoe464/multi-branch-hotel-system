@@ -147,35 +147,42 @@ if (! function_exists('hms_load_seed')) {
 }
 
 it('handles concurrent contested bookings within the time budget', function () {
-    $this->seed(RoleSeeder::class);
-
     $lastFailure = null;
 
-    for ($attempt = 1; $attempt <= 2; $attempt++) {
-        if ($attempt > 1) {
-            fwrite(STDERR, "\n[load] attempt 1 stalled, retrying once on a fresh database\n");
-        }
-
-        hms_load_prepare_database($this);
-        $this->seed(RoleSeeder::class);
-        hms_load_seed();
-
-        try {
-            hms_load_burst($this);
-            $lastFailure = null;
-
-            break;
-        } catch (Throwable $e) {
-            if (! str_contains($e->getMessage(), 'timed out') || $attempt >= 2) {
-                throw $e;
+    try {
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            if ($attempt > 1) {
+                fwrite(STDERR, "\n[load] attempt 1 stalled, retrying once on a fresh database\n");
             }
 
-            $lastFailure = $e;
-        }
-    }
+            hms_load_prepare_database($this);
+            $this->seed(RoleSeeder::class);
+            hms_load_seed();
 
-    if ($lastFailure instanceof Throwable) {
-        throw $lastFailure;
+            try {
+                hms_load_burst($this);
+                $lastFailure = null;
+
+                break;
+            } catch (Throwable $e) {
+                if (! str_contains($e->getMessage(), 'timed out') || $attempt >= 2) {
+                    throw $e;
+                }
+
+                $lastFailure = $e;
+            }
+        }
+
+        if ($lastFailure instanceof Throwable) {
+            throw $lastFailure;
+        }
+    } finally {
+        // This test no longer wraps itself in a RefreshDatabase transaction, so
+        // reset the schema afterwards: otherwise the freshly migrated + seeded
+        // load fixture leaks into subsequent RefreshDatabase tests in the same
+        // process (they skip migrate:fresh once the migrated flag is set and only
+        // open a transaction on top of whatever is already there).
+        Artisan::call('migrate:fresh', ['--force' => true]);
     }
 });
 
